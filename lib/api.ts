@@ -13,6 +13,10 @@ export type ApiError = Error & {
 };
 
 export function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    return "/api/buyer";
+  }
+
   return process.env.NEXT_PUBLIC_API || "http://localhost:3004";
 }
 
