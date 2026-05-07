@@ -1,0 +1,5 @@
+﻿store_id,name,category,desc,eta_min,eta_max,image,is_active,address,lat,lng,hrOp,hrCl,cel1,cel2
+1,Pizzería Napoli,restaurants,Pizzas • Pastas,25,35,/images/stores/1.png,1,Cra 11 11-24,6.553434851,-73.1331646,8:00,18:00,3118516946,3108570370
+2,Restaurante Sabroso,restaurants,Comida rápida,30,40,/images/stores/2.png,1,Calle 20 18-14,6.559018849,-73.14095219,8:00,18:00,3108570370,3112461059
+3,Droguería ABC,pharmacy,Salud • Bienestar,15,25,/images/stores/3.png,1,Cra 5 8-46,6.554096933,-73.13729762,8:00,18:00,3112461059,3113868898
+4,Style's Boutique,retail,Ropa • Escencias • Just • Variedades,20,30,/images/stores/4.png,1,Cra 12D 32A-12,6.557359664,-73.15110824,8:00,18:00,3113868898,3118516946

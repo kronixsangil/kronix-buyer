@@ -1,0 +1,177 @@
+// app/(buyer)/register/page.tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { apiFetch } from "@/lib/api";
+
+function cx(...a: Array<string | false | null | undefined>) {
+  return a.filter(Boolean).join(" ");
+}
+
+export default function BuyerRegisterPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const next = useMemo(() => {
+    const n = String(sp.get("next") ?? "").trim();
+    if (!n || !n.startsWith("/")) return "/";
+    return n;
+  }, [sp]);
+
+  const canSubmit =
+    phone.trim().length >= 7 && password.trim().length >= 4 && !loading;
+
+  const handleSubmit = async () => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      await apiFetch("/auth/register", {
+        method: "POST",
+        json: {
+          name: name.trim() || "Usuario",
+          phone: phone.trim(),
+          email: email.trim() || null,
+          password: password.trim(),
+        },
+      });
+
+      // ✅ importante: refresca header/profile
+      window.dispatchEvent(new Event("ct-auth-changed"));
+
+      router.replace(next);
+    } catch (e: any) {
+      const msg = String(e?.message ?? "").toLowerCase();
+      if (msg.includes("phone_already_used") || msg.includes("phone") && msg.includes("used")) {
+        setError("Este teléfono ya está registrado.");
+      } else if (msg.includes("email_already_used")) {
+        setError("Este email ya está registrado.");
+      } else {
+        setError("No pudimos crear tu cuenta. Revisa tus datos e intenta de nuevo.");
+      }
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="px-4 pt-6 pb-6">
+      <div className="rounded-3xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-b from-gray-50 to-white p-4 border-b border-gray-100">
+          <div className="text-[11px] font-extrabold text-gray-500">KroniX</div>
+          <div className="mt-1 text-lg font-extrabold text-gray-900">Crear cuenta</div>
+          <div className="mt-1 text-xs text-gray-600">
+            Regístrate para guardar pedidos, direcciones y tu historial.
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div>
+            <div className="text-xs font-extrabold text-gray-800">Nombre</div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Blass"
+              className={cx(
+                "mt-2 w-full rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
+                "border-gray-200 focus:bg-white focus:border-gray-300"
+              )}
+            />
+          </div>
+
+          <div>
+            <div className="text-xs font-extrabold text-gray-800">Teléfono (obligatorio)</div>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Ej: 3112461059"
+              inputMode="tel"
+              className={cx(
+                "mt-2 w-full rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
+                "border-gray-200 focus:bg-white focus:border-gray-300"
+              )}
+            />
+          </div>
+
+          <div>
+            <div className="text-xs font-extrabold text-gray-800">Email (opcional)</div>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Ej: tu@email.com"
+              autoComplete="email"
+              className={cx(
+                "mt-2 w-full rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
+                "border-gray-200 focus:bg-white focus:border-gray-300"
+              )}
+            />
+          </div>
+
+          <div>
+            <div className="text-xs font-extrabold text-gray-800">Contraseña</div>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mínimo 4 caracteres"
+                autoComplete="new-password"
+                type={showPass ? "text" : "password"}
+                className={cx(
+                  "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
+                  "border-gray-200 focus:bg-white focus:border-gray-300"
+                )}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && canSubmit) handleSubmit();
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass((v) => !v)}
+                className={cx(
+                  "shrink-0 rounded-2xl border px-3 py-3 text-xs font-extrabold",
+                  "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+                )}
+              >
+                {showPass ? "Ocultar" : "Ver"}
+              </button>
+            </div>
+          </div>
+
+          {error ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <button
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className={cx(
+              "w-full rounded-2xl py-3 text-sm font-extrabold text-white",
+              "bg-green-600 hover:bg-green-700 disabled:opacity-50"
+            )}
+          >
+            {loading ? "Creando…" : "CREAR CUENTA"}
+          </button>
+
+          <div className="text-center text-[12px] text-gray-600">
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/login" className="font-extrabold text-blue-700 hover:underline">
+              Inicia sesión
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

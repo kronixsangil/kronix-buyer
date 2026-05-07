@@ -1,0 +1,4 @@
+﻿product_id,store_id,name,desc,price_cop,image,is_available
+p5,4,Style´s Shampoo Herbal,Shampoo 500ml,30000,/images/products/p5.png,1
+p6,4,Just Baño Herbal Sándalo,Baño 1.78 fl oz,95000,/images/products/p6.png,1
+p7,4,Polo Camiseta Ref 1,Camiseta Talla L,50000,/images/products/p7.png,1

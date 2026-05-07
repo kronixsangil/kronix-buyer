@@ -1,0 +1,4 @@
+﻿promo_id,title,subtitle,image,action_type,action_value,badge,is_active
+promo1,5% DCTO.,En restaurantes,/images/promos/p1.png,CATEGORY,restaurants,HOY,0
+promo2,BONO DE $2.000,En droguerías pedidos $80.000 +,/images/promos/p2.png,STORE,pharmacy,FINDE,0
+promo3,Busca pizza,Resultados de pizza,/images/promos/p3.png,SEARCH,pizza,,0

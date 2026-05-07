@@ -1,0 +1,131 @@
+//app\(buyer)\tracking\[orderId]\_tracking\TrackingDriverCard.tsx
+"use client";
+
+import type { TrackingViewModel } from "./types";
+import { buildWhatsAppUrl, normalizePhoneAny } from "./utils";
+
+export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
+  if (!vm.fromApi) return null;
+
+  const prof = vm.tracking?.driver?.profile ?? null;
+  const name = String(prof?.name ?? "").trim();
+  const phone = normalizePhoneAny(prof?.phone ?? null);
+  const brand = String(prof?.vehicle?.brand ?? "").trim();
+  const plate = String(prof?.vehicle?.plate ?? "").trim();
+
+  const initials =
+    name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "CT";
+
+  const hasPhone = Boolean(phone);
+  const waMsg = `Hola ${name || "conductor"}, soy el cliente de KroniX. Estoy siguiendo mi pedido ${vm.order!.id}.`;
+  const waUrl = hasPhone ? buildWhatsAppUrl(phone, waMsg) : "";
+  const callUrl = hasPhone ? `tel:${phone}` : "";
+
+  return (
+    <div className={`${vm.CARD_PAD} mt-4`}>
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-extrabold text-gray-900">Conductor asignado</div>
+
+        <button
+          type="button"
+          onClick={() => vm.setDriverOpen((v) => !v)}
+          className="rounded-xl bg-slate-100 px-3 py-1.5 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200"
+        >
+          {vm.driverOpen ? "Ocultar" : "Ver"}
+        </button>
+      </div>
+
+      {!prof ? (
+        <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs text-slate-700 ring-1 ring-slate-200">
+          Aún no hay conductor asignado. Te notificaremos apenas se asigne uno.
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm">
+              {initials}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-extrabold text-slate-900">{name || "Conductor"}</div>
+              <div className="mt-0.5 text-[11px] font-semibold text-slate-600">
+                {brand || plate ? (
+                  <>
+                    {brand ? brand : "Vehículo"}{" "}
+                    {plate ? (
+                      <span className="rounded-lg bg-white px-2 py-0.5 font-extrabold text-slate-800 ring-1 ring-slate-200">
+                        {plate}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  "Vehículo no disponible"
+                )}
+              </div>
+            </div>
+
+            <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-extrabold text-green-700 ring-1 ring-green-200">
+              En línea
+            </span>
+          </div>
+
+          {vm.driverOpen ? (
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+              <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500">Nombre</span>
+                  <span className="font-extrabold text-slate-900">{name || "—"}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500">Teléfono</span>
+                  <span className="font-extrabold text-slate-900">{phone || "—"}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500">Vehículo</span>
+                  <span className="font-extrabold text-slate-900">{(brand || "—") + (plate ? ` · ${plate}` : "")}</span>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={!hasPhone}
+                  onClick={() => window.open(waUrl, "_blank", "noopener,noreferrer")}
+                  className={[
+                    "w-full rounded-2xl py-3 text-sm font-extrabold text-white transition",
+                    "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]",
+                    !hasPhone ? "opacity-50 cursor-not-allowed" : "",
+                  ].join(" ")}
+                >
+                  WhatsApp
+                </button>
+
+                <a
+                  href={callUrl}
+                  className={[
+                    "inline-flex items-center justify-center w-full rounded-2xl py-3 text-sm font-extrabold transition",
+                    "bg-blue-600 text-white hover:bg-blue-700 active:scale-[0.99]",
+                    !hasPhone ? "pointer-events-none opacity-50" : "",
+                  ].join(" ")}
+                >
+                  Llamar
+                </a>
+              </div>
+
+              <div className="mt-2 text-center text-[11px] text-slate-500">
+                Usa WhatsApp para coordinar la entrega sin perder el seguimiento.
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
