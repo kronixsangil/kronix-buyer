@@ -245,9 +245,9 @@ export default function KronixEnviosStepOne() {
 
   setForm((prev) => ({
     ...prev,
-    pickupPlaceName: "Lugar seleccionado desde mapa",
+    pickupPlaceName: "",
     pickupAddress: address || "Ubicación seleccionada en el mapa",
-    pickupReference: "NULL",
+    pickupReference: "",
     pickupLat: lat,
     pickupLng: lng,
 

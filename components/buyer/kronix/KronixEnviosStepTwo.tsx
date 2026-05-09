@@ -220,9 +220,9 @@ export default function KronixEnviosStepTwo() {
               onSelect={({ lat, lng, address }) => {
   setForm((prev) => ({
     ...prev,
-    dropoffPlaceName: "Lugar seleccionado desde mapa",
+    dropoffPlaceName: "",
     dropoffAddress: address || "Ubicación seleccionada en el mapa",
-    dropoffReference: "NULL",
+    dropoffReference: "",
     dropoffLat: lat,
     dropoffLng: lng,
 
