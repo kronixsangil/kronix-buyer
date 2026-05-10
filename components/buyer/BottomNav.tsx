@@ -104,7 +104,7 @@ export default function BottomNav() {
     ].join(" ");
 
   return (
-    <nav className="absolute bottom-0 left-0 right-0 overflow-hidden border-t border-white/20">
+    <nav className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden border-t border-white/20 pb-[env(safe-area-inset-bottom)]">
       <div
         className="relative"
         style={{

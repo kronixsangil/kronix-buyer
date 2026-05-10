@@ -15,21 +15,22 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["shopping", "food", "business"],
     icons: [
       {
-        src: "/icons/icon-192.png",
+        src: "/icons/kronix-icon.png",
         sizes: "192x192",
         type: "image/png",
-        purpose: "maskable",
+        purpose: "any maskable",
       },
       {
-        src: "/icons/icon-512.png",
+        src: "/icons/kronix-icon.png",
         sizes: "512x512",
         type: "image/png",
-        purpose: "maskable",
+        purpose: "any maskable",
       },
       {
-        src: "/icons/apple-touch-icon.png",
+        src: "/icons/kronix-icon.png",
         sizes: "180x180",
         type: "image/png",
+        purpose: "any",
       },
     ],
   };

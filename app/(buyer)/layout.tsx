@@ -1,4 +1,5 @@
 // app/(buyer)/layout.tsx
+// app/(buyer)/layout.tsx
 "use client";
 
 import type { ReactNode } from "react";
@@ -28,13 +29,7 @@ function buildNext(pathname: string, searchParams: URLSearchParams | null) {
   return qs ? `${pathname}?${qs}` : pathname;
 }
 
-function AuthGate({
-  children,
-  pathname,
-}: {
-  children: ReactNode;
-  pathname: string;
-}) {
+function AuthGate({ children, pathname }: { children: ReactNode; pathname: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -73,13 +68,8 @@ function AuthGate({
 
     validate();
 
-    const onAuthChanged = () => {
-      validate();
-    };
-
-    const onFocus = () => {
-      validate();
-    };
+    const onAuthChanged = () => validate();
+    const onFocus = () => validate();
 
     window.addEventListener("auth:changed", onAuthChanged);
     window.addEventListener("focus", onFocus);
@@ -124,13 +114,6 @@ function BottomKronixGlow() {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-t from-[#03102b] via-[#0b356d] to-transparent opacity-95" />
-      <span className="absolute left-[8%] bottom-[18%] h-1 w-1 rounded-full bg-white/90" />
-      <span className="absolute left-[18%] bottom-[30%] h-1 w-1 rounded-full bg-white/80" />
-      <span className="absolute left-[31%] bottom-[16%] h-1 w-1 rounded-full bg-white/90" />
-      <span className="absolute left-[44%] bottom-[34%] h-1 w-1 rounded-full bg-white/80" />
-      <span className="absolute left-[58%] bottom-[20%] h-1 w-1 rounded-full bg-white/90" />
-      <span className="absolute left-[72%] bottom-[32%] h-1 w-1 rounded-full bg-white/80" />
-      <span className="absolute left-[86%] bottom-[22%] h-1 w-1 rounded-full bg-white/90" />
     </div>
   );
 }
@@ -142,38 +125,35 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
   const hideGlobalHeader = pathname === "/";
   const hideBottomNav = isPublicAuthRoute;
 
+  const topClass = hideGlobalHeader
+    ? "top-0"
+    : pathname === "/comprar"
+      ? "top-[138px]"
+      : "top-[104px]";
+
   return (
     <CartProvider>
       <SearchProvider>
         <BuyerCityProvider>
-          <div className="min-h-dvh flex justify-center bg-gray-100 px-2 py-4">
-            <div className="w-full max-w-md">
-              <div
-                className="
-                  relative
-                  h-[calc(100dvh-2rem)]
-                  overflow-hidden
-                  rounded-[28px]
-                  bg-gray-50
-                  shadow-lg
-                  ring-1 ring-black/10
-                  flex flex-col
-                "
-              >
+          <div className="fixed inset-0 overflow-hidden bg-gray-100 buyer-app-shell">
+            <div className="mx-auto h-[100dvh] w-full max-w-md overflow-hidden bg-gray-50 shadow-lg md:my-4 md:h-[calc(100dvh-2rem)] md:rounded-[28px] md:ring-1 md:ring-black/10">
+              <div className="relative h-full w-full overflow-hidden bg-gray-50">
                 <SessionExpiredModal />
 
                 {!hideGlobalHeader ? (
-                  <div className="shrink-0">
+                  <header className="absolute left-0 right-0 top-0 z-[1000] bg-white">
                     <BuyerHeader />
-                  </div>
+                  </header>
                 ) : null}
 
                 <main
+                  id="buyer-scroll-container"
                   className={[
-                    "flex-1 min-h-0 overflow-y-auto no-scrollbar",
+                    "absolute left-0 right-0 overflow-y-auto overscroll-contain no-scrollbar",
+                    "touch-pan-y scroll-smooth bg-gray-50",
                     hideBottomNav
-                      ? "pb-0"
-                      : "pb-[calc(6rem+env(safe-area-inset-bottom))]",
+                      ? `${hideGlobalHeader ? "top-0" : topClass} bottom-0`
+                      : `${topClass} bottom-[88px] pb-4`,
                   ].join(" ")}
                 >
                   <Suspense fallback={<AuthGateFallback />}>
@@ -183,11 +163,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
 
                 {hideBottomNav ? <BottomKronixGlow /> : null}
 
-                {!hideBottomNav ? (
-                  <div className="shrink-0 sticky bottom-0 bg-gray-50">
-                    <BottomNav />
-                  </div>
-                ) : null}
+                {!hideBottomNav ? <BottomNav /> : null}
               </div>
             </div>
           </div>

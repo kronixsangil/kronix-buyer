@@ -45,3 +45,19 @@ body {
 }
 
 @import "leaflet/dist/leaflet.css";
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.buyer-app-shell {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#buyer-scroll-container {
+  -webkit-overflow-scrolling: touch;
+}
