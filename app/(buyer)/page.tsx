@@ -265,13 +265,13 @@ function StandardCard({ item }: { item: KronixOption }) {
               "text-[13px] leading-[16px]",
               "line-clamp-3",
               item.title === "Domicilio Express"
-                ? "max-w-[200px]"
+                ? "max-w-[220px]"
                 : "",
               item.title === "KroniX Envíos"
-                ? "max-w-[200px]"
+                ? "max-w-[220px]"
                 : "",
               item.title === "Domicilios y Diligencias"
-                ? "max-w-[200px]"
+                ? "max-w-[220px]"
                 : "",
             ].join(" ")}
           >
