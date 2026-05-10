@@ -52,7 +52,7 @@ const options: KronixOption[] = [
 },
   {
     href: "/kronix/diligencia",
-    title: "Domicilios y diligencias",
+    title: "Domicilios y Diligencias",
     subtitle: "Pagos, compras, trámites... lo que necesites",
     useMotoArt: false,
     iconEmoji: "/branding/kronix/check-list.png",
@@ -236,20 +236,52 @@ function StandardCard({ item }: { item: KronixOption }) {
   return (
     <Link
       href={item.href}
-      className="group block min-h-[104px] rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]"
+      className="group block h-[132px] overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]"
     >
-      <div className="flex min-h-[78px] items-center gap-4">
-        <LeftMiniIcon src={item.iconEmoji || ""} />
+      <div className="flex h-full items-center gap-3">
+        {/* ICONO IZQUIERDO */}
+        <div className="shrink-0">
+          <LeftMiniIcon src={item.iconEmoji || ""} />
+        </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="text-[19px] font-black leading-tight text-slate-900">{item.title}</div>
-          <div className="mt-1 text-[14px] font-medium leading-4 text-slate-500">
+        {/* TEXTO */}
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          {/* TITULO */}
+          <div
+            className={[
+              "font-black text-slate-900 leading-tight",
+              item.title === "Domicilios y Diligencias"
+                ? "text-[16px]"
+                : "text-[18px]",
+            ].join(" ")}
+          >
+            {item.title}
+          </div>
+
+          {/* SUBTITULO */}
+          <div
+            className={[
+              "mt-1 font-medium text-slate-500",
+              "text-[13px] leading-[16px]",
+              "line-clamp-3",
+              item.title === "Domicilio Express"
+                ? "max-w-[150px]"
+                : "",
+              item.title === "KroniX Envíos"
+                ? "max-w-[155px]"
+                : "",
+              item.title === "Domicilios y Diligencias"
+                ? "max-w-[210px]"
+                : "",
+            ].join(" ")}
+          >
             {item.subtitle}
           </div>
         </div>
 
+        {/* MOTO / IMAGEN DERECHA */}
         {item.useMotoArt ? (
-          <div className="relative h-[58px] w-[98px] shrink-0">
+          <div className="relative h-[62px] w-[102px] shrink-0">
             <Image
               src={
                 item.title === "KroniX Envíos"
@@ -258,13 +290,14 @@ function StandardCard({ item }: { item: KronixOption }) {
               }
               alt={item.title}
               fill
-              className="object-contain opacity-95 scale-170 translate-x-3"
-              sizes="98px"
+              className="object-contain opacity-95 scale-[1.65] translate-x-2"
+              sizes="102px"
             />
           </div>
         ) : null}
 
-        <div className="text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
+        {/* CHEVRON */}
+        <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
           ›
         </div>
       </div>
