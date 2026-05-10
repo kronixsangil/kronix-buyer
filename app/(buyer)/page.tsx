@@ -236,7 +236,7 @@ function StandardCard({ item }: { item: KronixOption }) {
   return (
     <Link
       href={item.href}
-      className="group block h-[132px] overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]"
+      className="group block h-[110px] overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]"
     >
       <div className="flex h-full items-center gap-3">
         {/* ICONO IZQUIERDO */}
@@ -247,31 +247,31 @@ function StandardCard({ item }: { item: KronixOption }) {
         {/* TEXTO */}
         <div className="flex min-w-0 flex-1 flex-col justify-center">
           {/* TITULO */}
-          <div
-            className={[
-              "font-black text-slate-900 leading-tight",
-              item.title === "Domicilios y Diligencias"
-                ? "text-[16px]"
-                : "text-[18px]",
-            ].join(" ")}
-          >
-            {item.title}
-          </div>
+<div
+  className={[
+    "ml-1 font-black text-slate-900 leading-tight whitespace-nowrap",
+    item.title === "Domicilios y Diligencias"
+      ? "text-[18px]"
+      : "text-[22px]",
+  ].join(" ")}
+>
+  {item.title}
+</div>
 
           {/* SUBTITULO */}
           <div
             className={[
-              "mt-1 font-medium text-slate-500",
+              "ml-4 mt-1 font-medium text-slate-500",
               "text-[13px] leading-[16px]",
               "line-clamp-3",
               item.title === "Domicilio Express"
-                ? "max-w-[150px]"
+                ? "max-w-[200px]"
                 : "",
               item.title === "KroniX Envíos"
-                ? "max-w-[155px]"
+                ? "max-w-[200px]"
                 : "",
               item.title === "Domicilios y Diligencias"
-                ? "max-w-[210px]"
+                ? "max-w-[200px]"
                 : "",
             ].join(" ")}
           >
