@@ -1,5 +1,4 @@
 // app/(buyer)/layout.tsx
-// app/(buyer)/layout.tsx
 "use client";
 
 import type { ReactNode } from "react";
