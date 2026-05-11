@@ -7,52 +7,47 @@ export type BuyerSoundEvent =
   | "EN_ROUTE"
   | "DELIVERED"
   | "CANCELLED"
-  | "PAYMENT_FAILED";
+  | "PAYMENT_FAILED"
+  | "DEFAULT";
 
-type SoundOptions = {
-  volume?: number; // 0..1
+const soundMap: Record<BuyerSoundEvent, string> = {
+  STORE_CONFIRMED: "/sounds/buyer-store-confirmed.mp3",
+  DRIVER_ASSIGNED: "/sounds/buyer-driver-assigned.mp3",
+  EN_ROUTE: "/sounds/buyer-en-route.mp3",
+  DELIVERED: "/sounds/buyer-delivered.mp3",
+  CANCELLED: "/sounds/buyer-cancelled.mp3",
+  PAYMENT_FAILED: "/sounds/buyer-payment-failed.mp3",
+  DEFAULT: "/sounds/buyer-default.mp3",
 };
 
+let lastKey = "";
 let lastPlayAt = 0;
 let audio: HTMLAudioElement | null = null;
 
-function getAudio(volume = 1) {
-  if (typeof window === "undefined") return null;
+export async function playBuyerSound(
+  event: BuyerSoundEvent = "DEFAULT",
+  opts?: { volume?: number; dedupeKey?: string }
+) {
+  if (typeof window === "undefined") return;
 
-  if (!audio) {
-    audio = new Audio("/sounds/notify.mp3");
+  const now = Date.now();
+  const key = opts?.dedupeKey || event;
+
+  if (key === lastKey && now - lastPlayAt < 1800) return;
+
+  lastKey = key;
+  lastPlayAt = now;
+
+  const src = soundMap[event] || soundMap.DEFAULT;
+
+  if (!audio || audio.src !== new URL(src, window.location.origin).href) {
+    audio = new Audio(src);
     audio.preload = "auto";
   }
 
-  audio.volume = Math.max(0, Math.min(1, volume));
-  return audio;
-}
+  audio.volume = Math.max(0, Math.min(1, opts?.volume ?? 0.8));
+  audio.pause();
+  audio.currentTime = 0;
 
-// 🔊 Reproduce sonido único para cualquier evento
-export async function playBuyerSound(
-  _event: BuyerSoundEvent,
-  opts?: SoundOptions
-) {
-  try {
-    const now = Date.now();
-
-    // anti-spam (mínimo 500ms)
-    if (now - lastPlayAt < 500) return;
-    lastPlayAt = now;
-
-    const volume =
-      typeof opts?.volume === "number" ? opts.volume : 1;
-
-    const a = getAudio(volume);
-    if (!a) return;
-
-    a.pause();
-    a.currentTime = 0;
-
-    await a.play().catch(() => {
-      // navegadores pueden bloquear autoplay
-    });
-  } catch {
-    // silencioso
-  }
+  await audio.play().catch(() => {});
 }

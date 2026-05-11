@@ -6,86 +6,55 @@ import { playBuyerSound, type BuyerSoundEvent } from "./sound";
 type NotifyBuyerArgs = {
   title: string;
   body: string;
-  tag?: string; // para evitar duplicados
+  tag?: string;
   soundEvent?: BuyerSoundEvent;
-
-  /**
-   * ✅ Si true: intenta notificación del sistema.
-   * Si false: solo sonido.
-   */
   system?: boolean;
 };
 
-/**
- * ✅ Estrategia igual a Driver/Store:
- * - Sonido SIEMPRE (si el browser lo permite).
- * - Notificación del sistema SOLO si:
- *   - hay permiso, y
- *   - la pestaña está en background (o el user lo permite),
- *   para evitar spam cuando está viendo el tracking.
- */
+const recent = new Map<string, number>();
 
-function isBrowser() {
-  return typeof window !== "undefined";
+function isDuplicate(tag?: string) {
+  const key = String(tag ?? "").trim();
+  if (!key) return false;
+
+  const now = Date.now();
+  const prev = recent.get(key) ?? 0;
+
+  recent.set(key, now);
+
+  for (const [k, t] of recent.entries()) {
+    if (now - t > 30_000) recent.delete(k);
+  }
+
+  return now - prev < 2500;
 }
 
-function isBackground() {
-  if (!isBrowser()) return true;
-  return document.visibilityState !== "visible";
-}
-
-function supportsNotifications() {
-  return isBrowser() && "Notification" in window;
+function isVisible() {
+  return typeof document !== "undefined" && document.visibilityState === "visible";
 }
 
 export async function ensureBuyerNotificationPermission(): Promise<NotificationPermission | "unsupported"> {
-  if (!supportsNotifications()) return "unsupported";
+  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
 
-  try {
-    if (Notification.permission === "default") {
-      const res = await Notification.requestPermission();
-      return res;
-    }
-    return Notification.permission;
-  } catch {
-    return Notification.permission;
+  if (Notification.permission === "default") {
+    return await Notification.requestPermission();
   }
-}
 
-function safeSystemNotify(args: NotifyBuyerArgs) {
-  if (!supportsNotifications()) return;
-  if (Notification.permission !== "granted") return;
-
-  try {
-    // Notificación nativa del navegador
-    new Notification(args.title, {
-      body: args.body,
-      tag: args.tag,
-      silent: true, // 👈 sonido lo manejamos nosotros con playBuyerSound
-    });
-  } catch {
-    // Safari/iOS puede fallar en algunos contextos
-  }
+  return Notification.permission;
 }
 
 export async function notifyBuyer(args: NotifyBuyerArgs) {
-  // 1) Sonido (si hay evento)
+  if (isDuplicate(args.tag)) return;
+
   if (args.soundEvent) {
-    // volumen un poco más alto si está en background
-    const vol = isBackground() ? 0.32 : 0.22;
-    await playBuyerSound(args.soundEvent, { volume: vol });
+    await playBuyerSound(args.soundEvent, {
+      volume: isVisible() ? 0.55 : 0.8,
+      dedupeKey: args.tag,
+    });
   }
 
-  // 2) Notificación del sistema (opcional)
-  const wantsSystem = args.system ?? true;
-  if (!wantsSystem) return;
-
-  // ✅ Solo mostramos si está en background (igual enfoque Driver/Store “no molestar”)
-  if (!isBackground()) return;
-
-  // si no hay permiso, pedimos (una sola vez normalmente, pero aquí es tolerante)
-  const perm = await ensureBuyerNotificationPermission();
-  if (perm !== "granted") return;
-
-  safeSystemNotify(args);
+  // Las notificaciones reales en background las maneja public/sw.js vía Web Push.
+  // Aquí solo mostramos notificación local si la app está visible y se necesita debug/manual.
+  if (!args.system) return;
+  if (!isVisible()) return;
 }

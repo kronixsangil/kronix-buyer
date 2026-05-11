@@ -1,6 +1,5 @@
 // public/sw.js
-
-self.addEventListener("install", (event) => {
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
@@ -27,11 +26,29 @@ self.addEventListener("push", (event) => {
     requireInteraction: false,
     data: {
       url: data.url || "/",
-      sound: data.sound || "default",
+      sound: data.sound || "buyer-default",
+      tag: data.tag || "kronix-buyer",
+      title,
+      body: data.body || "Tienes una nueva actualización.",
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+      const focused = clientsArr.some((client) => client.focused);
+
+      clientsArr.forEach((client) => {
+        client.postMessage({
+          type: "KRONIX_PUSH",
+          payload: options.data,
+        });
+      });
+
+      if (focused) return;
+
+      return self.registration.showNotification(title, options);
+    })
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {
