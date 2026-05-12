@@ -31,6 +31,88 @@ export const FLOW_STEPS: PositiveStep[] = [
   { key: "DELIVERED", label: "Entregado", hint: "¡Disfrútalo!" },
 ];
 
+export type CourierServiceType = "PICKUP_AND_DELIVERY" | "SEND_PACKAGE" | "ERRAND" | string | null;
+
+export function getCourierServiceTypeFromSources(order: any, tracking: any): string {
+  return String(
+    tracking?.courierServiceType ??
+      order?.courierServiceType ??
+      order?.courier?.courierServiceType ??
+      ""
+  )
+    .trim()
+    .toUpperCase();
+}
+
+export function getCourierServiceLabel(serviceType?: CourierServiceType) {
+  const t = String(serviceType ?? "").trim().toUpperCase();
+
+  if (t === "SEND_PACKAGE") return "KroniX Envíos";
+  if (t === "ERRAND") return "Domicilios y Diligencias";
+  if (t === "PICKUP_AND_DELIVERY") return "Domicilio Express";
+
+  return "Servicio KroniX";
+}
+
+export function getContextualFlowSteps(args: {
+  isCourier: boolean;
+  courierServiceType?: CourierServiceType;
+}): PositiveStep[] {
+  if (!args.isCourier) return FLOW_STEPS;
+
+  const t = String(args.courierServiceType ?? "").trim().toUpperCase();
+
+  if (t === "SEND_PACKAGE") {
+    return [
+      { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos preparando tu envío" },
+      { key: "STORE_CONFIRMED", label: "Envío confirmado", hint: "Ya puedes realizar el pago" },
+      { key: "PAYMENT_PENDING", label: "Procesando pago", hint: "Estamos validando tu pago" },
+      { key: "PAID", label: "Pago aprobado", hint: "Buscaremos conductor para tu envío" },
+      { key: "PREPARING", label: "Recogiendo paquete", hint: "El conductor se dirige al punto de recogida" },
+      { key: "EN_ROUTE", label: "En camino", hint: "Tu paquete va hacia el destino" },
+      { key: "DELIVERED", label: "Entregado", hint: "Tu envío fue completado" },
+    ];
+  }
+
+  if (t === "ERRAND") {
+    return [
+      { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos revisando tu diligencia" },
+      { key: "STORE_CONFIRMED", label: "Diligencia confirmada", hint: "Ya puedes realizar el pago" },
+      { key: "PAYMENT_PENDING", label: "Procesando pago", hint: "Estamos validando tu pago" },
+      { key: "PAID", label: "Pago aprobado", hint: "Buscaremos conductor para ayudarte" },
+      { key: "PREPARING", label: "Realizando diligencia", hint: "El conductor está gestionando tu solicitud" },
+      { key: "EN_ROUTE", label: "Servicio en curso", hint: "Tu diligencia sigue en proceso" },
+      { key: "DELIVERED", label: "Finalizado", hint: "Tu diligencia fue completada" },
+    ];
+  }
+
+  return [
+    { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos revisando tu servicio" },
+    { key: "STORE_CONFIRMED", label: "Servicio confirmado", hint: "Ya puedes realizar el pago" },
+    { key: "PAYMENT_PENDING", label: "Procesando pago", hint: "Estamos validando tu pago" },
+    { key: "PAID", label: "Pago aprobado", hint: "Buscaremos conductor para tu servicio" },
+    { key: "PREPARING", label: "Coordinando recogida", hint: "El conductor se dirige al punto de recogida" },
+    { key: "EN_ROUTE", label: "En camino", hint: "Tu servicio va hacia el destino" },
+    { key: "DELIVERED", label: "Finalizado", hint: "Tu servicio fue completado" },
+  ];
+}
+
+export function contextualFlowLabel(args: {
+  flow?: ApiOrderFlowStatus | null;
+  isCourier: boolean;
+  courierServiceType?: CourierServiceType;
+}) {
+  const steps = getContextualFlowSteps({
+    isCourier: args.isCourier,
+    courierServiceType: args.courierServiceType,
+  });
+
+  const found = steps.find((s) => s.key === args.flow);
+  if (found) return found.label.toUpperCase();
+
+  return flowLabel(args.flow);
+}
+
 export function formatCOP(value: number) {
   const n = Number.isFinite(value) ? value : 0;
   return n.toLocaleString("es-CO", { style: "currency", currency: "COP" });

@@ -14,9 +14,9 @@ function getCourierServiceLabel(vm: TrackingViewModel) {
     .trim()
     .toUpperCase();
 
-  if (serviceType === "SEND_PACKAGE") return "Enviar paquete";
-  if (serviceType === "ERRAND") return "Domicilios y diligencias";
-  if (serviceType === "PICKUP_AND_DELIVERY") return "Recoger y llevar";
+  if (serviceType === "SEND_PACKAGE") return "KroniX Envíos";
+  if (serviceType === "ERRAND") return "Domicilios y Diligencias";
+  if (serviceType === "PICKUP_AND_DELIVERY") return "Domicilio Express";
 
   return vm.courierData.packageType || "Servicio courier";
 }
@@ -37,7 +37,7 @@ export function TrackingSummaryCard({ vm }: { vm: TrackingViewModel }) {
               <div className="text-sm font-extrabold text-gray-900">
                 {courierServiceLabel}
               </div>
-              <div className="mt-1 text-xs text-gray-600">Servicio courier KroniX Ya</div>
+              <div className="mt-1 text-xs text-gray-600">Servicio KroniX</div>
             </div>
 
             <div className="text-right">

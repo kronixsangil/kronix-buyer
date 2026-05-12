@@ -22,6 +22,9 @@ import {
   pickFirstReason,
   saveBuyerNotifyState,
   buildEmbedUrl,
+  contextualFlowLabel,
+getContextualFlowSteps,
+getCourierServiceTypeFromSources,
 } from "./utils";
 import {
   apiCancelOrder,
@@ -30,6 +33,7 @@ import {
   apiPostOrderReviews,
   fetchOrderFromApi,
   fetchTrackingSnapshot,
+  
 } from "./api";
 
 export function useTrackingPage(): TrackingViewModel {
@@ -129,6 +133,10 @@ export function useTrackingPage(): TrackingViewModel {
   }, [order, tracking]);
 
   const isCourier = orderType === "COURIER";
+
+  const courierServiceType = useMemo(() => {
+  return getCourierServiceTypeFromSources(order, tracking);
+}, [order, tracking]);
 
   const courierData = useMemo(() => {
     const fromTracking = tracking?.courier ?? null;
@@ -352,7 +360,9 @@ export function useTrackingPage(): TrackingViewModel {
   }, [order?.id, fromApi, normalizedFlow, order, tracking]);
 
   const etaText = useMemo(() => {
-    if (!order) return "";
+  if (!order) return "";
+
+  if (!isCourier) {
     if (normalizedFlow === "WAITING_CONFIRMATION") return "Por confirmar";
     if (normalizedFlow === "STORE_CONFIRMED") return "Listo para pago";
     if (normalizedFlow === "PAYMENT_PENDING") return "Un momento…";
@@ -361,18 +371,40 @@ export function useTrackingPage(): TrackingViewModel {
     if (normalizedFlow === "PAYMENT_FAILED") return "Reintenta pago";
     if (normalizedFlow === "CANCELLED") return "Cancelado";
     return "—";
-  }, [order, normalizedFlow]);
+  }
+
+  if (normalizedFlow === "WAITING_CONFIRMATION") return "Solicitud recibida";
+  if (normalizedFlow === "STORE_CONFIRMED") return "Listo para pago";
+  if (normalizedFlow === "PAYMENT_PENDING") return "Validando pago";
+  if (normalizedFlow === "PAID") return "Buscando conductor";
+  if (normalizedFlow === "PREPARING") {
+    if (courierServiceType === "SEND_PACKAGE") return "Recogiendo paquete";
+    if (courierServiceType === "ERRAND") return "Realizando diligencia";
+    return "Coordinando recogida";
+  }
+  if (normalizedFlow === "EN_ROUTE") return "Servicio en curso";
+  if (normalizedFlow === "DELIVERED") return "Finalizado";
+  if (normalizedFlow === "PAYMENT_FAILED") return "Reintenta pago";
+  if (normalizedFlow === "CANCELLED") return "Cancelado";
+
+  return "—";
+}, [order, normalizedFlow, isCourier, courierServiceType]);
 
   const chip = useMemo(() => {
-    if (!order && !tracking) return "—";
-    return flowLabel(normalizedFlow);
-  }, [order, tracking, normalizedFlow]);
+  if (!order && !tracking) return "—";
+  return contextualFlowLabel({
+    flow: normalizedFlow,
+    isCourier,
+    courierServiceType,
+  });
+}, [order, tracking, normalizedFlow, isCourier, courierServiceType]);
 
   const timeline = useMemo(() => {
     if ((!order && !tracking) || !normalizedFlow) return { steps: [] as any[] };
 
     const negative = new Set(["CANCELLED", "PAYMENT_FAILED"]);
-    const currentIdx = FLOW_STEPS.findIndex((s) => s.key === normalizedFlow);
+    const flowSteps = getContextualFlowSteps({ isCourier, courierServiceType });
+const currentIdx = flowSteps.findIndex((s) => s.key === normalizedFlow);
 
     if (currentIdx < 0) {
       return { steps: [{ key: normalizedFlow, label: flowLabel(normalizedFlow), hint: "Estado actual", done: true, current: true }] };
@@ -380,13 +412,13 @@ export function useTrackingPage(): TrackingViewModel {
 
     const steps: any[] = [];
     for (let i = 0; i <= currentIdx; i++) {
-      const s = FLOW_STEPS[i];
+      const s = flowSteps[i];
       steps.push({ key: s.key, label: s.label, hint: s.hint, done: true, current: i === currentIdx });
     }
 
     const nextIdx = currentIdx + 1;
-    if (!negative.has(normalizedFlow) && nextIdx < FLOW_STEPS.length) {
-      const s = FLOW_STEPS[nextIdx];
+    if (!negative.has(normalizedFlow) && nextIdx < flowSteps.length) {
+  const s = flowSteps[nextIdx];
       steps.push({ key: s.key, label: s.label, hint: s.hint, done: false, current: false });
     }
 
@@ -700,6 +732,7 @@ export function useTrackingPage(): TrackingViewModel {
     etaText,
     chip,
     timeline,
+    courierServiceType,
     updatedAgoText,
     orderCityText,
     mapData,
