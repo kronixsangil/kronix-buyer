@@ -18,7 +18,10 @@ export default function BuyerRegisterPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
+const [confirmPassword, setConfirmPassword] = useState("");
+
+const [showPass, setShowPass] = useState(false);
+const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,13 +32,26 @@ export default function BuyerRegisterPage() {
     return n;
   }, [sp]);
 
-  const canSubmit =
-    phone.trim().length >= 7 && password.trim().length >= 4 && !loading;
+  const passwordsMatch =
+  password.trim().length > 0 &&
+  confirmPassword.trim().length > 0 &&
+  password === confirmPassword;
+
+const canSubmit =
+  phone.trim().length >= 7 &&
+  password.trim().length >= 4 &&
+  passwordsMatch &&
+  !loading;
 
   const handleSubmit = async () => {
     setError(null);
     setLoading(true);
 
+    if (password !== confirmPassword) {
+  setError("Las contraseñas no coinciden.");
+  setLoading(false);
+  return;
+}
     try {
       await apiFetch("/auth/register", {
         method: "POST",
@@ -118,34 +134,79 @@ export default function BuyerRegisterPage() {
           </div>
 
           <div>
-            <div className="text-xs font-extrabold text-gray-800">Contraseña</div>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 4 caracteres"
-                autoComplete="new-password"
-                type={showPass ? "text" : "password"}
-                className={cx(
-                  "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
-                  "border-gray-200 focus:bg-white focus:border-gray-300"
-                )}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && canSubmit) handleSubmit();
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass((v) => !v)}
-                className={cx(
-                  "shrink-0 rounded-2xl border px-3 py-3 text-xs font-extrabold",
-                  "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
-                )}
-              >
-                {showPass ? "Ocultar" : "Ver"}
-              </button>
-            </div>
-          </div>
+  <div className="text-xs font-extrabold text-gray-800">Contraseña</div>
+
+  <div className="mt-2 flex items-center gap-2">
+    <input
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      placeholder="Mínimo 4 caracteres"
+      autoComplete="new-password"
+      type={showPass ? "text" : "password"}
+      className={cx(
+        "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50 transition",
+        password.length > 0 && !passwordsMatch && confirmPassword.length > 0
+          ? "border-red-300 bg-red-50 focus:border-red-400"
+          : "border-gray-200 focus:bg-white focus:border-gray-300"
+      )}
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPass((v) => !v)}
+      className={cx(
+        "shrink-0 rounded-2xl border px-3 py-3 text-xs font-extrabold",
+        "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+      )}
+    >
+      {showPass ? "Ocultar" : "Ver"}
+    </button>
+  </div>
+
+  <div className="mt-4 text-xs font-extrabold text-gray-800">
+    Confirmar contraseña
+  </div>
+
+  <div className="mt-2 flex items-center gap-2">
+    <input
+      value={confirmPassword}
+      onChange={(e) => setConfirmPassword(e.target.value)}
+      placeholder="Escribe nuevamente tu contraseña"
+      autoComplete="new-password"
+      type={showConfirmPass ? "text" : "password"}
+      className={cx(
+        "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50 transition",
+        confirmPassword.length > 0 && !passwordsMatch
+          ? "border-red-300 bg-red-50 focus:border-red-400"
+          : "border-gray-200 focus:bg-white focus:border-gray-300"
+      )}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && canSubmit) handleSubmit();
+      }}
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowConfirmPass((v) => !v)}
+      className={cx(
+        "shrink-0 rounded-2xl border px-3 py-3 text-xs font-extrabold",
+        "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+      )}
+    >
+      {showConfirmPass ? "Ocultar" : "Ver"}
+    </button>
+  </div>
+
+  {confirmPassword.length > 0 && !passwordsMatch ? (
+    <div className="mt-2 text-xs font-bold text-red-600">
+      Las contraseñas no coinciden.
+    </div>
+  ) : confirmPassword.length > 0 && passwordsMatch ? (
+    <div className="mt-2 text-xs font-bold text-emerald-600">
+      Contraseñas coinciden correctamente.
+    </div>
+  ) : null}
+</div>
 
           {error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
