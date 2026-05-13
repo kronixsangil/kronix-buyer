@@ -382,7 +382,17 @@ export function useTrackingPage(): TrackingViewModel {
     if (courierServiceType === "ERRAND") return "Realizando diligencia";
     return "Coordinando recogida";
   }
-  if (normalizedFlow === "EN_ROUTE") return "Servicio en curso";
+  if (normalizedFlow === "EN_ROUTE") {
+  if (courierServiceType === "SEND_PACKAGE") {
+    return "Tu paquete va en camino";
+  }
+
+  if (courierServiceType === "ERRAND") {
+    return "Tu diligencia está en curso";
+  }
+
+  return "Tu servicio va en camino";
+}
   if (normalizedFlow === "DELIVERED") return "Finalizado";
   if (normalizedFlow === "PAYMENT_FAILED") return "Reintenta pago";
   if (normalizedFlow === "CANCELLED") return "Cancelado";
