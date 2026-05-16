@@ -22,6 +22,7 @@ const [confirmPassword, setConfirmPassword] = useState("");
 
 const [showPass, setShowPass] = useState(false);
 const [showConfirmPass, setShowConfirmPass] = useState(false);
+const [termsAccepted, setTermsAccepted] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +42,7 @@ const canSubmit =
   phone.trim().length >= 7 &&
   password.trim().length >= 4 &&
   passwordsMatch &&
+  termsAccepted &&
   !loading;
 
   const handleSubmit = async () => {
@@ -60,6 +62,8 @@ const canSubmit =
           phone: phone.trim(),
           email: email.trim() || null,
           password: password.trim(),
+          termsAccepted: true,
+          termsVersion: "v1.0",
         },
       });
 
@@ -150,6 +154,29 @@ const canSubmit =
           : "border-gray-200 focus:bg-white focus:border-gray-300"
       )}
     />
+
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+  <label className="flex items-start gap-3 cursor-pointer">
+    <input
+      type="checkbox"
+      checked={termsAccepted}
+      onChange={(e) => setTermsAccepted(e.target.checked)}
+      className="mt-1 h-4 w-4 rounded border-gray-300"
+    />
+
+    <div className="text-[12px] leading-5 text-gray-700">
+      Acepto los{" "}
+      <Link
+        href="/terms"
+        target="_blank"
+        className="font-extrabold text-blue-700 hover:underline"
+      >
+        Términos y Condiciones
+      </Link>{" "}
+      y autorizo el tratamiento de mis datos conforme a la política de privacidad de KroniX.
+    </div>
+  </label>
+</div>
 
     <button
       type="button"
