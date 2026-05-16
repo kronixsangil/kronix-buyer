@@ -154,8 +154,8 @@ const canSubmit =
           : "border-gray-200 focus:bg-white focus:border-gray-300"
       )}
     />
-
-    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+    
+<div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
   <label className="flex items-start gap-3 cursor-pointer">
     <input
       type="checkbox"
