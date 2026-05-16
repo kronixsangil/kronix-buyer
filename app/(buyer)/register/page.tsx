@@ -154,31 +154,8 @@ const canSubmit =
           : "border-gray-200 focus:bg-white focus:border-gray-300"
       )}
     />
-    
-<div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
-  <label className="flex items-start gap-3 cursor-pointer">
-    <input
-      type="checkbox"
-      checked={termsAccepted}
-      onChange={(e) => setTermsAccepted(e.target.checked)}
-      className="mt-1 h-4 w-4 rounded border-gray-300"
-    />
 
-    <div className="text-[12px] leading-5 text-gray-700">
-      Acepto los{" "}
-      <Link
-        href="/terms"
-        target="_blank"
-        className="font-extrabold text-blue-700 hover:underline"
-      >
-        Términos y Condiciones
-      </Link>{" "}
-      y autorizo el tratamiento de mis datos conforme a la política de privacidad de KroniX.
-    </div>
-  </label>
-</div>
-
-    <button
+  <button
       type="button"
       onClick={() => setShowPass((v) => !v)}
       className={cx(
@@ -240,6 +217,29 @@ const canSubmit =
               {error}
             </div>
           ) : null}
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3">
+  <label className="flex items-start gap-3 cursor-pointer">
+    <input
+      type="checkbox"
+      checked={termsAccepted}
+      onChange={(e) => setTermsAccepted(e.target.checked)}
+      className="mt-1 h-4 w-4 rounded border-gray-300"
+    />
+
+    <div className="text-[12px] leading-5 text-gray-700">
+      Acepto los{" "}
+      <Link
+        href="/terms"
+        target="_blank"
+        className="font-extrabold text-blue-700 hover:underline"
+      >
+        Términos y Condiciones
+      </Link>{" "}
+      y autorizo el tratamiento de mis datos conforme a la política de privacidad de KroniX.
+    </div>
+  </label>
+</div>
 
           <button
             disabled={!canSubmit}
