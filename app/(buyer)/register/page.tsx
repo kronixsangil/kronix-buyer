@@ -230,7 +230,7 @@ const canSubmit =
     <div className="text-[12px] leading-5 text-gray-700">
       Acepto los{" "}
       <Link
-        href="/terms"
+        href="/legal/terms"
         target="_blank"
         className="font-extrabold text-blue-700 hover:underline"
       >
