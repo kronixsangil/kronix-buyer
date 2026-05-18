@@ -23,6 +23,7 @@ const [confirmPassword, setConfirmPassword] = useState("");
 const [showPass, setShowPass] = useState(false);
 const [showConfirmPass, setShowConfirmPass] = useState(false);
 const [termsAccepted, setTermsAccepted] = useState(false);
+const [showTermsModal, setShowTermsModal] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,13 +230,13 @@ const canSubmit =
 
     <div className="text-[12px] leading-5 text-gray-700">
       Acepto los{" "}
-      <Link
-        href="/legal/terms"
-        target="_blank"
-        className="font-extrabold text-blue-700 hover:underline"
-      >
-        Términos y Condiciones
-      </Link>{" "}
+      <button
+  type="button"
+  onClick={() => setShowTermsModal(true)}
+  className="font-extrabold text-blue-700 hover:underline"
+>
+  Términos y Condiciones
+</button>{" "}
       y autorizo el tratamiento de mis datos conforme a la política de privacidad de KroniX.
     </div>
   </label>
@@ -260,6 +261,132 @@ const canSubmit =
           </div>
         </div>
       </div>
+      {showTermsModal ? (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-4 py-5 backdrop-blur-[2px]">
+    <div className="relative flex max-h-[88dvh] w-[96%] max-w-[420px] flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl ring-1 ring-white/60">
+      <div className="relative overflow-hidden px-5 pb-12 pt-5 text-center">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#03102b] via-[#0b356d] via-55% to-white" />
+
+        <div className="pointer-events-none absolute inset-0">
+          <span className="absolute left-[14%] top-[24%] h-1 w-1 rounded-full bg-white/90" />
+          <span className="absolute left-[34%] top-[38%] h-[3px] w-[3px] rounded-full bg-white/80" />
+          <span className="absolute left-[64%] top-[22%] h-1 w-1 rounded-full bg-white/90" />
+          <span className="absolute left-[82%] top-[36%] h-[3px] w-[3px] rounded-full bg-white/80" />
+        </div>
+
+        <div className="relative z-10 mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/45" />
+
+        <button
+          type="button"
+          onClick={() => setShowTermsModal(false)}
+          className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-xl font-black text-white ring-1 ring-white/30 backdrop-blur hover:bg-white/25"
+          aria-label="Cerrar términos"
+        >
+          ×
+        </button>
+
+        <div className="relative z-10 text-[15px] font-black leading-none text-white drop-shadow">
+          Términos y Condiciones
+        </div>
+      </div>
+
+      <div className="terms-scroll -mt-9 flex-1 overflow-y-auto rounded-t-[26px] bg-white px-5 pb-4 pt-5 text-slate-700">
+        <div className="mb-4 flex items-center gap-3 rounded-[18px] border border-amber-200 bg-gradient-to-br from-amber-50 to-white px-3 py-3 shadow-sm">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-[22px] text-amber-600">
+            ⚜
+          </div>
+          <div className="text-[12px] font-medium leading-5 text-amber-900">
+            Al crear tu cuenta aceptas el uso de KroniX como plataforma tecnológica
+            para conectar clientes, comercios y conductores aliados.
+          </div>
+        </div>
+
+        <div className="divide-y divide-slate-200">
+          {[
+            {
+              icon: "👥",
+              title: "1. Naturaleza de la plataforma",
+              text: "KroniX actúa como intermediario tecnológico para facilitar domicilios, compras, envíos, diligencias y servicios courier.",
+              tone: "bg-blue-50 text-blue-600",
+            },
+            {
+              icon: "🛡️",
+              title: "2. Uso permitido",
+              text: "El usuario se compromete a usar la plataforma de manera legal, segura y respetuosa, suministrando información real y actualizada.",
+              tone: "bg-emerald-50 text-blue-600",
+            },
+            {
+              icon: "🚙",
+              title: "3. Transporte de personas",
+              text: "Los servicios courier de KroniX están destinados al transporte de productos, paquetes, compras y diligencias. KroniX no autoriza el uso de estos servicios para transporte de pasajeros.",
+              tone: "bg-sky-50 text-blue-600",
+            },
+            {
+              icon: "💳",
+              title: "4. Pagos, pedidos y cancelaciones",
+              text: "Las tarifas pueden variar según ciudad, distancia, demanda, clima, disponibilidad operativa y tipo de servicio. Los pagos podrán procesarse mediante métodos autorizados por la plataforma.",
+              tone: "bg-orange-50 text-orange-500",
+            },
+            {
+              icon: "📍",
+              title: "5. Geolocalización y notificaciones",
+              text: "KroniX podrá usar ubicación GPS y notificaciones push para seguimiento de pedidos, seguridad, comunicación operativa y mejora del servicio.",
+              tone: "bg-blue-50 text-blue-600",
+            },
+            {
+              icon: "⚖️",
+              title: "6. Responsabilidad",
+              text: "KroniX no será responsable por actuaciones independientes de usuarios, comercios o conductores realizadas por fuera de las finalidades autorizadas en la plataforma.",
+              tone: "bg-rose-50 text-rose-500",
+            },
+            {
+              icon: "📄",
+              title: "7. Actualizaciones",
+              text: "KroniX podrá actualizar estos términos en cualquier momento. El uso continuo de la plataforma implica aceptación de las versiones vigentes.",
+              tone: "bg-cyan-50 text-blue-600",
+            },
+          ].map((item) => (
+            <section key={item.title} className="flex gap-3 py-4">
+              <div
+                className={[
+                  "grid h-12 w-12 shrink-0 place-items-center rounded-[16px] text-[22px] ring-1 ring-black/5",
+                  item.tone,
+                ].join(" ")}
+              >
+                {item.icon}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[14px] font-black leading-5 text-slate-950">
+                  {item.title}
+                </h3>
+                <p className="mt-1.5 text-[12.5px] font-medium leading-5 text-slate-600">
+                  {item.text}
+                </p>
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white px-5 pb-5 pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            setTermsAccepted(true);
+            setShowTermsModal(false);
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-[18px] bg-gradient-to-r from-green-500 to-emerald-600 py-3.5 text-[14px] font-black text-white shadow-lg shadow-emerald-500/25 active:scale-[0.98]"
+        >
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-white/20 text-xs">
+            ✓
+          </span>
+          Aceptar y cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+) : null}
     </div>
   );
 }

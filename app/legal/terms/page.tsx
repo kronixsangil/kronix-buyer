@@ -1,4 +1,4 @@
-//app\(buyer)\legal\privacy
+//app\(buyer)\legal\terms\page.tsx
 "use client";
 
 import Link from "next/link";
@@ -25,8 +25,8 @@ function Section({
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto w-full max-w-4xl px-4 py-8">
+    <div className="bg-slate-50 min-h-full">
+      <div className="w-full px-4 py-4">
         <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
           <div className="bg-gradient-to-br from-[#0f172a] via-[#111827] to-[#1e293b] px-6 py-8 text-white">
             <div className="text-[12px] font-black uppercase tracking-[0.25em] text-cyan-300">

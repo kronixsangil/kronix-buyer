@@ -61,3 +61,12 @@ body {
 #buyer-scroll-container {
   -webkit-overflow-scrolling: touch;
 }
+
+.terms-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.terms-scroll::-webkit-scrollbar {
+  display: none;
+}
