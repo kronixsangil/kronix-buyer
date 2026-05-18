@@ -17,6 +17,7 @@ import tarjetasIcon from "@/public/icons/tarjetas.png";
 import direccionesIcon from "@/public/icons/direcciones.png";
 import privacidadIcon from "@/public/icons/privacidad.png";
 import soporteIcon from "@/public/icons/soporte.png";
+import tycIcon from "@/public/icons/tyc.png";
 
 type MeResponse =
   | {
@@ -59,7 +60,7 @@ export default function ProfilePage() {
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
-
+  
   async function refreshMe() {
     try {
       setIsChecking(true);
@@ -338,6 +339,31 @@ export default function ProfilePage() {
           </div>
           <div className="text-gray-400">›</div>
         </Link>
+
+        <Link
+  href="/profile/terms"
+  className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50"
+>
+  <div className="relative h-10 w-10">
+  <Image
+    src={tycIcon}
+    alt="Términos y Condiciones"
+    fill
+    className="object-contain scale-160"
+  />
+</div>
+
+  <div className="min-w-0 flex-1">
+    <div className="text-lg font-extrabold text-gray-900">
+      Términos y Condiciones
+    </div>
+    <div className="text-xs text-gray-600">
+      Condiciones de uso de KroniX
+    </div>
+  </div>
+
+  <div className="text-gray-400">›</div>
+</Link>
 
         <Link
           href="/profile/support"
