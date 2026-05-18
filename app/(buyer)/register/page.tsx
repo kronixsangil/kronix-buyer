@@ -263,7 +263,7 @@ const canSubmit =
       </div>
       {showTermsModal ? (
   <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-4 py-5 backdrop-blur-[2px]">
-    <div className="relative flex max-h-[88dvh] w-[96%] max-w-[420px] flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl ring-1 ring-white/60">
+    <div className="relative flex max-h-[88dvh] w-[97%] max-w-[430px] flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl ring-1 ring-white/60">
       <div className="relative overflow-hidden px-5 pb-12 pt-5 text-center">
         <div className="absolute inset-0 bg-gradient-to-b from-[#03102b] via-[#0b356d] via-55% to-white" />
 
