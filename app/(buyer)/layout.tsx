@@ -11,6 +11,12 @@ import { SearchProvider } from "@/components/buyer/SearchContext";
 import SessionExpiredModal from "@/components/buyer/SessionExpiredModal";
 import { BuyerCityProvider } from "@/components/buyer/CityContext";
 import { getMe } from "@/lib/authClient";
+import BuyerTermsModal from "@/components/buyer/legal/BuyerTermsModal";
+import {
+  checkBuyerTermsStatus,
+  hasBuyerTermsLocal,
+  saveBuyerTermsLocal,
+} from "@/components/buyer/legal/buyerLegal";
 
 function isAuthRoute(pathname: string) {
   return (
@@ -32,6 +38,8 @@ function AuthGate({ children, pathname }: { children: ReactNode; pathname: strin
   const router = useRouter();
   const searchParams = useSearchParams();
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+const [checkingTerms, setCheckingTerms] = useState(true);
 
   const isPublicAuthRoute = useMemo(() => isAuthRoute(pathname), [pathname]);
 
@@ -48,6 +56,32 @@ function AuthGate({ children, pathname }: { children: ReactNode; pathname: strin
 
       try {
         const me = await getMe();
+
+if (!alive) return;
+
+if (!me?.user?.sub) {
+  const next = buildNext(pathname, searchParams);
+  router.replace(`/login?next=${encodeURIComponent(next)}`);
+  return;
+}
+
+try {
+  const accepted = await checkBuyerTermsStatus();
+
+  if (!alive) return;
+
+  setTermsAccepted(accepted);
+} catch {
+  if (!alive) return;
+
+  // Backend es la fuente real. Si no podemos verificar,
+  // no damos por aceptado.
+  setTermsAccepted(false);
+} finally {
+  if (alive) setCheckingTerms(false);
+}
+
+setCheckingAuth(false);
 
         if (!alive) return;
 
@@ -93,7 +127,22 @@ function AuthGate({ children, pathname }: { children: ReactNode; pathname: strin
     );
   }
 
-  return <>{children}</>;
+  return (
+  <>
+    {children}
+
+    {!isPublicAuthRoute && !checkingTerms && !termsAccepted ? (
+      <BuyerTermsModal
+        open
+        force
+        authenticated
+        onClose={() => {}}
+        onAccepted={() => setTermsAccepted(true)}
+      />
+    ) : null}
+  </>
+);
+
 }
 
 function AuthGateFallback() {
