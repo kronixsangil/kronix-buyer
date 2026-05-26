@@ -86,7 +86,7 @@ export default function StoreTabs({
     if (!reviews.length) {
       return (
         <div className="rounded-[18px] bg-white p-4 text-sm text-slate-600 shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5">
-          Esta tienda aún no tiene reviews.
+          Esta tienda aún no tiene reseñas.
         </div>
       );
     }
@@ -131,7 +131,7 @@ export default function StoreTabs({
       <div className="grid grid-cols-4 gap-0.5">
         {tabBtn("menu", "Menú", "🍴")}
         {tabBtn("info", "Info", "ⓘ")}
-        {tabBtn("reviews", "Reviews", "☆")}
+        {tabBtn("reviews", "Reseñas", "☆")}
         {tabBtn("images", "Imágenes", "🖼")}
       </div>
 

@@ -282,7 +282,7 @@ export default function StoreDetailPage() {
                   </div>
 
                   <div className="text-[11px] font-semibold text-white/85">
-                    ({storeRatingCount} reviews)
+                    ({storeRatingCount} reseñas)
                   </div>
                 </div>
 
