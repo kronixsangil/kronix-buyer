@@ -26,40 +26,23 @@ const SECTION_TONES = [
   "bg-cyan-50 text-cyan-700",
 ];
 
-const SECTION_ICONS = [
-  "👥",
-  "🛡️",
-  "🚙",
-  "💳",
-  "📍",
-  "⚖️",
-  "📄",
-];
+const SECTION_ICONS = ["👥", "🛡️", "🚙", "💳", "📍", "⚖️", "📄"];
 
 function cleanLine(line: string) {
-  return line
-    .replace(/^#+\s*/g, "")
-    .replace(/^-+\s*$/g, "")
-    .trim();
+  return line.replace(/^#+\s*/g, "").replace(/^-+\s*$/g, "").trim();
 }
 
 function isSectionTitle(line: string) {
-  const clean = cleanLine(line);
-  return /^\d+\.\s+/.test(clean);
+  return /^\d+\.\s+/.test(cleanLine(line));
 }
 
 function parseLegalContent(content: string): LegalSection[] {
-  const lines = content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
+  const lines = content.split("\n").map((line) => line.trim()).filter(Boolean);
   const sections: LegalSection[] = [];
   let current: LegalSection | null = null;
 
   for (const rawLine of lines) {
     const line = cleanLine(rawLine);
-
     if (!line) continue;
 
     if (
@@ -76,30 +59,57 @@ function parseLegalContent(content: string): LegalSection[] {
 
     if (isSectionTitle(line)) {
       const idx = sections.length;
-
       current = {
         icon: SECTION_ICONS[idx] || "📄",
         title: line,
         paragraphs: [],
         tone: SECTION_TONES[idx] || "bg-slate-50 text-slate-700",
       };
-
       sections.push(current);
       continue;
     }
 
     if (!current) continue;
-
     current.paragraphs.push(line);
   }
 
   return sections;
 }
 
+function useReachedPageBottom(enabled: boolean) {
+  const [reachedBottom, setReachedBottom] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    function checkBottom() {
+      const doc = document.documentElement;
+      const distanceToBottom =
+        doc.scrollHeight - window.scrollY - window.innerHeight;
+
+      if (distanceToBottom <= 80) {
+        setReachedBottom(true);
+      }
+    }
+
+    checkBottom();
+    window.addEventListener("scroll", checkBottom, { passive: true });
+    window.addEventListener("resize", checkBottom);
+
+    return () => {
+      window.removeEventListener("scroll", checkBottom);
+      window.removeEventListener("resize", checkBottom);
+    };
+  }, [enabled]);
+
+  return reachedBottom;
+}
+
 export default function ProfileTermsPage() {
   const [accepted, setAccepted] = useState(false);
   const [checking, setChecking] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [checked, setChecked] = useState(false);
   const [doc, setDoc] = useState<BuyerLegalDocument | null>(null);
 
   async function refreshStatus() {
@@ -127,8 +137,10 @@ export default function ProfileTermsPage() {
     return parseLegalContent(doc?.content || "");
   }, [doc?.content]);
 
+  const reachedBottom = useReachedPageBottom(!checking && !accepted && sections.length > 0);
+
   async function acceptTerms() {
-    if (!doc?.version || saving) return;
+    if (!doc?.version || saving || !reachedBottom || !checked) return;
 
     setSaving(true);
 
@@ -143,6 +155,8 @@ export default function ProfileTermsPage() {
       setSaving(false);
     }
   }
+
+  const canAccept = !accepted && reachedBottom && checked && !saving && !!doc?.version;
 
   return (
     <div className="px-4 pb-8 pt-4">
@@ -174,17 +188,6 @@ export default function ProfileTermsPage() {
         >
           {checking ? "Verificando..." : accepted ? "Aceptado" : "Pendiente"}
         </div>
-
-        {!accepted ? (
-          <button
-            type="button"
-            onClick={acceptTerms}
-            disabled={saving || checking || !doc?.version}
-            className="mt-4 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-md active:scale-[0.98] disabled:opacity-60"
-          >
-            {saving ? "Guardando..." : "Aceptar versión vigente"}
-          </button>
-        ) : null}
       </div>
 
       {checking ? (
@@ -230,6 +233,48 @@ export default function ProfileTermsPage() {
           </section>
         ))}
       </div>
+
+      {!accepted && sections.length > 0 ? (
+        <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+          {!reachedBottom ? (
+            <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-800">
+              Lee el documento completo hasta el final para habilitar la aceptación.
+            </div>
+          ) : null}
+
+          <label
+            className={[
+              "flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3",
+              reachedBottom ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+            ].join(" ")}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={!reachedBottom}
+              onChange={(e) => {
+                if (!reachedBottom) return;
+                setChecked(e.target.checked);
+              }}
+              className="mt-1 h-4 w-4 rounded border-gray-300 accent-emerald-600"
+            />
+
+            <span className="text-[12px] font-semibold leading-5 text-gray-700">
+              Declaro que he leído, comprendido y acepto los{" "}
+              <b>Términos y Condiciones</b> vigentes de KroniX.
+            </span>
+          </label>
+
+          <button
+            type="button"
+            onClick={acceptTerms}
+            disabled={!canAccept}
+            className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-md active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none"
+          >
+            {saving ? "Guardando..." : "Aceptar y guardar"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
