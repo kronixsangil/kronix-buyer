@@ -1,4 +1,5 @@
 // app/(buyer)/layout.tsx
+// app/(buyer)/layout.tsx
 "use client";
 
 import type { ReactNode } from "react";
@@ -12,10 +13,10 @@ import SessionExpiredModal from "@/components/buyer/SessionExpiredModal";
 import { BuyerCityProvider } from "@/components/buyer/CityContext";
 import { getMe } from "@/lib/authClient";
 import BuyerTermsModal from "@/components/buyer/legal/BuyerTermsModal";
+import BuyerPrivacyModal from "@/components/buyer/legal/BuyerPrivacyModal";
 import {
+  checkBuyerPrivacyStatus,
   checkBuyerTermsStatus,
-  hasBuyerTermsLocal,
-  saveBuyerTermsLocal,
 } from "@/components/buyer/legal/buyerLegal";
 
 function isAuthRoute(pathname: string) {
@@ -34,12 +35,21 @@ function buildNext(pathname: string, searchParams: URLSearchParams | null) {
   return qs ? `${pathname}?${qs}` : pathname;
 }
 
-function AuthGate({ children, pathname }: { children: ReactNode; pathname: string }) {
+function AuthGate({
+  children,
+  pathname,
+}: {
+  children: ReactNode;
+  pathname: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [checkingLegal, setCheckingLegal] = useState(true);
+
   const [termsAccepted, setTermsAccepted] = useState(false);
-const [checkingTerms, setCheckingTerms] = useState(true);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const isPublicAuthRoute = useMemo(() => isAuthRoute(pathname), [pathname]);
 
@@ -48,40 +58,20 @@ const [checkingTerms, setCheckingTerms] = useState(true);
 
     async function validate() {
       if (isPublicAuthRoute) {
-        if (alive) setCheckingAuth(false);
+        if (alive) {
+          setCheckingAuth(false);
+          setCheckingLegal(false);
+        }
         return;
       }
 
-      if (alive) setCheckingAuth(true);
+      if (alive) {
+        setCheckingAuth(true);
+        setCheckingLegal(true);
+      }
 
       try {
         const me = await getMe();
-
-if (!alive) return;
-
-if (!me?.user?.sub) {
-  const next = buildNext(pathname, searchParams);
-  router.replace(`/login?next=${encodeURIComponent(next)}`);
-  return;
-}
-
-try {
-  const accepted = await checkBuyerTermsStatus();
-
-  if (!alive) return;
-
-  setTermsAccepted(accepted);
-} catch {
-  if (!alive) return;
-
-  // Backend es la fuente real. Si no podemos verificar,
-  // no damos por aceptado.
-  setTermsAccepted(false);
-} finally {
-  if (alive) setCheckingTerms(false);
-}
-
-setCheckingAuth(false);
 
         if (!alive) return;
 
@@ -92,8 +82,36 @@ setCheckingAuth(false);
         }
 
         setCheckingAuth(false);
+
+        try {
+          const termsOk = await checkBuyerTermsStatus();
+
+          if (!alive) return;
+
+          setTermsAccepted(termsOk);
+
+          if (!termsOk) {
+            setPrivacyAccepted(false);
+            setCheckingLegal(false);
+            return;
+          }
+
+          const privacyOk = await checkBuyerPrivacyStatus();
+
+          if (!alive) return;
+
+          setPrivacyAccepted(privacyOk);
+        } catch {
+          if (!alive) return;
+
+          setTermsAccepted(false);
+          setPrivacyAccepted(false);
+        } finally {
+          if (alive) setCheckingLegal(false);
+        }
       } catch {
         if (!alive) return;
+
         const next = buildNext(pathname, searchParams);
         router.replace(`/login?next=${encodeURIComponent(next)}`);
       }
@@ -116,8 +134,8 @@ setCheckingAuth(false);
 
   if (!isPublicAuthRoute && checkingAuth) {
     return (
-      <div className="px-4 pt-6 pb-6">
-        <div className="rounded-3xl bg-white p-6 shadow-sm animate-pulse">
+      <div className="px-4 pb-6 pt-6">
+        <div className="animate-pulse rounded-3xl bg-white p-6 shadow-sm">
           <div className="mb-4 h-6 w-40 rounded bg-gray-100" />
           <div className="mb-3 h-12 rounded bg-gray-100" />
           <div className="mb-3 h-12 rounded bg-gray-100" />
@@ -127,28 +145,51 @@ setCheckingAuth(false);
     );
   }
 
+  const mustAcceptTerms =
+    !isPublicAuthRoute && !checkingLegal && !termsAccepted;
+
+  const mustAcceptPrivacy =
+    !isPublicAuthRoute &&
+    !checkingLegal &&
+    termsAccepted &&
+    !privacyAccepted;
+
   return (
-  <>
-    {children}
+    <>
+      {children}
 
-    {!isPublicAuthRoute && !checkingTerms && !termsAccepted ? (
-      <BuyerTermsModal
-        open
-        force
-        authenticated
-        onClose={() => {}}
-        onAccepted={() => setTermsAccepted(true)}
-      />
-    ) : null}
-  </>
-);
+      {mustAcceptTerms ? (
+        <BuyerTermsModal
+          open
+          force
+          authenticated
+          onClose={() => {}}
+          onAccepted={() => {
+            setTermsAccepted(true);
+            setPrivacyAccepted(false);
+          }}
+        />
+      ) : null}
 
+      {mustAcceptPrivacy ? (
+        <BuyerPrivacyModal
+          open
+          force
+          authenticated
+          onClose={() => {}}
+          onAccepted={() => {
+            setPrivacyAccepted(true);
+          }}
+        />
+      ) : null}
+    </>
+  );
 }
 
 function AuthGateFallback() {
   return (
-    <div className="px-4 pt-6 pb-6">
-      <div className="rounded-3xl bg-white p-6 shadow-sm animate-pulse">
+    <div className="px-4 pb-6 pt-6">
+      <div className="animate-pulse rounded-3xl bg-white p-6 shadow-sm">
         <div className="mb-4 h-6 w-40 rounded bg-gray-100" />
         <div className="mb-3 h-12 rounded bg-gray-100" />
         <div className="mb-3 h-12 rounded bg-gray-100" />
