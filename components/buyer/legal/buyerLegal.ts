@@ -8,10 +8,13 @@ export const BUYER_TERMS_VERSION = BUYER_TERMS_FALLBACK_VERSION;
 export const BUYER_PRIVACY_VERSION = BUYER_PRIVACY_FALLBACK_VERSION;
 
 export const BUYER_TERMS_LOCAL_KEY = "kronix_buyer_terms_acceptance";
+export const BUYER_PRIVACY_LOCAL_KEY = "kronix_buyer_privacy_acceptance";
+
+export type BuyerLegalDocumentType = "BUYER_TERMS" | "BUYER_PRIVACY";
 
 export type BuyerLegalDocument = {
   id: string;
-  documentType: "BUYER_TERMS" | "BUYER_PRIVACY";
+  documentType: BuyerLegalDocumentType;
   version: string;
   title: string;
   description?: string | null;
@@ -22,7 +25,7 @@ export type BuyerLegalDocument = {
 };
 
 export async function getCurrentBuyerLegalDocument(
-  documentType: "BUYER_TERMS" | "BUYER_PRIVACY"
+  documentType: BuyerLegalDocumentType
 ) {
   const res = await apiFetch<{
     ok: boolean;
@@ -41,10 +44,15 @@ export async function getCurrentBuyerTermsVersion() {
   return doc?.version || BUYER_TERMS_FALLBACK_VERSION;
 }
 
-export function saveBuyerTermsLocal(version: string) {
+export async function getCurrentBuyerPrivacyVersion() {
+  const doc = await getCurrentBuyerLegalDocument("BUYER_PRIVACY");
+  return doc?.version || BUYER_PRIVACY_FALLBACK_VERSION;
+}
+
+function saveBuyerLegalLocal(key: string, version: string) {
   try {
     localStorage.setItem(
-      BUYER_TERMS_LOCAL_KEY,
+      key,
       JSON.stringify({
         version,
         acceptedAt: new Date().toISOString(),
@@ -53,14 +61,30 @@ export function saveBuyerTermsLocal(version: string) {
   } catch {}
 }
 
-export function hasBuyerTermsLocal(version: string) {
+function hasBuyerLegalLocal(key: string, version: string) {
   try {
-    const raw = localStorage.getItem(BUYER_TERMS_LOCAL_KEY);
+    const raw = localStorage.getItem(key);
     const parsed = raw ? JSON.parse(raw) : null;
     return parsed?.version === version;
   } catch {
     return false;
   }
+}
+
+export function saveBuyerTermsLocal(version: string) {
+  saveBuyerLegalLocal(BUYER_TERMS_LOCAL_KEY, version);
+}
+
+export function hasBuyerTermsLocal(version: string) {
+  return hasBuyerLegalLocal(BUYER_TERMS_LOCAL_KEY, version);
+}
+
+export function saveBuyerPrivacyLocal(version: string) {
+  saveBuyerLegalLocal(BUYER_PRIVACY_LOCAL_KEY, version);
+}
+
+export function hasBuyerPrivacyLocal(version: string) {
+  return hasBuyerLegalLocal(BUYER_PRIVACY_LOCAL_KEY, version);
 }
 
 export async function checkBuyerTermsStatus() {
@@ -82,6 +106,25 @@ export async function checkBuyerTermsStatus() {
   return !!res?.accepted;
 }
 
+export async function checkBuyerPrivacyStatus() {
+  const version = await getCurrentBuyerPrivacyVersion();
+
+  if (hasBuyerPrivacyLocal(version)) {
+    return true;
+  }
+
+  const res = await apiFetch<{ ok: boolean; accepted: boolean }>(
+    `/legal/status?documentType=BUYER_PRIVACY&version=${encodeURIComponent(
+      version
+    )}`,
+    { method: "GET", cache: "no-store" }
+  );
+
+  if (res?.accepted) saveBuyerPrivacyLocal(version);
+
+  return !!res?.accepted;
+}
+
 export async function acceptBuyerTermsBackend(version?: string) {
   const finalVersion = version || (await getCurrentBuyerTermsVersion());
 
@@ -95,4 +138,19 @@ export async function acceptBuyerTermsBackend(version?: string) {
   });
 
   saveBuyerTermsLocal(finalVersion);
+}
+
+export async function acceptBuyerPrivacyBackend(version?: string) {
+  const finalVersion = version || (await getCurrentBuyerPrivacyVersion());
+
+  await apiFetch("/legal/accept", {
+    method: "POST",
+    json: {
+      documentType: "BUYER_PRIVACY",
+      version: finalVersion,
+      source: "BUYER_APP",
+    },
+  });
+
+  saveBuyerPrivacyLocal(finalVersion);
 }

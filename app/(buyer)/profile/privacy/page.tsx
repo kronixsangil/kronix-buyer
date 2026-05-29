@@ -3,6 +3,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  acceptBuyerPrivacyBackend,
+  checkBuyerPrivacyStatus,
   getCurrentBuyerLegalDocument,
   type BuyerLegalDocument,
 } from "@/components/buyer/legal/buyerLegal";
@@ -96,19 +98,7 @@ function parsePrivacyContent(content: string): PrivacySection[] {
       continue;
     }
 
-    if (!current) {
-      continue;
-    }
-
-    if (
-      line === "Responsable:" ||
-      line === "Plataforma:" ||
-      line === "Canales oficiales:" ||
-      line.startsWith("- ")
-    ) {
-      current.paragraphs.push(line);
-      continue;
-    }
+    if (!current) continue;
 
     current.paragraphs.push(line);
   }
@@ -118,18 +108,51 @@ function parsePrivacyContent(content: string): PrivacySection[] {
 
 export default function ProfilePrivacyPage() {
   const [doc, setDoc] = useState<BuyerLegalDocument | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [accepted, setAccepted] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  async function refreshStatus() {
+    setChecking(true);
+
+    try {
+      const currentDoc = await getCurrentBuyerLegalDocument("BUYER_PRIVACY");
+      setDoc(currentDoc);
+
+      const ok = await checkBuyerPrivacyStatus();
+      setAccepted(ok);
+    } catch {
+      setDoc(null);
+      setAccepted(false);
+    } finally {
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
-    getCurrentBuyerLegalDocument("BUYER_PRIVACY")
-      .then((currentDoc) => setDoc(currentDoc))
-      .catch(() => setDoc(null))
-      .finally(() => setLoading(false));
+    refreshStatus();
   }, []);
 
   const sections = useMemo(() => {
     return parsePrivacyContent(doc?.content || "");
   }, [doc?.content]);
+
+  async function acceptPrivacy() {
+    if (!doc?.version || saving) return;
+
+    setSaving(true);
+
+    try {
+      await acceptBuyerPrivacyBackend(doc.version);
+      setAccepted(true);
+      await refreshStatus();
+      alert("Política de Privacidad aceptada correctamente.");
+    } catch {
+      alert("No fue posible registrar la aceptación. Inténtalo nuevamente.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="px-4 pb-8 pt-4">
@@ -148,13 +171,41 @@ export default function ProfilePrivacyPage() {
         colombiana de protección de datos personales.
       </div>
 
-      {loading ? (
+      <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="text-xs font-bold text-slate-600">
+          Estado de aceptación
+        </div>
+
+        <div
+          className={[
+            "mt-2 inline-flex rounded-full px-3 py-1 text-[11px] font-black ring-1",
+            accepted
+              ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+              : "bg-amber-50 text-amber-700 ring-amber-100",
+          ].join(" ")}
+        >
+          {checking ? "Verificando..." : accepted ? "Aceptada" : "Pendiente"}
+        </div>
+
+        {!accepted ? (
+          <button
+            type="button"
+            onClick={acceptPrivacy}
+            disabled={saving || checking || !doc?.version}
+            className="mt-4 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-black text-white shadow-md active:scale-[0.98] disabled:opacity-60"
+          >
+            {saving ? "Guardando..." : "Aceptar política vigente"}
+          </button>
+        ) : null}
+      </div>
+
+      {checking ? (
         <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 text-xs font-bold text-slate-600 shadow-sm">
           Cargando política vigente desde Legal Center...
         </div>
       ) : null}
 
-      {!loading && sections.length === 0 ? (
+      {!checking && sections.length === 0 ? (
         <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-xs font-bold text-amber-800 shadow-sm">
           No se pudo cargar el contenido vigente de privacidad.
         </div>
