@@ -4,21 +4,28 @@
 import { useEffect, useState } from "react";
 import BuyerTermsModal from "@/components/buyer/legal/BuyerTermsModal";
 import {
-  BUYER_TERMS_VERSION,
   checkBuyerTermsStatus,
+  getCurrentBuyerLegalDocument,
+  type BuyerLegalDocument,
 } from "@/components/buyer/legal/buyerLegal";
 
 export default function ProfileTermsPage() {
   const [open, setOpen] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [doc, setDoc] = useState<BuyerLegalDocument | null>(null);
 
   async function refreshStatus() {
     setChecking(true);
+
     try {
+      const currentDoc = await getCurrentBuyerLegalDocument("BUYER_TERMS");
+      setDoc(currentDoc);
+
       const ok = await checkBuyerTermsStatus();
       setAccepted(ok);
     } catch {
+      setDoc(null);
       setAccepted(false);
     } finally {
       setChecking(false);
@@ -37,17 +44,17 @@ export default function ProfileTermsPage() {
         </div>
 
         <h1 className="mt-2 text-xl font-black text-slate-950">
-          Términos y Condiciones
+          {doc?.title || "Términos y Condiciones"}
         </h1>
 
         <p className="mt-2 text-sm leading-5 text-slate-600">
-          Consulta, lee y acepta la versión vigente de los términos de uso de KroniX.
+          Consulta, lee y acepta la versión vigente cargada desde el Legal Center.
         </p>
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <div className="text-xs font-bold text-slate-600">Versión vigente</div>
           <div className="mt-1 text-xs font-black text-slate-950">
-            {BUYER_TERMS_VERSION}
+            {doc?.version || "Cargando..."}
           </div>
 
           <div className="mt-3 text-xs font-bold text-slate-600">

@@ -1,31 +1,66 @@
 //app\(buyer)\legal\privacy\page.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  BUYER_PRIVACY_FALLBACK_VERSION,
+  getCurrentBuyerLegalDocument,
+  type BuyerLegalDocument,
+} from "@/components/buyer/legal/buyerLegal";
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function LegalContent({ content }: { content: string }) {
   return (
-    <section className="mt-8">
-      <h2 className="text-[20px] font-black text-slate-900">
-        {title}
-      </h2>
+    <div className="space-y-4 text-[14px] leading-7 text-slate-700">
+      {content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line, idx) => {
+          if (line.startsWith("# ")) {
+            return (
+              <h2 key={idx} className="mt-8 text-[22px] font-black text-slate-900">
+                {line.replace("# ", "")}
+              </h2>
+            );
+          }
 
-      <div className="mt-3 space-y-4 text-[14px] leading-7 text-slate-700">
-        {children}
-      </div>
-    </section>
+          if (line.startsWith("## ")) {
+            return (
+              <h3 key={idx} className="mt-7 text-[20px] font-black text-slate-900">
+                {line.replace("## ", "")}
+              </h3>
+            );
+          }
+
+          if (line.startsWith("---")) {
+            return <hr key={idx} className="my-6 border-slate-200" />;
+          }
+
+          return <p key={idx}>{line}</p>;
+        })}
+    </div>
   );
 }
 
 export default function PrivacyPage() {
+  const [doc, setDoc] = useState<BuyerLegalDocument | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCurrentBuyerLegalDocument("BUYER_PRIVACY")
+      .then((res) => setDoc(res))
+      .catch(() => setDoc(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const version = doc?.version || BUYER_PRIVACY_FALLBACK_VERSION;
+  const content =
+    doc?.content?.trim() ||
+    "No se pudo cargar el documento legal vigente. Intenta nuevamente.";
+
   return (
-    <div className="bg-slate-50 min-h-full">
+    <div className="min-h-full bg-slate-50">
       <div className="w-full px-4 py-4">
         <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
           <div className="bg-gradient-to-br from-cyan-700 via-sky-700 to-blue-900 px-6 py-8 text-white">
@@ -34,79 +69,22 @@ export default function PrivacyPage() {
             </div>
 
             <h1 className="mt-2 text-[34px] font-black leading-tight">
-              Política de Privacidad
+              {doc?.title || "Política de Privacidad"}
             </h1>
 
             <p className="mt-3 text-[15px] leading-7 text-slate-100">
-              Última actualización: Mayo 2026
+              Versión vigente: {version}
             </p>
           </div>
 
           <div className="px-6 py-8">
-            <Section title="1. Información que recopilamos">
-              <p>
-                KroniX puede recopilar información como nombre, teléfono,
-                correo electrónico, direcciones, ubicación GPS,
-                información de pedidos y actividad dentro de la plataforma.
-              </p>
-            </Section>
-
-            <Section title="2. Uso de la Información">
-              <p>
-                Utilizamos la información para operar la plataforma,
-                procesar pedidos, mejorar servicios, prevenir fraude y
-                brindar soporte.
-              </p>
-            </Section>
-
-            <Section title="3. Geolocalización">
-              <p>
-                La ubicación GPS puede utilizarse para seguimiento de
-                pedidos, asignación de conductores y funciones operativas.
-              </p>
-            </Section>
-
-            <Section title="4. Seguridad">
-              <p>
-                KroniX implementa medidas razonables de seguridad para
-                proteger la información de los usuarios.
-              </p>
-            </Section>
-
-            <Section title="5. Compartición de Datos">
-              <p>
-                KroniX no vende información personal a terceros.
-              </p>
-
-              <p>
-                Algunos datos podrán compartirse únicamente cuando sea
-                necesario para operar la plataforma o cumplir obligaciones
-                legales.
-              </p>
-            </Section>
-
-            <Section title="6. Cookies y Tecnologías">
-              <p>
-                La plataforma puede utilizar cookies, almacenamiento local
-                y tecnologías similares para autenticación, sesiones y
-                experiencia de usuario.
-              </p>
-            </Section>
-
-            <Section title="7. Derechos del Usuario">
-              <p>
-                El usuario podrá solicitar actualización, corrección o
-                eliminación de sus datos conforme a la legislación
-                aplicable.
-              </p>
-            </Section>
-
-            <Section title="8. Cambios en la Política">
-              <p>
-                KroniX podrá actualizar esta política de privacidad en
-                cualquier momento.
-              </p>
-            </Section>
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                Cargando documento legal vigente...
+              </div>
+            ) : (
+              <LegalContent content={content} />
+            )}
 
             <div className="mt-10 border-t border-slate-200 pt-6 text-center">
               <Link
