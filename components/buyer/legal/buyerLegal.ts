@@ -90,10 +90,6 @@ export function hasBuyerPrivacyLocal(version: string) {
 export async function checkBuyerTermsStatus() {
   const version = await getCurrentBuyerTermsVersion();
 
-  if (hasBuyerTermsLocal(version)) {
-    return true;
-  }
-
   const res = await apiFetch<{ ok: boolean; accepted: boolean }>(
     `/legal/status?documentType=BUYER_TERMS&version=${encodeURIComponent(
       version
@@ -108,10 +104,6 @@ export async function checkBuyerTermsStatus() {
 
 export async function checkBuyerPrivacyStatus() {
   const version = await getCurrentBuyerPrivacyVersion();
-
-  if (hasBuyerPrivacyLocal(version)) {
-    return true;
-  }
 
   const res = await apiFetch<{ ok: boolean; accepted: boolean }>(
     `/legal/status?documentType=BUYER_PRIVACY&version=${encodeURIComponent(
