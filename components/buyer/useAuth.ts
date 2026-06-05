@@ -12,6 +12,9 @@ export type MeUser = {
   email?: string | null;
   nickname?: string | null;
   role: "BUYER" | "STORE" | "DRIVER" | "ADMIN";
+  isKronixPlusApproved?: boolean;
+  kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+  kronixPlusApprovedAt?: string | null;
   defaultAddress?: string | null;
   defaultLat?: number | null;
   defaultLng?: number | null;

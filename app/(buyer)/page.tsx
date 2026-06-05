@@ -4,6 +4,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { logout } from "@/lib/authActions";
@@ -19,6 +20,39 @@ type MeResponse =
       };
     }
   | { user?: any };
+
+
+type KronixPlusStatusResponse = {
+  ok?: boolean;
+  approved?: boolean;
+  status?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+  approvedAt?: string | null;
+  application?: {
+    id: string;
+    status: string;
+    businessName?: string | null;
+    businessType?: string | null;
+    contactName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    citySlug?: string | null;
+    cityName?: string | null;
+    expectedShipmentsPerMonth?: number | null;
+    notes?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+  } | null;
+};
+
+type KronixPlusApplicationForm = {
+  businessName: string;
+  businessType: string;
+  contactName: string;
+  phone: string;
+  email: string;
+  expectedShipmentsPerMonth: string;
+  notes: string;
+};
 
 type KronixOption = {
   href: string;
@@ -232,86 +266,323 @@ function FeaturedCard({ item }: { item: KronixOption }) {
   );
 }
 
-function StandardCard({ item }: { item: KronixOption }) {
-  return (
-    <Link
-      href={item.href}
-      className="group block h-[110px] overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]"
-    >
-      <div className="flex h-full items-center gap-3">
-        {/* ICONO IZQUIERDO */}
-        <div className="shrink-0">
-          <LeftMiniIcon src={item.iconEmoji || ""} />
+function StandardCard({
+  item,
+  onClick,
+}: {
+  item: KronixOption;
+  onClick?: () => void;
+}) {
+  const content = (
+    <div className="flex h-full items-center gap-3">
+      {/* ICONO IZQUIERDO */}
+      <div className="shrink-0">
+        <LeftMiniIcon src={item.iconEmoji || ""} />
+      </div>
+
+      {/* TEXTO */}
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        {/* TITULO */}
+        <div
+          className={[
+            "ml-1 font-black text-slate-900 leading-tight whitespace-nowrap",
+            item.title === "Domicilios y Diligencias"
+              ? "text-[18px]"
+              : "text-[22px]",
+          ].join(" ")}
+        >
+          {item.title}
         </div>
 
-        {/* TEXTO */}
-        <div className="flex min-w-0 flex-1 flex-col justify-center">
-          {/* TITULO */}
-<div
-  className={[
-    "ml-1 font-black text-slate-900 leading-tight whitespace-nowrap",
-    item.title === "Domicilios y Diligencias"
-      ? "text-[18px]"
-      : "text-[22px]",
-  ].join(" ")}
->
-  {item.title}
-</div>
-
-          {/* SUBTITULO */}
-          <div
-            className={[
-              "ml-4 mt-1 font-medium text-slate-500",
-              "text-[13px] leading-[16px]",
-              "line-clamp-3",
-              item.title === "Domicilio Express"
-                ? "max-w-[220px]"
-                : "",
-              item.title === "KroniX Envíos"
-                ? "max-w-[220px]"
-                : "",
-              item.title === "Domicilios y Diligencias"
-                ? "max-w-[220px]"
-                : "",
-            ].join(" ")}
-          >
-            {item.subtitle}
-          </div>
-        </div>
-
-        {/* MOTO / IMAGEN DERECHA */}
-        {item.useMotoArt ? (
-          <div className="relative h-[62px] w-[102px] shrink-0">
-            <Image
-              src={
-                item.title === "KroniX Envíos"
-                  ? "/branding/kronix/enviar-Paquete2.png"
-                  : "/branding/kronix/card-moto.png"
-              }
-              alt={item.title}
-              fill
-              className="object-contain opacity-95 scale-[1.65] translate-x-2"
-              sizes="102px"
-            />
-          </div>
-        ) : null}
-
-        {/* CHEVRON */}
-        <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
-          ›
+        {/* SUBTITULO */}
+        <div
+          className={[
+            "ml-4 mt-1 font-medium text-slate-500",
+            "text-[13px] leading-[16px]",
+            "line-clamp-3",
+            item.title === "Domicilio Express"
+              ? "max-w-[220px]"
+              : "",
+            item.title === "KroniX Envíos"
+              ? "max-w-[220px]"
+              : "",
+            item.title === "Domicilios y Diligencias"
+              ? "max-w-[220px]"
+              : "",
+          ].join(" ")}
+        >
+          {item.subtitle}
         </div>
       </div>
+
+      {/* MOTO / IMAGEN DERECHA */}
+      {item.useMotoArt ? (
+        <div className="relative h-[62px] w-[102px] shrink-0">
+          <Image
+            src={
+              item.title === "KroniX Envíos"
+                ? "/branding/kronix/enviar-Paquete2.png"
+                : "/branding/kronix/card-moto.png"
+            }
+            alt={item.title}
+            fill
+            className="object-contain opacity-95 scale-[1.65] translate-x-2"
+            sizes="102px"
+          />
+        </div>
+      ) : null}
+
+      {/* CHEVRON */}
+      <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
+        ›
+      </div>
+    </div>
+  );
+
+  const cls =
+    "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={item.href} className={cls}>
+      {content}
     </Link>
   );
 }
 
+function KronixPlusApplicationPanel({
+  status,
+  form,
+  saving,
+  error,
+  success,
+  onBack,
+  onChange,
+  onSubmit,
+}: {
+  status: KronixPlusStatusResponse | null;
+  form: KronixPlusApplicationForm;
+  saving: boolean;
+  error: string | null;
+  success: string | null;
+  onBack: () => void;
+  onChange: (field: keyof KronixPlusApplicationForm, value: string) => void;
+  onSubmit: () => void | Promise<void>;
+}) {
+  const currentStatus = String(status?.status ?? "NONE").toUpperCase();
+  const isPending = currentStatus === "PENDING";
+  const isRejected = currentStatus === "REJECTED";
+
+  return (
+    <div className="space-y-2 pb-4">
+      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+        <div className="relative overflow-hidden px-4 pb-5 pt-4 text-white">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.28),transparent_32%),linear-gradient(135deg,#03102b_0%,#082b63_54%,#0f172a_100%)]" />
+          <div className="pointer-events-none absolute inset-0 opacity-80">
+            <span className="absolute left-[10%] top-[20%] h-1 w-1 rounded-full bg-white" />
+            <span className="absolute left-[34%] top-[12%] h-[3px] w-[3px] rounded-full bg-white" />
+            <span className="absolute right-[18%] top-[22%] h-1 w-1 rounded-full bg-white" />
+            <span className="absolute right-[38%] bottom-[26%] h-[3px] w-[3px] rounded-full bg-white" />
+          </div>
+
+          <div className="relative z-10">
+            <button
+              type="button"
+              onClick={onBack}
+              className="mb-4 inline-flex h-6 items-center gap-2 rounded-full bg-white/12 px-4 text-[13px] font-black text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/18"
+            >
+              SALIR
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                
+                <h2 className="mt-3 text-[25px] font-black leading-tight text-white">
+                  Activa KroniX Envíos para tu negocio
+                </h2>
+                
+              </div>
+
+              <div className="relative hidden h-[104px] w-[120px] shrink-0 sm:block">
+                <Image
+                  src="/branding/kronix/enviar-Paquete2.png"
+                  alt="KroniX Envíos"
+                  fill
+                  className="object-contain scale-[1.25] drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)]"
+                  sizes="120px"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-[18px] bg-white/12 px-2 py-3 ring-1 ring-white/15">
+                <div className="text-[18px] font-black">$0</div>
+                <div className="mt-1 text-[10px] font-bold leading-tight text-white/75">Aplicación</div>
+              </div>
+              <div className="rounded-[18px] bg-white/12 px-2 py-3 ring-1 ring-white/15">
+                <div className="text-[18px] font-black">24-48h</div>
+                <div className="mt-1 text-[10px] font-bold leading-tight text-white/75">Validación inicial</div>
+              </div>
+              <div className="rounded-[18px] bg-white/12 px-2 py-3 ring-1 ring-white/15">
+                <div className="text-[18px] font-black">Plus</div>
+                <div className="mt-1 text-[10px] font-bold leading-tight text-white/75">Acceso aprobado</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1 bg-white p-0">          
+          {isPending ? (
+            <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-900">
+              Ya tienes una solicitud pendiente. Puedes actualizar los datos y volver a enviarla.
+            </div>
+          ) : null}
+
+          {isRejected ? (
+            <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-bold leading-5 text-rose-900">
+              Tu solicitud anterior fue marcada para revisión. Puedes enviar datos actualizados para una nueva validación.
+            </div>
+          ) : null}
+
+          <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.055)]">
+            <div className="mb-4">
+              <div className="text-[19px] font-black leading-tight text-slate-950">
+                Solicitud KroniX Plus
+              </div>
+              <div className="mt-1 text-[13px] font-semibold leading-5 text-slate-500">
+                Déjanos tus datos y nuestro equipo validará si tu volumen aplica para KroniX Envíos.
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <input
+                value={form.businessName}
+                onChange={(e) => onChange("businessName", e.target.value)}
+                placeholder="Nombre del negocio o actividad *"
+                className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                maxLength={120}
+              />
+
+              <input
+                value={form.businessType}
+                onChange={(e) => onChange("businessType", e.target.value)}
+                placeholder="Tipo de cliente: tienda, negocio, emprendedor..."
+                className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                maxLength={80}
+              />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <input
+                  value={form.contactName}
+                  onChange={(e) => onChange("contactName", e.target.value)}
+                  placeholder="Nombre de contacto *"
+                  className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                  maxLength={80}
+                />
+
+                <input
+                  value={form.phone}
+                  onChange={(e) =>
+                    onChange("phone", e.target.value.replace(/\D/g, "").slice(0, 15))
+                  }
+                  placeholder="Teléfono *"
+                  inputMode="numeric"
+                  className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                  maxLength={15}
+                />
+              </div>
+
+              <input
+                value={form.email}
+                onChange={(e) => onChange("email", e.target.value)}
+                placeholder="Correo electrónico"
+                type="email"
+                className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                maxLength={120}
+              />
+
+              <input
+                value={form.expectedShipmentsPerMonth}
+                onChange={(e) =>
+                  onChange(
+                    "expectedShipmentsPerMonth",
+                    e.target.value.replace(/\D/g, "").slice(0, 5)
+                  )
+                }
+                placeholder="Envíos estimados al mes *"
+                inputMode="numeric"
+                className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                maxLength={5}
+              />
+
+              <textarea
+                value={form.notes}
+                onChange={(e) => onChange("notes", e.target.value)}
+                placeholder="Cuéntanos qué envías, desde dónde despachas y cualquier detalle importante."
+                rows={4}
+                className="w-full resize-none rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+                maxLength={700}
+              />
+            </div>
+
+            {error ? (
+              <div className="mt-4 rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-bold text-red-700">
+                {error}
+              </div>
+            ) : null}
+
+            {success ? (
+              <div className="mt-4 rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px] font-bold text-emerald-800">
+                {success}
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={saving}
+              className="mt-5 w-full rounded-[22px] bg-[linear-gradient(90deg,#0c45ff_0%,#0b8bdf_50%,#1fd09a_100%)] px-4 py-4 text-[15px] font-black text-white shadow-[0_12px_22px_rgba(12,69,255,0.22)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? "Enviando solicitud..." : "Solicitar acceso KroniX Plus"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
+  const router = useRouter();
   const { city } = useBuyerCity();
   const { items } = useCart();
 
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [kronixPlusStatus, setKronixPlusStatus] =
+    useState<KronixPlusStatusResponse | null>(null);
+  const [kronixPlusModalOpen, setKronixPlusModalOpen] = useState(false);
+  const [kronixPlusSaving, setKronixPlusSaving] = useState(false);
+  const [kronixPlusError, setKronixPlusError] = useState<string | null>(null);
+  const [kronixPlusSuccess, setKronixPlusSuccess] = useState<string | null>(null);
+  const [kronixPlusForm, setKronixPlusForm] =
+    useState<KronixPlusApplicationForm>({
+      businessName: "",
+      businessType: "",
+      contactName: "",
+      phone: "",
+      email: "",
+      expectedShipmentsPerMonth: "",
+      notes: "",
+    });
 
   const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
 
@@ -336,6 +607,53 @@ export default function HomePage() {
       alive = false;
     };
   }, []);
+
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!me || !(me as any)?.sub) {
+      setKronixPlusStatus(null);
+      return () => {
+        alive = false;
+      };
+    }
+
+    apiFetch<KronixPlusStatusResponse>("/users/me/kronix-plus/status", {
+      method: "GET",
+      suppressSessionExpiredEvent: true,
+    } as any)
+      .then((data) => {
+        if (!alive) return;
+        setKronixPlusStatus(data);
+
+        const app = data?.application;
+        setKronixPlusForm((prev) => ({
+          ...prev,
+          businessName: prev.businessName || String(app?.businessName ?? ""),
+          businessType: prev.businessType || String(app?.businessType ?? ""),
+          contactName: prev.contactName || String(app?.contactName ?? ""),
+phone:
+  prev.phone ||
+  String(app?.phone ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 15),
+email: prev.email || String(app?.email ?? ""),
+          expectedShipmentsPerMonth:
+            prev.expectedShipmentsPerMonth ||
+            String(app?.expectedShipmentsPerMonth ?? ""),
+          notes: prev.notes || String(app?.notes ?? ""),
+        }));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setKronixPlusStatus(null);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [me]);
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -369,8 +687,107 @@ export default function HomePage() {
     }
   }
 
+
+  function updateKronixPlusForm(
+    field: keyof KronixPlusApplicationForm,
+    value: string
+  ) {
+    setKronixPlusForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setKronixPlusError(null);
+    setKronixPlusSuccess(null);
+  }
+
+  async function handleKronixEnviosClick() {
+    setMenuOpen(false);
+
+    if (!isLoggedIn) {
+      router.push("/login?next=/");
+      return;
+    }
+
+    if (kronixPlusStatus?.approved) {
+      router.push("/kronix/enviar");
+      return;
+    }
+
+    
+    setKronixPlusError(null);
+    setKronixPlusSuccess(null);
+    setKronixPlusModalOpen(true);
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+  }
+
+  async function submitKronixPlusApplication() {
+    if (kronixPlusSaving) return;
+
+    const expectedShipments = Number(
+      kronixPlusForm.expectedShipmentsPerMonth || 0
+    );
+
+    if (kronixPlusForm.businessName.trim().length < 2) {
+      setKronixPlusError("Escribe el nombre de tu negocio o actividad.");
+      return;
+    }
+
+    if (kronixPlusForm.contactName.trim().length < 3) {
+      setKronixPlusError("Escribe el nombre de la persona de contacto.");
+      return;
+    }
+
+    if (kronixPlusForm.phone.replace(/\D/g, "").length < 7) {
+      setKronixPlusError("Escribe un teléfono válido para contactarte.");
+      return;
+    }
+
+    if (!Number.isFinite(expectedShipments) || expectedShipments < 1) {
+      setKronixPlusError("Indica cuántos envíos estimas hacer al mes.");
+      return;
+    }
+
+    setKronixPlusSaving(true);
+    setKronixPlusError(null);
+    setKronixPlusSuccess(null);
+
+    try {
+      const res = await apiFetch<KronixPlusStatusResponse>(
+        "/users/me/kronix-plus/apply",
+        {
+          method: "POST",
+          json: {
+            businessName: kronixPlusForm.businessName.trim(),
+            businessType: kronixPlusForm.businessType.trim() || null,
+            contactName: kronixPlusForm.contactName.trim(),
+            phone: kronixPlusForm.phone.replace(/\D/g, "").slice(0, 15),
+            email: kronixPlusForm.email.trim() || null,
+            citySlug: String(city?.slug ?? "").trim() || null,
+            cityName:
+              `${cityName}${cityDepartment ? `, ${cityDepartment}` : ""}`.trim() ||
+              null,
+            expectedShipmentsPerMonth: expectedShipments,
+            notes: kronixPlusForm.notes.trim() || null,
+          },
+        }
+      );
+
+      setKronixPlusStatus(res);
+      setKronixPlusSuccess(
+        "Solicitud enviada. KroniX revisará tu volumen y te contactará para validar el acceso."
+      );
+    } catch (e: any) {
+      setKronixPlusError(
+        String(e?.message ?? "No pudimos enviar la solicitud. Intenta nuevamente.")
+      );
+    } finally {
+      setKronixPlusSaving(false);
+    }
+  }
+
   return (
-    <div className="min-h-full bg-white">
+    <>
+      <div className="min-h-full bg-white">
       <section
         className="relative overflow-visible px-4 pb-[72px] pt-4 text-white"
         style={{
@@ -713,25 +1130,53 @@ export default function HomePage() {
       </section>
 
       <section className="relative z-0 -mt-[2px] bg-white px-4 pb-5 pt-1">
-        <div className="text-center">
-          <h1 className="text-[31px] font-black leading-none tracking-tight text-[#06153a]">
-            ¿Qué necesitas hoy?
-          </h1>
-          <p className="mt-3 text-[15px] font-medium text-slate-500">
-            Elige un servicio y lo resolvemos por ti
-          </p>
-        </div>
+        {kronixPlusModalOpen ? (
+          <KronixPlusApplicationPanel
+            status={kronixPlusStatus}
+            form={kronixPlusForm}
+            saving={kronixPlusSaving}
+            error={kronixPlusError}
+            success={kronixPlusSuccess}
+            onBack={() => {
+              setKronixPlusModalOpen(false);
+              setKronixPlusError(null);
+              setKronixPlusSuccess(null);
+            }}
+            onChange={updateKronixPlusForm}
+            onSubmit={submitKronixPlusApplication}
+          />
+        ) : (
+          <>
+            <div className="text-center">
+              <h1 className="text-[31px] font-black leading-none tracking-tight text-[#06153a]">
+                ¿Qué necesitas hoy?
+              </h1>
+              <p className="mt-3 text-[15px] font-medium text-slate-500">
+                Elige un servicio y lo resolvemos por ti
+              </p>
+            </div>
 
-        <div className="mt-5 space-y-3">
-          {options.map((item) =>
-            item.featured ? (
-              <FeaturedCard key={item.title} item={item} />
-            ) : (
-              <StandardCard key={item.title} item={item} />
-            )
-          )}
-        </div>
+            <div className="mt-5 space-y-3">
+              {options.map((item) =>
+                item.featured ? (
+                  <FeaturedCard key={item.title} item={item} />
+                ) : (
+                  <StandardCard
+                    key={item.title}
+                    item={item}
+                    onClick={
+                      item.title === "KroniX Envíos"
+                        ? handleKronixEnviosClick
+                        : undefined
+                    }
+                  />
+                )
+              )}
+            </div>
+          </>
+        )}
       </section>
-    </div>
+      </div>
+    </>
   );
 }

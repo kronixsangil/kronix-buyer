@@ -33,6 +33,18 @@ type AddressItem = {
   isFavorite?: boolean;
 };
 
+
+type KronixPlusStatusResponse = {
+  ok?: boolean;
+  approved?: boolean;
+  status?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+  application?: {
+    id: string;
+    status: string;
+    createdAt?: string | null;
+  } | null;
+};
+
 function getUserName(user: any) {
   return String(user?.name ?? user?.user?.name ?? "").trim();
 }
@@ -46,7 +58,7 @@ function getUserPhone(user: any) {
 export default function KronixEnviosStepOne() {
   const router = useRouter();
   const { citySlug, cityReady } = useBuyerCity();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [form, setForm] = useState<KronixEnviarDraft>(loadKronixEnviarDraft());
   const [touched, setTouched] = useState(false);
@@ -54,10 +66,52 @@ export default function KronixEnviosStepOne() {
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [checkingKronixPlus, setCheckingKronixPlus] = useState(true);
+  const [kronixPlusStatus, setKronixPlusStatus] = useState<KronixPlusStatusResponse | null>(null);
 
   useEffect(() => {
     setForm(loadKronixEnviarDraft());
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function checkKronixPlus() {
+      if (authLoading) return;
+
+      if (!user?.id) {
+        setCheckingKronixPlus(false);
+        setKronixPlusStatus(null);
+        return;
+      }
+
+      setCheckingKronixPlus(true);
+
+      try {
+        const res = await apiFetch<KronixPlusStatusResponse>(
+          "/users/me/kronix-plus/status",
+          {
+            method: "GET",
+            suppressSessionExpiredEvent: true,
+          } as any
+        );
+
+        if (!alive) return;
+        setKronixPlusStatus(res);
+      } catch {
+        if (!alive) return;
+        setKronixPlusStatus(null);
+      } finally {
+        if (alive) setCheckingKronixPlus(false);
+      }
+    }
+
+    checkKronixPlus();
+
+    return () => {
+      alive = false;
+    };
+  }, [authLoading, user?.id]);
 
   useEffect(() => {
     saveKronixEnviarDraft(form);
@@ -160,6 +214,83 @@ export default function KronixEnviosStepOne() {
 
     saveKronixEnviarDraft(form);
     router.push("/kronix/enviar?step=2");
+  }
+
+  if (authLoading || checkingKronixPlus) {
+    return (
+      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
+        <div className="h-6 w-48 animate-pulse rounded bg-slate-100" />
+        <div className="mt-3 h-24 animate-pulse rounded-[22px] bg-slate-100" />
+      </div>
+    );
+  }
+
+  if (!user?.id) {
+    return (
+      <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
+        <div className="text-[20px] font-black">Inicia sesión para usar KroniX Envíos</div>
+        <div className="mt-2 text-[14px] font-semibold leading-6">
+          Este servicio requiere una cuenta Buyer activa y validación KroniX Plus.
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push("/login?next=/")}
+          className="mt-5 w-full rounded-[22px] bg-slate-900 px-4 py-4 text-[15px] font-black text-white"
+        >
+          Iniciar sesión
+        </button>
+      </div>
+    );
+  }
+
+  if (!kronixPlusStatus?.approved) {
+    const status = String(kronixPlusStatus?.status ?? "NONE").toUpperCase();
+    const pending = status === "PENDING";
+
+    return (
+      <div className="space-y-3">
+        <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+          <div className="relative px-5 pb-6 pt-6 text-white">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.32),transparent_32%),linear-gradient(135deg,#03102b_0%,#082b63_55%,#0f172a_100%)]" />
+            <div className="relative z-10">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                KroniX Plus requerido
+              </div>
+              <div className="mt-2 text-[25px] font-black leading-tight">
+                KroniX Envíos está disponible para clientes validados
+              </div>
+              <div className="mt-3 text-[14px] font-semibold leading-6 text-white/85">
+                {pending
+                  ? "Tu solicitud está pendiente de validación. KroniX revisará tu volumen y te contactará."
+                  : "Aplica sin costo desde el menú principal. Una vez aprobada tu cuenta, podrás crear envíos frecuentes desde aquí."}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="grid gap-3">
+              <div className="rounded-[20px] border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] font-bold text-emerald-900">
+                ✓ Pensado para negocios, tiendas y clientes con envíos recurrentes.
+              </div>
+              <div className="rounded-[20px] border border-blue-100 bg-blue-50 px-4 py-3 text-[13px] font-bold text-blue-900">
+                ✓ Aplicación gratuita y validación operativa por KroniX.
+              </div>
+              <div className="rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-bold text-slate-700">
+                ✓ Al aprobarse, este flujo quedará habilitado automáticamente.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="mt-5 w-full rounded-[22px] bg-[linear-gradient(90deg,#0c45ff_0%,#0b8bdf_50%,#1fd09a_100%)] px-4 py-4 text-[15px] font-black text-white shadow-[0_12px_22px_rgba(12,69,255,0.22)]"
+            >
+              {pending ? "Volver al inicio" : "Aplicar a KroniX Plus"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
