@@ -123,7 +123,20 @@ export default function BuyerLoginPage() {
       const me = await getMe();
       if (!alive) return;
 
-      if (me?.user?.sub) {
+            if (me?.user?.sub) {
+        const role = String(me?.user?.role ?? "").toUpperCase();
+
+        if (role !== "BUYER") {
+          const { logout } = await import("@/lib/authActions");
+          await logout();
+
+          setError(
+            "Esta cuenta pertenece a conductor, comercio o administrador. Usa la aplicación correspondiente."
+          );
+          setChecking(false);
+          return;
+        }
+
         router.replace(resolvedNext || "/");
         return;
       }
@@ -160,7 +173,14 @@ export default function BuyerLoginPage() {
       router.replace(resolvedNext || "/");
     } catch (e: any) {
       const msg = String(e?.message ?? "");
-      if (
+            if (
+        msg.toLowerCase().includes("no pertenece a buyer") ||
+        msg.toLowerCase().includes("cuenta buyer")
+      ) {
+        setError(
+          "Esta cuenta pertenece a conductor, comercio o administrador. Usa la aplicación correspondiente."
+        );
+      } else if (
         msg.toLowerCase().includes("inválidos") ||
         msg.toLowerCase().includes("invalid")
       ) {

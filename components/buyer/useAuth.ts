@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { logout } from "@/lib/authActions";
 
 export type MeUser = {
   id: string;
@@ -36,6 +37,14 @@ export function useAuth() {
   method: "GET",
   suppressSessionExpiredEvent: true,
 });
+            const role = String(me?.role ?? "").toUpperCase();
+
+      if (role !== "BUYER") {
+        await logout();
+        setUser(null);
+        return;
+      }
+
       setUser(me);
     } catch {
       setUser(null);
