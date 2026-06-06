@@ -859,33 +859,7 @@ export default function KronixEnviosStepThree() {
 
   return (
     <div className="space-y-1.5 px-4 pb-4 pt-2">
-      <div className="rounded-[24px] border border-emerald-100 bg-emerald-50 px-4 py-3 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
-            <div className="relative h-10 w-10">
-              <Image
-                src="/branding/kronix/target.png"
-                alt="Resumen"
-                fill
-                className="object-contain scale-[2] translate-x-[-5px]"
-                sizes="62px"
-              />
-            </div>
-          </div>
-
-          <div className="min-w-0">
-            <div className="text-[13px] font-bold text-emerald-700">
-              Resumen final
-            </div>
-            <div className="mt-0.5 text-[15px] font-extrabold text-emerald-900">
-              Confirma tu KroniX Envío
-            </div>
-            <div className="mt-1 text-[12px] leading-4 text-emerald-800/80">
-              Revisa recogida y precio estimado antes de confirmar.
-            </div>
-          </div>
-        </div>
-      </div>
+      
 
       <div className="rounded-[24px] border border-slate-200 bg-white px-4 pb-2 pt-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
         <div className="flex items-start gap-3">
@@ -894,7 +868,7 @@ export default function KronixEnviosStepThree() {
               src="/branding/kronix/startpoint.png"
               alt="Punto de recogida"
               fill
-              className="object-contain scale-[2] translate-x-[-5px] translate-y-[-8px]"
+              className="object-contain scale-[1.5] translate-x-[-5px] translate-y-[-8px]"
               sizes="62px"
             />
           </div>
@@ -957,10 +931,7 @@ export default function KronixEnviosStepThree() {
             <div className="text-[18px] font-black text-slate-900">
               KroniX Wallet
             </div>
-            <div className="mt-1 text-[12px] font-semibold text-slate-500">
-              El envío se activa con pago automático desde tu saldo.
             </div>
-          </div>
 
           <div
             className={[
