@@ -302,9 +302,10 @@ function ConfirmationModal({
           </div>
 
           <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-900">
-            El valor mostrado es estimado y puede variar por lluvias, distancia,
-            zonas alejadas, paquetes grandes, pesados o difíciles de transportar,
-            tiempos de espera u otras condiciones especiales.
+            El valor mostrado es una estimación inicial y puede variar por lluvias,
+            tráfico, tiempos de espera, distancias superiores a las previstas,
+            paquetes grandes, pesados, voluminosos o cualquier condición especial
+            detectada durante la prestación del servicio.
           </div>
 
           <div className="rounded-[22px] border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] font-bold leading-5 text-blue-900">
