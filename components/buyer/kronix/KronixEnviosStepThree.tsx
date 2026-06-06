@@ -204,7 +204,7 @@ function InfoLine({
   strong?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[86px_1fr] items-start gap-x-3 py-[6px]">
+    <div className="grid grid-cols-[86px_1fr] items-start gap-x-3 border-b border-slate-100 py-[3px] last:border-b-0">
       <div className="text-[13px] font-medium leading-tight text-slate-500">
         {label}
       </div>
@@ -231,7 +231,7 @@ function PriceLine({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-2">
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-[5px] last:border-b-0">
       <div
         className={
           highlight
@@ -858,7 +858,7 @@ export default function KronixEnviosStepThree() {
   }
 
   return (
-    <div className="space-y-2 px-4 pb-4 pt-3">
+    <div className="space-y-1.5 px-4 pb-4 pt-2">
       <div className="rounded-[24px] border border-emerald-100 bg-emerald-50 px-4 py-3 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
@@ -887,7 +887,7 @@ export default function KronixEnviosStepThree() {
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-slate-200 bg-white px-4 pb-3 pt-4 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+      <div className="rounded-[24px] border border-slate-200 bg-white px-4 pb-2 pt-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
         <div className="flex items-start gap-3">
           <div className="relative -ml-1 -mt-1 h-[56px] w-[56px] shrink-0">
             <Image
@@ -936,7 +936,7 @@ export default function KronixEnviosStepThree() {
           </div>
         ) : null}
 
-        <div className="mt-3 rounded-[22px] bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
+        <div className="mt-2 rounded-[20px] bg-slate-50 px-4 py-2 ring-1 ring-slate-200">
           <PriceLine label="Base del servicio" value={formatCOP(pricing.baseFee)} />
           <PriceLine label="Costo servicio" value={formatCOP(pricing.serviceFee)} />
           <div className="my-2 border-t border-slate-200" />
@@ -978,7 +978,7 @@ export default function KronixEnviosStepThree() {
           </div>
         </div>
 
-        <div className="mt-3 rounded-[22px] bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
+        <div className="mt-2 rounded-[20px] bg-slate-50 px-4 py-2 ring-1 ring-slate-200">
           <PriceLine
             label="Saldo disponible"
             value={walletLoading ? "..." : formatCOP(walletAvailableCOP)}
