@@ -830,7 +830,7 @@ if (kronixPlusForm.address.trim().length < 8) {
 
   contactName: kronixPlusForm.contactName.trim(),
   phone: kronixPlusForm.phone.replace(/\D/g, "").slice(0, 15),
-            email: kronixPlusForm.email.trim() || null,
+  email: kronixPlusForm.email.trim() || null,
             citySlug: String(city?.slug ?? "").trim() || null,
             cityName:
               `${cityName}${cityDepartment ? `, ${cityDepartment}` : ""}`.trim() ||
