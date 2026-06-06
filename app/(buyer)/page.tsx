@@ -31,8 +31,11 @@ type KronixPlusStatusResponse = {
     id: string;
     status: string;
     businessName?: string | null;
-    businessType?: string | null;
-    contactName?: string | null;
+businessType?: string | null;
+placeName?: string | null;
+address?: string | null;
+addressReference?: string | null;
+contactName?: string | null;
     phone?: string | null;
     email?: string | null;
     citySlug?: string | null;
@@ -46,8 +49,11 @@ type KronixPlusStatusResponse = {
 
 type KronixPlusApplicationForm = {
   businessName: string;
-  businessType: string;
-  contactName: string;
+businessType: string;
+placeName: string;
+address: string;
+addressReference: string;
+contactName: string;
   phone: string;
   email: string;
   expectedShipmentsPerMonth: string;
@@ -490,6 +496,31 @@ function KronixPlusApplicationPanel({
                 maxLength={80}
               />
 
+              <input
+  value={form.placeName}
+  onChange={(e) => onChange("placeName", e.target.value)}
+  placeholder="Lugar o sede de recogida *"
+  className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+  maxLength={120}
+/>
+
+<input
+  value={form.address}
+  onChange={(e) => onChange("address", e.target.value)}
+  placeholder="Dirección principal de recogida *"
+  className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+  maxLength={180}
+/>
+
+<input
+  value={form.addressReference}
+  onChange={(e) => onChange("addressReference", e.target.value)}
+  placeholder="Referencia: piso, local, frente a..., barrio..."
+  className="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-[14px] font-semibold text-slate-900 outline-none focus:border-blue-300 focus:bg-white"
+  maxLength={180}
+/>
+
+
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <input
                   value={form.contactName}
@@ -588,8 +619,11 @@ export default function HomePage() {
   const [kronixPlusForm, setKronixPlusForm] =
     useState<KronixPlusApplicationForm>({
       businessName: "",
-      businessType: "",
-      contactName: "",
+businessType: "",
+placeName: "",
+address: "",
+addressReference: "",
+contactName: "",
       phone: "",
       email: "",
       expectedShipmentsPerMonth: "",
@@ -643,8 +677,11 @@ export default function HomePage() {
         setKronixPlusForm((prev) => ({
           ...prev,
           businessName: prev.businessName || String(app?.businessName ?? ""),
-          businessType: prev.businessType || String(app?.businessType ?? ""),
-          contactName: prev.contactName || String(app?.contactName ?? ""),
+businessType: prev.businessType || String(app?.businessType ?? ""),
+placeName: prev.placeName || String(app?.placeName ?? app?.businessName ?? ""),
+address: prev.address || String(app?.address ?? ""),
+addressReference: prev.addressReference || String(app?.addressReference ?? ""),
+contactName: prev.contactName || String(app?.contactName ?? ""),
 phone:
   prev.phone ||
   String(app?.phone ?? "")
@@ -743,6 +780,17 @@ email: prev.email || String(app?.email ?? ""),
       setKronixPlusError("Escribe el nombre de tu negocio o actividad.");
       return;
     }
+
+    if (kronixPlusForm.placeName.trim().length < 2) {
+  setKronixPlusError("Escribe el lugar o sede donde recogerá el motorizado.");
+  return;
+}
+
+if (kronixPlusForm.address.trim().length < 8) {
+  setKronixPlusError("Escribe una dirección principal de recogida válida.");
+  return;
+}
+
 
     if (kronixPlusForm.contactName.trim().length < 3) {
       setKronixPlusError("Escribe el nombre de la persona de contacto.");

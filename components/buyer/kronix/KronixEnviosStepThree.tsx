@@ -39,6 +39,9 @@ type KronixPlusStatusResponse = {
     status: string;
     businessName?: string | null;
     businessType?: string | null;
+    placeName?: string | null;
+    address?: string | null;
+    addressReference?: string | null;
     contactName?: string | null;
     phone?: string | null;
     email?: string | null;
@@ -107,7 +110,7 @@ function getUserPhone(user: any) {
 }
 
 function buildPickupDraftFromAddress(
-  address: AddressItem,
+  address: AddressItem | null,
   user: any,
   plusStatus: KronixPlusStatusResponse | null
 ): KronixEnviarDraft {
@@ -115,36 +118,42 @@ function buildPickupDraftFromAddress(
   const profileName = getUserName(user);
   const profilePhone = getUserPhone(user);
 
+  const appPlaceName = String(app?.placeName ?? app?.businessName ?? "").trim();
+  const appAddress = String(app?.address ?? "").trim();
+  const appReference = String(app?.addressReference ?? "").trim();
+
+  const addressPlaceName = String(address?.placeName ?? address?.label ?? "").trim();
+  const addressAddress = String(address?.address ?? "").trim();
+  const addressReference = String(address?.reference ?? "").trim();
+
+  const pickupPlaceName = appPlaceName || addressPlaceName || "Punto de recogida KroniX Plus";
+  const pickupAddress = appAddress || addressAddress;
+  const pickupReference = appReference || addressReference;
+
   return {
     ...loadKronixEnviarDraft(),
-    pickupPlaceName: String(
-      address.placeName ||
-        address.label ||
-        app?.businessName ||
-        "Punto de recogida KroniX Plus"
-    ).trim(),
-    pickupAddress: String(address.address ?? "").trim(),
-    pickupReference: String(address.reference ?? "").trim(),
+    pickupPlaceName,
+    pickupAddress,
+    pickupReference,
     pickupLat:
-      address.lat != null && Number.isFinite(Number(address.lat))
+      address?.lat != null && Number.isFinite(Number(address.lat))
         ? Number(address.lat)
         : null,
     pickupLng:
-      address.lng != null && Number.isFinite(Number(address.lng))
+      address?.lng != null && Number.isFinite(Number(address.lng))
         ? Number(address.lng)
         : null,
     pickupUseCurrentLocation: false,
 
-    // Envíos Plus de un toque: el destino real/detalles se coordinan en sitio.
     dropoffPlaceName: "Destino definido en sitio",
-    dropoffAddress: String(address.address ?? "").trim(),
+    dropoffAddress: pickupAddress,
     dropoffReference: "El motorizado recibirá la información del envío en el punto de recogida.",
     dropoffLat:
-      address.lat != null && Number.isFinite(Number(address.lat))
+      address?.lat != null && Number.isFinite(Number(address.lat))
         ? Number(address.lat)
         : null,
     dropoffLng:
-      address.lng != null && Number.isFinite(Number(address.lng))
+      address?.lng != null && Number.isFinite(Number(address.lng))
         ? Number(address.lng)
         : null,
     dropoffUseCurrentLocation: false,
@@ -153,13 +162,13 @@ function buildPickupDraftFromAddress(
     packageDescription:
       "Servicio KroniX Envíos Plus de un toque. Paquete/destino final definidos en sitio según condiciones aprobadas para el cliente.",
     senderName:
-      String(address.contactName ?? "").trim() ||
       String(app?.contactName ?? "").trim() ||
+      String(address?.contactName ?? "").trim() ||
       profileName ||
       "Contacto KroniX Plus",
     senderPhone:
-      cleanPhone(address.contactPhone) ||
       cleanPhone(app?.phone) ||
+      cleanPhone(address?.contactPhone) ||
       profilePhone,
     receiverName: "Motorizado confirma en sitio",
     receiverPhone: "",
@@ -430,10 +439,12 @@ export default function KronixEnviosStepThree() {
           list[0] ??
           null;
 
-        if (!selected) {
+        const appAddress = String(kronixPlusStatus?.application?.address ?? "").trim();
+
+        if (!selected && appAddress.length < 8) {
           if (!alive) return;
           setPickupError(
-            "No encontramos una dirección registrada para tu punto de recogida KroniX Plus. Agrega una dirección en Perfil > Direcciones."
+            "No encontramos una dirección de recogida KroniX Plus. Actualiza tu solicitud o agrega una dirección en Perfil > Direcciones."
           );
           setPickupLoading(false);
           return;
