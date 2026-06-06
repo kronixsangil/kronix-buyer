@@ -16,6 +16,39 @@ import { geocodeAddressOSMInCity } from "@/lib/geocode";
 import { apiFetch, type ApiError } from "@/lib/api";
 import Image from "next/image";
 
+type AddressItem = {
+  id: string;
+  label?: string | null;
+  placeName?: string | null;
+  reference?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  address: string;
+  lat?: number | null;
+  lng?: number | null;
+  isDefault?: boolean;
+  isFavorite?: boolean;
+};
+
+type KronixPlusStatusResponse = {
+  ok?: boolean;
+  approved?: boolean;
+  status?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+  application?: {
+    id: string;
+    status: string;
+    businessName?: string | null;
+    businessType?: string | null;
+    contactName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    citySlug?: string | null;
+    cityName?: string | null;
+    expectedShipmentsPerMonth?: number | null;
+    notes?: string | null;
+  } | null;
+};
+
 type CreateCourierOrderResponse = {
   id: string;
   status: string;
@@ -48,12 +81,6 @@ type CourierZoneCalculateResponse = {
   message: string;
 };
 
-const TIP_OPTIONS = [
-  { label: "Ninguna", value: 0 },
-  { label: "$1.000", value: 1000 },
-  { label: "$2.000", value: 2000 },
-];
-
 function formatCOP(value: number) {
   return Number(value || 0).toLocaleString("es-CO", {
     style: "currency",
@@ -67,40 +94,83 @@ function getSafeMoney(value: unknown) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function isLargePackage(packageType: string) {
-  const clean = String(packageType ?? "").trim().toLowerCase();
-  return clean.includes("grande");
+function cleanPhone(value: unknown) {
+  return String(value ?? "").replace(/\D/g, "").slice(0, 15);
 }
 
-function SummaryCard({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-[26px] border border-slate-200 bg-white px-4 pb-3 pt-4 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-      <div className="flex items-start gap-3">
-        <div className="relative -ml-1 -mt-1 flex h-[56px] w-[56px] shrink-0 items-center justify-center">
-          {icon}
-        </div>
-
-        <div className="min-w-0 flex-1 pt-[2px]">
-          <div className="text-[18px] font-black leading-[1.02] text-slate-900">
-            {title}
-          </div>
-        </div>
-      </div>
-
-      <div className="-mt-1">{children}</div>
-    </div>
-  );
+function getUserName(user: any) {
+  return String(user?.name ?? user?.user?.name ?? "").trim();
 }
 
-function Line({
+function getUserPhone(user: any) {
+  return cleanPhone(user?.phone ?? user?.user?.phone ?? "");
+}
+
+function buildPickupDraftFromAddress(
+  address: AddressItem,
+  user: any,
+  plusStatus: KronixPlusStatusResponse | null
+): KronixEnviarDraft {
+  const app = plusStatus?.application ?? null;
+  const profileName = getUserName(user);
+  const profilePhone = getUserPhone(user);
+
+  return {
+    ...loadKronixEnviarDraft(),
+    pickupPlaceName: String(
+      address.placeName ||
+        address.label ||
+        app?.businessName ||
+        "Punto de recogida KroniX Plus"
+    ).trim(),
+    pickupAddress: String(address.address ?? "").trim(),
+    pickupReference: String(address.reference ?? "").trim(),
+    pickupLat:
+      address.lat != null && Number.isFinite(Number(address.lat))
+        ? Number(address.lat)
+        : null,
+    pickupLng:
+      address.lng != null && Number.isFinite(Number(address.lng))
+        ? Number(address.lng)
+        : null,
+    pickupUseCurrentLocation: false,
+
+    // Envíos Plus de un toque: el destino real/detalles se coordinan en sitio.
+    dropoffPlaceName: "Destino definido en sitio",
+    dropoffAddress: String(address.address ?? "").trim(),
+    dropoffReference: "El motorizado recibirá la información del envío en el punto de recogida.",
+    dropoffLat:
+      address.lat != null && Number.isFinite(Number(address.lat))
+        ? Number(address.lat)
+        : null,
+    dropoffLng:
+      address.lng != null && Number.isFinite(Number(address.lng))
+        ? Number(address.lng)
+        : null,
+    dropoffUseCurrentLocation: false,
+
+    packageType: "KroniX Plus autorizado",
+    packageDescription:
+      "Servicio KroniX Envíos Plus de un toque. Paquete/destino final definidos en sitio según condiciones aprobadas para el cliente.",
+    senderName:
+      String(address.contactName ?? "").trim() ||
+      String(app?.contactName ?? "").trim() ||
+      profileName ||
+      "Contacto KroniX Plus",
+    senderPhone:
+      cleanPhone(address.contactPhone) ||
+      cleanPhone(app?.phone) ||
+      profilePhone,
+    receiverName: "Motorizado confirma en sitio",
+    receiverPhone: "",
+    notes: "",
+    isComplex: false,
+    zoneFeeCOP: 0,
+    tipCOP: 0,
+  };
+}
+
+function InfoLine({
   label,
   value,
   strong = false,
@@ -110,15 +180,15 @@ function Line({
   strong?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[96px_1fr] items-start gap-x-3 py-[7px]">
-      <div className="text-[14px] font-medium leading-[1.05] text-slate-500">
+    <div className="grid grid-cols-[86px_1fr] items-start gap-x-3 py-[6px]">
+      <div className="text-[13px] font-medium leading-tight text-slate-500">
         {label}
       </div>
 
       <div
         className={[
-          "break-words text-right text-[15px] leading-[1.08]",
-          strong ? "font-black text-slate-900" : "font-bold text-slate-800",
+          "break-words text-right text-[14px] leading-tight",
+          strong ? "font-black text-slate-950" : "font-bold text-slate-800",
         ].join(" ")}
       >
         {value}
@@ -127,7 +197,7 @@ function Line({
   );
 }
 
-function PriceRow({
+function PriceLine({
   label,
   value,
   highlight = false,
@@ -141,17 +211,16 @@ function PriceRow({
       <div
         className={
           highlight
-            ? "text-[14px] font-black text-slate-900"
+            ? "text-[14px] font-black text-slate-950"
             : "text-[14px] font-semibold text-slate-600"
         }
       >
         {label}
       </div>
-
       <div
         className={
           highlight
-            ? "text-[18px] font-black text-slate-900"
+            ? "text-[17px] font-black text-slate-950"
             : "text-[14px] font-black text-slate-900"
         }
       >
@@ -161,18 +230,94 @@ function PriceRow({
   );
 }
 
+function ConfirmationModal({
+  open,
+  submitting,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  submitting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-[390px] overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-black/10">
+        <div className="relative px-5 pb-5 pt-5 text-white">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.28),transparent_34%),linear-gradient(135deg,#03102b_0%,#082b63_55%,#0f172a_100%)]" />
+          <div className="relative z-10">
+            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+              Confirmación KroniX
+            </div>
+            <div className="mt-2 text-[22px] font-black leading-tight">
+              Antes de solicitar el motorizado
+            </div>
+            <div className="mt-2 text-[13px] font-semibold leading-5 text-white/85">
+              Revisa y acepta las condiciones operativas del servicio.
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-5">
+          <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-900">
+            El valor mostrado es estimado y puede variar por lluvias, distancia,
+            zonas alejadas, paquetes grandes, pesados o difíciles de transportar,
+            tiempos de espera u otras condiciones especiales.
+          </div>
+
+          <div className="rounded-[22px] border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] font-bold leading-5 text-blue-900">
+            Si el motorizado necesita ajustar el valor, deberá proponerlo a través
+            de KroniX y el cliente podrá aprobar o rechazar el ajuste antes de
+            continuar el servicio.
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-[14px] font-black text-slate-800 shadow-sm disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={submitting}
+              className="rounded-[22px] bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] px-4 py-3 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(5,150,105,0.24)] disabled:opacity-60"
+            >
+              {submitting ? "Creando..." : "Aceptar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function KronixEnviosStepThree() {
   const router = useRouter();
   const { isAuthed, isLoading: authLoading, user } = useAuth();
-  const { citySlug, cityGeoLabel, cityLabel } = useBuyerCity();
+  const { citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
 
   const [draft, setDraft] = useState<KronixEnviarDraft>(() =>
     loadKronixEnviarDraft()
   );
-  const [customTipText, setCustomTipText] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [kronixPlusStatus, setKronixPlusStatus] =
+    useState<KronixPlusStatusResponse | null>(null);
+
+  const [pickupLoading, setPickupLoading] = useState(true);
+  const [pickupError, setPickupError] = useState<string | null>(null);
 
   const [pricingLoading, setPricingLoading] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
@@ -182,93 +327,143 @@ export default function KronixEnviosStepThree() {
   const ready = useMemo(() => {
     return (
       draft.pickupAddress.trim().length >= 8 &&
-      draft.dropoffAddress.trim().length >= 8 &&
       draft.senderName.trim().length >= 3 &&
-      draft.receiverName.trim().length >= 3 &&
-      draft.packageType.trim().length >= 3
+      !!citySlug
     );
-  }, [draft]);
+  }, [citySlug, draft.pickupAddress, draft.senderName]);
 
   const pricing = useMemo(() => {
     const apiPricing = zoneCalculation?.pricing;
-
     return {
       baseFee: getSafeMoney(apiPricing?.baseServiceCOP),
       zoneFee: getSafeMoney(apiPricing?.zoneFeeCOP),
       serviceFee: getSafeMoney(apiPricing?.serviceFeeCOP),
-      packageSizeFee: getSafeMoney(apiPricing?.packageLargeFeeCOP),
-      tipCOP: getSafeMoney(apiPricing?.tipCOP ?? draft.tipCOP),
-      deliveryFee:
-        getSafeMoney(apiPricing?.baseServiceCOP) +
-        getSafeMoney(apiPricing?.zoneFeeCOP) +
-        getSafeMoney(apiPricing?.packageLargeFeeCOP),
       total: getSafeMoney(apiPricing?.totalCOP),
       zoneNumber: zoneCalculation?.zone?.zoneNumber ?? null,
-      zoneName: zoneCalculation?.zone?.name ?? null,
       isNegotiable: Boolean(zoneCalculation?.zone?.isNegotiable),
-      isInsideCoverage: zoneCalculation?.zone?.isInsideCoverage ?? true,
+      deliveryFee:
+        getSafeMoney(apiPricing?.baseServiceCOP) +
+        getSafeMoney(apiPricing?.zoneFeeCOP),
     };
-  }, [draft.tipCOP, zoneCalculation]);
-
-  function persist(next: KronixEnviarDraft) {
-    setDraft(next);
-    saveKronixEnviarDraft(next);
-  }
-
-  function setTip(value: number) {
-    setCustomTipText("");
-    persist({
-      ...draft,
-      tipCOP: getSafeMoney(value),
-    });
-  }
-
-  function applyCustomTip(value: string) {
-    const digits = String(value ?? "").replace(/\D/g, "").slice(0, 7);
-    setCustomTipText(digits);
-
-    persist({
-      ...draft,
-      tipCOP: getSafeMoney(digits),
-    });
-  }
-
-  function goBack() {
-    saveKronixEnviarDraft(draft);
-    router.push("/kronix/enviar?step=2");
-  }
+  }, [zoneCalculation]);
 
   async function getPickupGeo() {
-  if (
-    typeof draft.pickupLat === "number" &&
-    typeof draft.pickupLng === "number" &&
-    Number.isFinite(draft.pickupLat) &&
-    Number.isFinite(draft.pickupLng)
-  ) {
-    return {
-      lat: Number(draft.pickupLat),
-      lng: Number(draft.pickupLng),
-    };
+    if (
+      typeof draft.pickupLat === "number" &&
+      typeof draft.pickupLng === "number" &&
+      Number.isFinite(draft.pickupLat) &&
+      Number.isFinite(draft.pickupLng)
+    ) {
+      return {
+        lat: Number(draft.pickupLat),
+        lng: Number(draft.pickupLng),
+      };
+    }
+
+    return await geocodeAddressOSMInCity(draft.pickupAddress, cityGeoLabel);
   }
 
-  return await geocodeAddressOSMInCity(draft.pickupAddress, cityGeoLabel);
-}
+  useEffect(() => {
+    let alive = true;
 
-async function getDropoffGeo() {
-  if (
-    typeof draft.dropoffLat === "number" &&
-    typeof draft.dropoffLng === "number" &&
-    Number.isFinite(draft.dropoffLat) &&
-    Number.isFinite(draft.dropoffLng)
-  ) {
-    return {
-      lat: Number(draft.dropoffLat),
-      lng: Number(draft.dropoffLng),
+    async function loadStatus() {
+      if (authLoading) return;
+
+      if (!isAuthed || !user?.id) {
+        if (!alive) return;
+        setKronixPlusStatus(null);
+        setStatusLoading(false);
+        return;
+      }
+
+      setStatusLoading(true);
+
+      try {
+        const res = await apiFetch<KronixPlusStatusResponse>(
+          "/users/me/kronix-plus/status",
+          {
+            method: "GET",
+            suppressSessionExpiredEvent: true,
+          } as any
+        );
+
+        if (!alive) return;
+        setKronixPlusStatus(res);
+      } catch {
+        if (!alive) return;
+        setKronixPlusStatus(null);
+      } finally {
+        if (alive) setStatusLoading(false);
+      }
+    }
+
+    loadStatus();
+
+    return () => {
+      alive = false;
     };
-  }
+  }, [authLoading, isAuthed, user?.id]);
 
-  return await geocodeAddressOSMInCity(draft.dropoffAddress, cityGeoLabel);
-}
+  useEffect(() => {
+    let alive = true;
+
+    async function loadPickupPoint() {
+      if (!cityReady || !citySlug || statusLoading) return;
+      if (!isAuthed || !user?.id || !kronixPlusStatus?.approved) {
+        setPickupLoading(false);
+        return;
+      }
+
+      setPickupLoading(true);
+      setPickupError(null);
+
+      try {
+        const addresses = await apiFetch<AddressItem[]>(
+          `/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`,
+          { suppressSessionExpiredEvent: true } as any
+        );
+
+        const list = Array.isArray(addresses) ? addresses : [];
+        const selected =
+          list.find((a) => a.isDefault) ??
+          list.find((a) => a.isFavorite) ??
+          list[0] ??
+          null;
+
+        if (!selected) {
+          if (!alive) return;
+          setPickupError(
+            "No encontramos una dirección registrada para tu punto de recogida KroniX Plus. Agrega una dirección en Perfil > Direcciones."
+          );
+          setPickupLoading(false);
+          return;
+        }
+
+        const nextDraft = buildPickupDraftFromAddress(
+          selected,
+          user,
+          kronixPlusStatus
+        );
+
+        if (!alive) return;
+        setDraft(nextDraft);
+        saveKronixEnviarDraft(nextDraft);
+      } catch {
+        if (!alive) return;
+        setPickupError(
+          "No pudimos cargar tu punto de recogida KroniX Plus. Intenta nuevamente."
+        );
+      } finally {
+        if (alive) setPickupLoading(false);
+      }
+    }
+
+    loadPickupPoint();
+
+    return () => {
+      alive = false;
+    };
+  }, [cityReady, citySlug, statusLoading, isAuthed, user?.id, kronixPlusStatus?.approved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -282,24 +477,12 @@ async function getDropoffGeo() {
       setPricingLoading(true);
 
       try {
-        const [pickupGeo, dropoffGeo] = await Promise.all([
-          getPickupGeo(),
-          getDropoffGeo(),
-        ]);
+        const pickupGeo = await getPickupGeo();
 
         if (!pickupGeo) {
           if (!cancelled) {
             setPricingError(
               `No pudimos ubicar con precisión el punto de recogida en ${cityLabel}. Revisa la dirección.`
-            );
-          }
-          return;
-        }
-
-        if (!dropoffGeo) {
-          if (!cancelled) {
-            setPricingError(
-              `No pudimos ubicar con precisión el punto de entrega en ${cityLabel}. Revisa la dirección.`
             );
           }
           return;
@@ -316,18 +499,18 @@ async function getDropoffGeo() {
                 {
                   lat: pickupGeo.lat,
                   lng: pickupGeo.lng,
-                  label: "Punto de recogida KroniX Envíos",
+                  label: "Punto de recogida KroniX Envíos Plus",
                   address: draft.pickupAddress.trim(),
                 },
                 {
-                  lat: dropoffGeo.lat,
-                  lng: dropoffGeo.lng,
-                  label: "Punto de entrega KroniX Envíos",
-                  address: draft.dropoffAddress.trim(),
+                  lat: pickupGeo.lat,
+                  lng: pickupGeo.lng,
+                  label: "Confirmación en sitio KroniX Envíos Plus",
+                  address: draft.pickupAddress.trim(),
                 },
               ],
-              tipCOP: getSafeMoney(draft.tipCOP),
-              isLargePackage: isLargePackage(draft.packageType),
+              tipCOP: 0,
+              isLargePackage: false,
             },
           }
         );
@@ -337,7 +520,6 @@ async function getDropoffGeo() {
         }
       } catch (e: any) {
         const err = e as ApiError;
-
         if (!cancelled) {
           setPricingError(
             String(err?.message ?? "").trim() ||
@@ -345,9 +527,7 @@ async function getDropoffGeo() {
           );
         }
       } finally {
-        if (!cancelled) {
-          setPricingLoading(false);
-        }
+        if (!cancelled) setPricingLoading(false);
       }
     }
 
@@ -356,25 +536,20 @@ async function getDropoffGeo() {
     return () => {
       cancelled = true;
     };
-  }, [
-    ready,
-    citySlug,
-    cityLabel,
-    cityGeoLabel,
-    draft.pickupAddress,
-    draft.pickupLat,
-    draft.pickupLng,
-    draft.dropoffAddress,
-    draft.dropoffLat,
-    draft.dropoffLng,
-    draft.packageType,
-    draft.tipCOP,
-  ]);
+  }, [ready, citySlug, cityLabel, cityGeoLabel, draft.pickupAddress, draft.pickupLat, draft.pickupLng]);
 
-  async function handleSubmit() {
+  function requestConfirm() {
     setCreateError(null);
 
-    if (!ready) return;
+    if (!authLoading && !isAuthed) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    if (!ready) {
+      setCreateError("No tenemos completo el punto de recogida KroniX Plus.");
+      return;
+    }
 
     if (!zoneCalculation) {
       setCreateError(
@@ -383,10 +558,13 @@ async function getDropoffGeo() {
       return;
     }
 
-    if (!authLoading && !isAuthed) {
-      setShowAuthModal(true);
-      return;
-    }
+    setShowConfirmModal(true);
+  }
+
+  async function handleSubmit() {
+    setCreateError(null);
+
+    if (!ready || !zoneCalculation) return;
 
     if (!user?.id) {
       setCreateError("No pudimos identificar tu sesión. Vuelve a iniciar sesión.");
@@ -398,10 +576,7 @@ async function getDropoffGeo() {
     try {
       saveKronixEnviarDraft(draft);
 
-      const [pickupGeo, dropoffGeo] = await Promise.all([
-        getPickupGeo(),
-        getDropoffGeo(),
-      ]);
+      const pickupGeo = await getPickupGeo();
 
       if (!pickupGeo) {
         setCreateError(
@@ -411,32 +586,17 @@ async function getDropoffGeo() {
         return;
       }
 
-      if (!dropoffGeo) {
-        setCreateError(
-          `No pudimos ubicar con precisión el punto de entrega en ${cityLabel}. Revisa la dirección e inténtalo de nuevo.`
-        );
-        setSubmitting(false);
-        return;
-      }
-
       const packageDescription = [
-        "SERVICIO: KroniX Envíos",
-        `TIPO DE PAQUETE: ${draft.packageType.trim()}`,
-        `TAMAÑO PAQUETE: ${
-          isLargePackage(draft.packageType) ? "Grande" : "Normal"
-        }`,
+        "SERVICIO: KroniX Envíos Plus de un toque",
+        "TIPO DE PAQUETE: Definido por condiciones KroniX Plus aprobadas",
         `ZONA CALCULADA: Zona ${pricing.zoneNumber ?? "pendiente"}`,
         `VALOR ZONA: ${formatCOP(pricing.zoneFee)}`,
-        `MANEJO PAQUETE: ${formatCOP(pricing.packageSizeFee)}`,
-        `PROPINA: ${formatCOP(pricing.tipCOP)}`,
-        "",
-        draft.packageDescription.trim()
-          ? `DESCRIPCIÓN: ${draft.packageDescription.trim()}`
-          : "",
-        draft.notes.trim() ? `NOTAS: ${draft.notes.trim()}` : "",
+        `COSTO SERVICIO: ${formatCOP(pricing.serviceFee)}`,
         pricing.isNegotiable
-          ? "NOTA OPERATIVA: Zona fuera de cobertura. El valor del envío se acuerda directamente entre cliente y motorizado. KroniX solo cobra el costo de servicio."
-          : "",
+          ? "NOTA OPERATIVA: Zona fuera de cobertura estándar o sujeta a negociación. El motorizado podrá proponer ajuste por la aplicación y el cliente deberá aprobarlo."
+          : "NOTA OPERATIVA: Valor estimado sujeto a ajustes autorizados por cliente en caso de lluvia, distancia, sobredimensión, peso o condiciones especiales.",
+        "",
+        "DESTINO/PAQUETE: El cliente entregará información y paquete al motorizado en el punto de recogida.",
       ]
         .filter(Boolean)
         .join("\n");
@@ -447,19 +607,20 @@ async function getDropoffGeo() {
         customerId: user.id,
         citySlug,
 
-        dropoffAddress: draft.dropoffAddress.trim(),
-        dropoffLat: dropoffGeo.lat,
-        dropoffLng: dropoffGeo.lng,
+        dropoffAddress: draft.pickupAddress.trim(),
+        dropoffLat: pickupGeo.lat,
+        dropoffLng: pickupGeo.lng,
 
-        customerNote: draft.notes.trim() || undefined,
+        customerNote:
+          "KroniX Envíos Plus de un toque. Motorizado debe llegar al punto de recogida y confirmar detalles del envío en sitio.",
 
         deliveryFeeCOP: pricing.deliveryFee,
         serviceFeeCOP: pricing.serviceFee,
         promoCOP: 0,
-        tipCOP: pricing.tipCOP,
+        tipCOP: 0,
         totalCOP: pricing.total,
 
-        packageType: draft.packageType.trim(),
+        packageType: "KroniX Plus autorizado",
         packageDescription,
 
         origin: {
@@ -473,13 +634,14 @@ async function getDropoffGeo() {
         },
 
         destination: {
-          address: draft.dropoffAddress.trim(),
-          lat: dropoffGeo.lat,
-          lng: dropoffGeo.lng,
-          placeName: draft.dropoffPlaceName.trim() || undefined,
-          reference: draft.dropoffReference.trim() || undefined,
-          receiverName: draft.receiverName.trim(),
-          receiverPhone: draft.receiverPhone.trim() || undefined,
+          address: draft.pickupAddress.trim(),
+          lat: pickupGeo.lat,
+          lng: pickupGeo.lng,
+          placeName: "Destino definido en sitio",
+          reference:
+            "El destino final y los datos del paquete se confirmarán en el punto de recogida.",
+          receiverName: "Confirmar en sitio",
+          receiverPhone: undefined,
         },
       };
 
@@ -502,14 +664,84 @@ async function getDropoffGeo() {
 
       setCreateError(msg);
       setSubmitting(false);
+      setShowConfirmModal(false);
     }
   }
 
+  if (authLoading || statusLoading || pickupLoading) {
+    return (
+      <div className="space-y-3 px-4 pb-4 pt-3">
+        <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="h-6 w-48 animate-pulse rounded bg-slate-100" />
+          <div className="mt-3 h-24 animate-pulse rounded-[22px] bg-slate-100" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthed || !user?.id) {
+    return (
+      <div className="px-4 pb-4 pt-3">
+        <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm">
+          <div className="text-[20px] font-black">Inicia sesión para usar KroniX Envíos</div>
+          <div className="mt-2 text-[14px] font-semibold leading-6">
+            Este servicio requiere una cuenta Buyer activa y validación KroniX Plus.
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/login?next=/kronix/enviar")}
+            className="mt-5 w-full rounded-[22px] bg-slate-900 px-4 py-4 text-[15px] font-black text-white"
+          >
+            Iniciar sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!kronixPlusStatus?.approved) {
+    const status = String(kronixPlusStatus?.status ?? "NONE").toUpperCase();
+    const pending = status === "PENDING";
+
+    return (
+      <div className="px-4 pb-4 pt-3">
+        <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+          <div className="relative px-5 pb-6 pt-6 text-white">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.32),transparent_32%),linear-gradient(135deg,#03102b_0%,#082b63_55%,#0f172a_100%)]" />
+            <div className="relative z-10">
+              <div className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                KroniX Plus requerido
+              </div>
+              <div className="mt-2 text-[25px] font-black leading-tight">
+                KroniX Envíos está disponible para clientes validados
+              </div>
+              <div className="mt-3 text-[14px] font-semibold leading-6 text-white/85">
+                {pending
+                  ? "Tu solicitud está pendiente de validación. KroniX revisará tu volumen y te contactará."
+                  : "Aplica sin costo desde el menú principal. Una vez aprobada tu cuenta, podrás crear envíos frecuentes desde aquí."}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="w-full rounded-[22px] bg-[linear-gradient(90deg,#0c45ff_0%,#0b8bdf_50%,#1fd09a_100%)] px-4 py-4 text-[15px] font-black text-white shadow-[0_12px_22px_rgba(12,69,255,0.22)]"
+            >
+              {pending ? "Volver al inicio" : "Aplicar a KroniX Plus"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
-      <div className="rounded-[26px] border border-emerald-100 bg-emerald-50 px-4 py-3 shadow-sm">
+    <div className="space-y-2 px-4 pb-4 pt-3">
+      <div className="rounded-[24px] border border-emerald-100 bg-emerald-50 px-4 py-3 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-xl shadow-sm ring-1 ring-emerald-100">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-emerald-100">
             <div className="relative h-10 w-10">
               <Image
                 src="/branding/kronix/target.png"
@@ -529,101 +761,44 @@ async function getDropoffGeo() {
               Confirma tu KroniX Envío
             </div>
             <div className="mt-1 text-[12px] leading-4 text-emerald-800/80">
-              Revisa recogida, entrega, zona, propina y precio estimado.
+              Revisa recogida y precio estimado antes de confirmar.
             </div>
           </div>
         </div>
       </div>
 
-      <SummaryCard
-        title="Punto de recogida"
-        icon={
-          <div className="relative h-10 w-10">
+      <div className="rounded-[26px] border border-slate-200 bg-white px-4 pb-3 pt-4 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+        <div className="flex items-start gap-3">
+          <div className="relative -ml-1 -mt-1 h-[56px] w-[56px] shrink-0">
             <Image
               src="/branding/kronix/startpoint.png"
-              alt="Inicio"
+              alt="Punto de recogida"
               fill
               className="object-contain scale-[2] translate-x-[-5px] translate-y-[-8px]"
               sizes="62px"
             />
           </div>
-        }
-      >
-        <div className="grid gap-1">
-          <Line label="Lugar" value={draft.pickupPlaceName.trim() || "Sin nombre específico"} />
-          <Line label="Dirección" value={draft.pickupAddress.trim() || "No definida"} strong />
-          <Line label="Referencia" value={draft.pickupReference.trim() || "Sin referencia"} />
-          <Line label="Contacto" value={draft.senderName.trim() || "No definido"} />
-          <Line label="Teléfono" value={draft.senderPhone.trim() || "Sin teléfono"} />
-        </div>
-      </SummaryCard>
 
-      <SummaryCard
-        title="Punto de entrega"
-        icon={
-          <div className="relative h-10 w-10">
-            <Image
-              src="/branding/kronix/endpoint.png"
-              alt="Destino"
-              fill
-              className="object-contain scale-[2] translate-x-[-5px] translate-y-[-8px]"
-              sizes="62px"
-            />
+          <div className="min-w-0 flex-1 pt-[2px]">
+            <div className="text-[18px] font-black leading-[1.02] text-slate-900">
+              Punto de recogida
+            </div>
           </div>
-        }
-      >
-        <div className="grid gap-1">
-          <Line label="Lugar" value={draft.dropoffPlaceName.trim() || "Sin nombre específico"} />
-          <Line label="Dirección" value={draft.dropoffAddress.trim() || "No definida"} strong />
-          <Line label="Referencia" value={draft.dropoffReference.trim() || "Sin referencia"} />
-          <Line label="Contacto" value={draft.receiverName.trim() || "No definido"} />
-          <Line label="Teléfono" value={draft.receiverPhone.trim() || "Sin teléfono"} />
-          <Line label="Paquete" value={draft.packageType.trim() || "No definido"} />
-          <Line label="Notas" value={draft.notes.trim() || "Sin notas"} />
-        </div>
-      </SummaryCard>
-
-      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-[18px] font-black text-slate-900">
-          Propina para el conductor
         </div>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {TIP_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setTip(option.value)}
-              className={[
-                "rounded-[18px] px-3 py-3 text-[13px] font-black transition",
-                Number(draft.tipCOP ?? 0) === option.value && customTipText === ""
-                  ? "bg-emerald-600 text-white"
-                  : "border border-slate-200 bg-slate-50 text-slate-800",
-              ].join(" ")}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="-mt-1 grid gap-1">
+          <InfoLine label="Lugar" value={draft.pickupPlaceName.trim() || "Punto KroniX Plus"} />
+          <InfoLine label="Dirección" value={draft.pickupAddress.trim() || "No definida"} strong />
+          <InfoLine label="Referencia" value={draft.pickupReference.trim() || "Sin referencia"} />
+          <InfoLine label="Contacto" value={draft.senderName.trim() || "No definido"} />
+          <InfoLine label="Teléfono" value={draft.senderPhone.trim() || "Sin teléfono"} />
         </div>
-
-        <input
-          value={customTipText}
-          onChange={(e) => applyCustomTip(e.target.value)}
-          placeholder="Otro valor, ej: 4000"
-          inputMode="numeric"
-          className="mt-3 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] font-semibold outline-none focus:border-emerald-300 focus:bg-white"
-        />
       </div>
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[18px] font-black text-slate-900">
-              Precio estimado
-            </div>
-            <div className="mt-1 text-[12px] font-semibold text-slate-500">
-              Calculado automáticamente por geocerca.
-            </div>
+      <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[18px] font-black text-slate-900">
+            Precio estimado
           </div>
 
           <div className="rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-black text-emerald-700 ring-1 ring-emerald-100">
@@ -641,32 +816,24 @@ async function getDropoffGeo() {
           </div>
         ) : null}
 
-        <div className="mt-4 rounded-[24px] bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
-          <PriceRow label="Base del servicio" value={formatCOP(pricing.baseFee)} />
-          <PriceRow
-            label={`Zona ${pricing.zoneNumber ?? "x"}`}
-            value={formatCOP(pricing.zoneFee)}
-          />
-          <PriceRow label="Costo servicio" value={formatCOP(pricing.serviceFee)} />
-          <PriceRow label="Manejo paquete" value={formatCOP(pricing.packageSizeFee)} />
-          <PriceRow label="Propina" value={formatCOP(pricing.tipCOP)} />
-
+        <div className="mt-3 rounded-[22px] bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
+          <PriceLine label="Base del servicio" value={formatCOP(pricing.baseFee)} />
+          <PriceLine label="Costo servicio" value={formatCOP(pricing.serviceFee)} />
           <div className="my-2 border-t border-slate-200" />
-
-          <PriceRow label="Total estimado" value={formatCOP(pricing.total)} highlight />
+          <PriceLine label="Total estimado" value={formatCOP(pricing.total)} highlight />
         </div>
 
         {pricing.isNegotiable ? (
           <div className="mt-3 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-semibold leading-5 text-amber-800">
-            Zona fuera de cobertura estándar. KroniX solo cobra el costo de servicio;
-            el valor del envío se acuerda directamente con el motorizado.
+            Este servicio puede requerir ajuste por zona o condiciones especiales.
+            El motorizado podrá proponerlo por la aplicación y el cliente deberá aprobarlo.
           </div>
         ) : null}
       </div>
 
-      {!ready ? (
+      {pickupError ? (
         <div className="rounded-[22px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
-          Faltan datos obligatorios. Vuelve y revisa recogida, entrega y tipo de paquete.
+          {pickupError}
         </div>
       ) : null}
 
@@ -676,35 +843,31 @@ async function getDropoffGeo() {
         </div>
       ) : null}
 
-      <div className="flex gap-3 pt-1">
-        <button
-          type="button"
-          onClick={goBack}
-          disabled={submitting}
-          className="flex-1 rounded-[24px] border border-slate-200 bg-white py-4 text-[15px] font-black text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-        >
-          Atrás
-        </button>
+      <button
+        type="button"
+        disabled={!ready || submitting || pricingLoading || !zoneCalculation || !!pickupError}
+        onClick={requestConfirm}
+        className={[
+          "w-full rounded-[24px] py-4 text-[15px] font-black text-white transition",
+          ready && !submitting && !pricingLoading && zoneCalculation && !pickupError
+            ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_12px_22px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
+            : "cursor-not-allowed bg-slate-300 shadow-none",
+        ].join(" ")}
+      >
+        {submitting ? "Creando envío..." : "Confirmar Envío"}
+      </button>
 
-        <button
-          type="button"
-          disabled={!ready || submitting || pricingLoading || !zoneCalculation}
-          onClick={handleSubmit}
-          className={[
-            "flex-1 rounded-[24px] py-4 text-[15px] font-black text-white transition",
-            ready && !submitting && !pricingLoading && zoneCalculation
-              ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_12px_22px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
-              : "cursor-not-allowed bg-slate-300 shadow-none",
-          ].join(" ")}
-        >
-          {submitting ? "Creando envío..." : "Confirmar Envío"}
-        </button>
-      </div>
+      <ConfirmationModal
+        open={showConfirmModal}
+        submitting={submitting}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleSubmit}
+      />
 
       <AuthRequiredModal
         open={showAuthModal}
         onConfirm={() =>
-          router.push(`/login?next=${encodeURIComponent("/kronix/enviar?step=3")}`)
+          router.push(`/login?next=${encodeURIComponent("/kronix/enviar")}`)
         }
         onClose={() => setShowAuthModal(false)}
       />

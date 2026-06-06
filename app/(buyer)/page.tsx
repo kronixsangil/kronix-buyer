@@ -285,7 +285,9 @@ function StandardCard({
         {/* TITULO */}
         <div
           className={[
-            "ml-1 font-black text-slate-900 leading-tight whitespace-nowrap",
+            item.title === "KroniX Envíos"
+  ? "ml-1 font-black text-white leading-tight whitespace-nowrap drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+  : "ml-1 font-black text-slate-900 leading-tight whitespace-nowrap",
             item.title === "Domicilios y Diligencias"
               ? "text-[18px]"
               : "text-[22px]",
@@ -297,7 +299,9 @@ function StandardCard({
         {/* SUBTITULO */}
         <div
           className={[
-            "ml-4 mt-1 font-medium text-slate-500",
+            item.title === "KroniX Envíos"
+  ? "ml-4 mt-1 font-medium text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
+  : "ml-4 mt-1 font-medium text-slate-500",
             "text-[13px] leading-[16px]",
             "line-clamp-3",
             item.title === "Domicilio Express"
@@ -333,15 +337,23 @@ function StandardCard({
       ) : null}
 
       {/* CHEVRON */}
-      <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
+      <div
+  className={[
+    "shrink-0 text-[28px] font-black transition group-hover:translate-x-0.5",
+    item.title === "KroniX Envíos"
+      ? "text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+      : "text-slate-300",
+  ].join(" ")}
+>
         ›
       </div>
     </div>
   );
 
   const cls =
-    "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
-
+  item.title === "KroniX Envíos"
+    ? "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-emerald-300 px-4 py-1 text-left text-white shadow-[0_10px_26px_rgba(16,185,129,0.35)] transition hover:shadow-[0_14px_30px_rgba(16,185,129,0.45)] active:scale-[0.995] bg-[radial-gradient(circle_at_78%_50%,rgba(220,252,231,1)_0%,rgba(110,231,183,1)_15%,rgba(16,185,129,1)_35%,rgba(5,150,105,1)_60%,rgba(6,95,70,1)_100%)]"
+    : "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={cls}>
