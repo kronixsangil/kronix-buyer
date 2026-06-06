@@ -83,6 +83,21 @@ type CourierZoneCalculateResponse = {
   };
   message: string;
 };
+type WalletResponse = {
+  ok?: boolean;
+  wallet?: {
+    id: string;
+    userId: string;
+    cityId: string;
+    cashBalanceCOP: number;
+    bonusBalanceCOP: number;
+    totalAvailableCOP: number;
+    isActive: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
+};
+
 
 function formatCOP(value: number) {
   return Number(value || 0).toLocaleString("es-CO", {
@@ -242,11 +257,15 @@ function PriceLine({
 function ConfirmationModal({
   open,
   submitting,
+  totalCOP,
+  walletAvailableCOP,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   submitting: boolean;
+  totalCOP: number;
+  walletAvailableCOP: number;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -262,15 +281,26 @@ function ConfirmationModal({
               Confirmación KroniX
             </div>
             <div className="mt-2 text-[22px] font-black leading-tight">
-              Antes de solicitar el motorizado
+              Confirmar y pagar con Wallet
             </div>
             <div className="mt-2 text-[13px] font-semibold leading-5 text-white/85">
-              Revisa y acepta las condiciones operativas del servicio.
+              KroniX descontará el valor estimado de tu Wallet y creará el envío de inmediato.
             </div>
           </div>
         </div>
 
         <div className="space-y-3 p-5">
+          <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 text-[13px] font-black text-emerald-950">
+              <span>Saldo Wallet</span>
+              <span>{formatCOP(walletAvailableCOP)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3 border-t border-emerald-100 pt-2 text-[13px] font-black text-emerald-950">
+              <span>Valor a descontar</span>
+              <span>{formatCOP(totalCOP)}</span>
+            </div>
+          </div>
+
           <div className="rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-900">
             El valor mostrado es estimado y puede variar por lluvias, distancia,
             zonas alejadas, paquetes grandes, pesados o difíciles de transportar,
@@ -299,7 +329,7 @@ function ConfirmationModal({
               disabled={submitting}
               className="rounded-[22px] bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] px-4 py-3 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(5,150,105,0.24)] disabled:opacity-60"
             >
-              {submitting ? "Creando..." : "Aceptar"}
+              {submitting ? "Pagando..." : "Aceptar y pagar"}
             </button>
           </div>
         </div>
@@ -311,7 +341,7 @@ function ConfirmationModal({
 export default function KronixEnviosStepThree() {
   const router = useRouter();
   const { isAuthed, isLoading: authLoading, user } = useAuth();
-  const { citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
+  const { city, citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
 
   const [draft, setDraft] = useState<KronixEnviarDraft>(() =>
     loadKronixEnviarDraft()
@@ -332,6 +362,10 @@ export default function KronixEnviosStepThree() {
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [zoneCalculation, setZoneCalculation] =
     useState<CourierZoneCalculateResponse | null>(null);
+
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<WalletResponse["wallet"] | null>(null);
 
   const ready = useMemo(() => {
     return (
@@ -355,6 +389,14 @@ export default function KronixEnviosStepThree() {
         getSafeMoney(apiPricing?.zoneFeeCOP),
     };
   }, [zoneCalculation]);
+
+  const walletAvailableCOP = useMemo(() => {
+    return Number(wallet?.totalAvailableCOP ?? 0);
+  }, [wallet?.totalAvailableCOP]);
+
+  const hasEnoughWalletBalance = useMemo(() => {
+    return walletAvailableCOP >= pricing.total && pricing.total > 0;
+  }, [pricing.total, walletAvailableCOP]);
 
   async function getPickupGeo() {
     if (
@@ -477,6 +519,50 @@ export default function KronixEnviosStepThree() {
   }, [cityReady, citySlug, statusLoading, isAuthed, user?.id, kronixPlusStatus?.approved]);
 
   useEffect(() => {
+    let alive = true;
+
+    async function loadWallet() {
+      if (!isAuthed || !user?.id || !city?.id || !kronixPlusStatus?.approved) {
+        if (!alive) return;
+        setWallet(null);
+        setWalletLoading(false);
+        return;
+      }
+
+      setWalletLoading(true);
+      setWalletError(null);
+
+      try {
+        const response = await apiFetch<WalletResponse>(
+          `/wallet/me?cityId=${encodeURIComponent(city.id)}`,
+          {
+            method: "GET",
+            suppressSessionExpiredEvent: true,
+          } as any
+        );
+
+        if (!alive) return;
+        setWallet(response?.wallet ?? null);
+      } catch (e: any) {
+        if (!alive) return;
+        setWallet(null);
+        setWalletError(
+          String(e?.message ?? "").trim() ||
+            "No pudimos consultar tu saldo KroniX Wallet."
+        );
+      } finally {
+        if (alive) setWalletLoading(false);
+      }
+    }
+
+    loadWallet();
+
+    return () => {
+      alive = false;
+    };
+  }, [isAuthed, user?.id, city?.id, kronixPlusStatus?.approved]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function calculatePricing() {
@@ -569,6 +655,26 @@ export default function KronixEnviosStepThree() {
       return;
     }
 
+    if (walletLoading) {
+      setCreateError("Estamos consultando tu saldo KroniX Wallet. Espera unos segundos.");
+      return;
+    }
+
+    if (walletError) {
+      setCreateError(walletError);
+      return;
+    }
+
+    if (!wallet?.isActive) {
+      setCreateError("Debes tener una KroniX Wallet activa para confirmar este envío.");
+      return;
+    }
+
+    if (!hasEnoughWalletBalance) {
+      setCreateError("Saldo insuficiente en tu KroniX Wallet. Recarga saldo antes de confirmar.");
+      return;
+    }
+
     setShowConfirmModal(true);
   }
 
@@ -617,6 +723,9 @@ export default function KronixEnviosStepThree() {
         courierServiceType: "SEND_PACKAGE" as const,
         customerId: user.id,
         citySlug,
+
+        paymentMethod: "WALLET",
+        autoPayWithWallet: true,
 
         dropoffAddress: draft.pickupAddress.trim(),
         dropoffLat: pickupGeo.lat,
@@ -842,6 +951,68 @@ export default function KronixEnviosStepThree() {
         ) : null}
       </div>
 
+      <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[18px] font-black text-slate-900">
+              KroniX Wallet
+            </div>
+            <div className="mt-1 text-[12px] font-semibold text-slate-500">
+              El envío se activa con pago automático desde tu saldo.
+            </div>
+          </div>
+
+          <div
+            className={[
+              "rounded-full px-3 py-1 text-[12px] font-black ring-1",
+              hasEnoughWalletBalance
+                ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+                : "bg-amber-50 text-amber-700 ring-amber-100",
+            ].join(" ")}
+          >
+            {walletLoading
+              ? "Consultando..."
+              : hasEnoughWalletBalance
+                ? "Saldo OK"
+                : "Recargar"}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-[22px] bg-slate-50 px-4 py-3 ring-1 ring-slate-200">
+          <PriceLine
+            label="Saldo disponible"
+            value={walletLoading ? "..." : formatCOP(walletAvailableCOP)}
+          />
+          <PriceLine label="Costo del envío" value={formatCOP(pricing.total)} />
+          <div className="my-2 border-t border-slate-200" />
+          <PriceLine
+            label={hasEnoughWalletBalance ? "Disponible después" : "Falta por recargar"}
+            value={
+              hasEnoughWalletBalance
+                ? formatCOP(walletAvailableCOP - pricing.total)
+                : formatCOP(Math.max(pricing.total - walletAvailableCOP, 0))
+            }
+            highlight
+          />
+        </div>
+
+        {walletError ? (
+          <div className="mt-3 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
+            {walletError}
+          </div>
+        ) : null}
+
+        {!walletLoading && pricing.total > 0 && !hasEnoughWalletBalance ? (
+          <button
+            type="button"
+            onClick={() => router.push("/wallet")}
+            className="mt-3 w-full rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[14px] font-black text-emerald-800 shadow-sm"
+          >
+            Ir a Wallet para recargar
+          </button>
+        ) : null}
+      </div>
+
       {pickupError ? (
         <div className="rounded-[22px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
           {pickupError}
@@ -856,21 +1027,37 @@ export default function KronixEnviosStepThree() {
 
       <button
         type="button"
-        disabled={!ready || submitting || pricingLoading || !zoneCalculation || !!pickupError}
+        disabled={
+          !ready ||
+          submitting ||
+          pricingLoading ||
+          walletLoading ||
+          !zoneCalculation ||
+          !!pickupError ||
+          !hasEnoughWalletBalance
+        }
         onClick={requestConfirm}
         className={[
           "w-full rounded-[24px] py-4 text-[15px] font-black text-white transition",
-          ready && !submitting && !pricingLoading && zoneCalculation && !pickupError
+          ready &&
+          !submitting &&
+          !pricingLoading &&
+          !walletLoading &&
+          zoneCalculation &&
+          !pickupError &&
+          hasEnoughWalletBalance
             ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_12px_22px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
             : "cursor-not-allowed bg-slate-300 shadow-none",
         ].join(" ")}
       >
-        {submitting ? "Creando envío..." : "Confirmar Envío"}
+        {submitting ? "Pagando y creando envío..." : "Confirmar y pagar con Wallet"}
       </button>
 
       <ConfirmationModal
         open={showConfirmModal}
         submitting={submitting}
+        totalCOP={pricing.total}
+        walletAvailableCOP={walletAvailableCOP}
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleSubmit}
       />
