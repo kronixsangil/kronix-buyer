@@ -817,12 +817,13 @@ if (kronixPlusForm.address.trim().length < 8) {
         {
           method: "POST",
           json: {
-  businessName: kronixPlusForm.businessName.trim(),
-  businessType: kronixPlusForm.businessType.trim() || null,
   placeName: kronixPlusForm.placeName.trim(),
-  address: kronixPlusForm.address.trim(),
-  addressReference: kronixPlusForm.addressReference.trim() || null,
-  contactName: kronixPlusForm.contactName.trim(),
+address: kronixPlusForm.address.trim(),
+addressReference: kronixPlusForm.addressReference.trim() || null,
+
+pickupPlaceName: kronixPlusForm.placeName.trim(),
+pickupAddress: kronixPlusForm.address.trim(),
+pickupReference: kronixPlusForm.addressReference.trim() || null,
             phone: kronixPlusForm.phone.replace(/\D/g, "").slice(0, 15),
             email: kronixPlusForm.email.trim() || null,
             citySlug: String(city?.slug ?? "").trim() || null,
