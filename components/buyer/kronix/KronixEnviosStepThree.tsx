@@ -306,14 +306,10 @@ function ConfirmationModal({
             tráfico, tiempos de espera, distancias superiores a las previstas,
             paquetes grandes, pesados, voluminosos o cualquier condición especial
             detectada durante la prestación del servicio.
+            El motorizado podrá realizar cobro extra en efectivo en caso de que 
+            se presenten estas condiciones.
           </div>
-
-          <div className="rounded-[22px] border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] font-bold leading-5 text-blue-900">
-            Si el motorizado necesita ajustar el valor, deberá proponerlo a través
-            de KroniX y el cliente podrá aprobar o rechazar el ajuste antes de
-            continuar el servicio.
-          </div>
-
+          
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               type="button"
