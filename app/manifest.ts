@@ -15,25 +15,25 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["shopping", "food", "business"],
     icons: [
   {
-    src: "/icons/kronix-icon-192.png",
+    src: "/icons/kronix-icon.png",
     sizes: "192x192",
     type: "image/png",
     purpose: "any",
   },
   {
-    src: "/icons/kronix-icon-512.png",
+    src: "/icons/kronix-icon.png",
     sizes: "512x512",
     type: "image/png",
     purpose: "any",
   },
   {
-    src: "/icons/kronix-icon-maskable-192.png",
+    src: "/icons/kronix-icon.png",
     sizes: "192x192",
     type: "image/png",
     purpose: "maskable",
   },
   {
-    src: "/icons/kronix-icon-maskable-512.png",
+    src: "/icons/kronix-icon.png",
     sizes: "512x512",
     type: "image/png",
     purpose: "maskable",
