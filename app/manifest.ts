@@ -9,41 +9,21 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    theme_color: "#0b1220",
     background_color: "#ffffff",
+    theme_color: "#16a34a",
     lang: "es-CO",
     categories: ["shopping", "food", "business"],
     icons: [
-  {
-    src: "/icons/kronix-icon.png",
-    sizes: "192x192",
-    type: "image/png",
-    purpose: "any",
-  },
-  {
-    src: "/icons/kronix-icon.png",
-    sizes: "512x512",
-    type: "image/png",
-    purpose: "any",
-  },
-  {
-    src: "/icons/kronix-icon.png",
-    sizes: "192x192",
-    type: "image/png",
-    purpose: "maskable",
-  },
-  {
-    src: "/icons/kronix-icon.png",
-    sizes: "512x512",
-    type: "image/png",
-    purpose: "maskable",
-  },
-  {
-    src: "/icons/apple-touch-icon.png",
-    sizes: "180x180",
-    type: "image/png",
-    purpose: "any",
-  },
-],
+      {
+        src: "/kronix-icon.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        src: "/kronix-icon.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
   };
 }
