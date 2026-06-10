@@ -9,6 +9,12 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+
+function isValidKronixPassword(value: string) {
+  const clean = String(value ?? "").trim();
+  return clean.length >= 8 && /[a-zA-Z]/.test(clean) && /\d/.test(clean);
+}
+
 function EyeIcon({ open }: { open: boolean }) {
   return (
     <span aria-hidden="true" className="text-gray-500">
@@ -18,7 +24,7 @@ function EyeIcon({ open }: { open: boolean }) {
 }
 
 export default function SecurityPage() {
-  const { isLoading, isAuthed } = useAuth();
+  const { isLoading, isAuthed, user, reload } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -32,7 +38,10 @@ export default function SecurityPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const meetsLen = useMemo(() => newPassword.trim().length >= 6, [newPassword]);
+  const meetsLen = useMemo(() => newPassword.trim().length >= 8, [newPassword]);
+  const hasLetter = useMemo(() => /[a-zA-Z]/.test(newPassword), [newPassword]);
+  const hasNumber = useMemo(() => /\d/.test(newPassword), [newPassword]);
+  const policyOk = useMemo(() => isValidKronixPassword(newPassword), [newPassword]);
   const matches = useMemo(
     () => confirm.length > 0 && newPassword === confirm,
     [newPassword, confirm]
@@ -41,12 +50,17 @@ export default function SecurityPage() {
   const canSubmit =
     !saving &&
     currentPassword.trim().length > 0 &&
-    newPassword.trim().length >= 6 &&
+    policyOk &&
     newPassword === confirm;
 
   const onSubmit = async () => {
     setMsg(null);
     setErr(null);
+
+    if (!policyOk) {
+      setErr("La nueva contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
+      return;
+    }
 
     if (newPassword !== confirm) {
       setErr("La confirmación no coincide.");
@@ -64,6 +78,7 @@ export default function SecurityPage() {
       });
 
       setMsg("Contraseña actualizada con éxito.");
+      await reload();
       setCurrentPassword("");
       setNewPassword("");
       setConfirm("");
@@ -92,6 +107,12 @@ export default function SecurityPage() {
 
       {!isLoading && isAuthed ? (
         <>
+          {user?.mustChangePassword ? (
+            <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-900">
+              🔐 Tu contraseña fue restablecida por KroniX. Debes cambiarla antes de continuar usando la app.
+            </div>
+          ) : null}
+
           {/* Card superior “premium” */}
           <div className="mt-4 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
             <div className="p-4">
@@ -104,7 +125,7 @@ export default function SecurityPage() {
                     Cambiar contraseña
                   </div>
                   <div className="mt-1 text-xs text-gray-600">
-                    Recomendación: usa una contraseña única y de al menos 6 caracteres.
+                    Recomendación: usa una contraseña alfanumérica de mínimo 8 caracteres.
                   </div>
                 </div>
               </div>
@@ -123,7 +144,35 @@ export default function SecurityPage() {
                       {meetsLen ? "✓" : "•"}
                     </span>
                     <span className={meetsLen ? "text-gray-900" : "text-gray-600"}>
-                      Mínimo 6 caracteres
+                      Mínimo 8 caracteres
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cx(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-extrabold",
+                        hasLetter ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+                      )}
+                    >
+                      {hasLetter ? "✓" : "•"}
+                    </span>
+                    <span className={hasLetter ? "text-gray-900" : "text-gray-600"}>
+                      Contiene al menos una letra
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cx(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-extrabold",
+                        hasNumber ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+                      )}
+                    >
+                      {hasNumber ? "✓" : "•"}
+                    </span>
+                    <span className={hasNumber ? "text-gray-900" : "text-gray-600"}>
+                      Contiene al menos un número
                     </span>
                   </div>
 
@@ -192,7 +241,7 @@ export default function SecurityPage() {
                       type={showNew ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Mínimo 8 caracteres"
                       className="w-full bg-transparent py-1 text-sm outline-none"
                       autoComplete="new-password"
                     />
@@ -208,7 +257,7 @@ export default function SecurityPage() {
 
                   {!meetsLen && newPassword.length > 0 ? (
                     <div className="mt-2 text-[11px] font-semibold text-amber-700">
-                      Te faltan caracteres: mínimo 6.
+                      Te faltan caracteres: mínimo 8.
                     </div>
                   ) : null}
                 </div>

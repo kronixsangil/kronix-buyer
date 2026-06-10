@@ -18,6 +18,7 @@ export type MeUser = {
   defaultAddress?: string | null;
   defaultLat?: number | null;
   defaultLng?: number | null;
+  mustChangePassword?: boolean;
 };
 
 function buildInitials(nameOrEmailOrPhone: string) {

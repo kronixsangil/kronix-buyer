@@ -1,5 +1,4 @@
 // app/(buyer)/layout.tsx
-// app/(buyer)/layout.tsx
 "use client";
 
 import type { ReactNode } from "react";
@@ -35,6 +34,32 @@ function buildNext(pathname: string, searchParams: URLSearchParams | null) {
   return qs ? `${pathname}?${qs}` : pathname;
 }
 
+
+function ForcePasswordChangeScreen({ onGo }: { onGo: () => void }) {
+  return (
+    <div className="grid min-h-[calc(100dvh-150px)] place-items-center px-4 py-6">
+      <div className="w-full rounded-3xl border border-amber-200 bg-white p-5 text-center shadow-sm">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-50 text-2xl ring-1 ring-amber-200">
+          🔐
+        </div>
+        <h1 className="mt-4 text-lg font-extrabold text-gray-950">
+          Cambio de contraseña requerido
+        </h1>
+        <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
+          Tu contraseña fue restablecida por KroniX. Debes cambiarla antes de continuar.
+        </p>
+        <button
+          type="button"
+          onClick={onGo}
+          className="mt-5 w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white"
+        >
+          Cambiar contraseña ahora
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AuthGate({
   children,
   pathname,
@@ -50,6 +75,7 @@ function AuthGate({
 
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const isPublicAuthRoute = useMemo(() => isAuthRoute(pathname), [pathname]);
 
@@ -61,6 +87,7 @@ function AuthGate({
         if (alive) {
           setCheckingAuth(false);
           setCheckingLegal(false);
+          setMustChangePassword(false);
         }
         return;
       }
@@ -81,7 +108,14 @@ function AuthGate({
           return;
         }
 
+        const forcePasswordChange = Boolean((me?.user as any)?.mustChangePassword);
+        setMustChangePassword(forcePasswordChange);
         setCheckingAuth(false);
+
+        if (forcePasswordChange) {
+          setCheckingLegal(false);
+          return;
+        }
 
         try {
           const termsOk = await checkBuyerTermsStatus();
@@ -142,6 +176,16 @@ function AuthGate({
           <div className="h-12 rounded bg-gray-100" />
         </div>
       </div>
+    );
+  }
+
+  if (!isPublicAuthRoute && mustChangePassword && pathname !== "/profile/security") {
+    return (
+      <ForcePasswordChangeScreen
+        onGo={() => {
+          router.replace("/profile/security");
+        }}
+      />
     );
   }
 
