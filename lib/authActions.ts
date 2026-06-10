@@ -7,11 +7,24 @@ import { writeCachedMe } from "./authClient";
 const BUYER_ROLE_ERROR =
   "Esta cuenta no pertenece a Buyer. Usa la aplicación correspondiente.";
 
-function notifyAuthChanged() {  
+function notifyAuthChanged() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event("auth:changed"));
   window.dispatchEvent(new Event("ct-auth-changed"));
-  
+}
+
+function clearBuyerAuthCache() {
+  if (typeof window === "undefined") return;
+
+  try {
+    localStorage.removeItem("kronix:auth:me:v1");
+    localStorage.removeItem("kronix:auth:userId:v1");
+  } catch {}
+
+  try {
+    sessionStorage.removeItem("kronix:auth:me:v1");
+    sessionStorage.removeItem("kronix:auth:userId:v1");
+  } catch {}
 }
 
 export async function login(emailOrPhone: string, password: string) {
@@ -28,7 +41,7 @@ export async function login(emailOrPhone: string, password: string) {
     json: body,
   });
 
-    // Después de login, pedimos /auth/me para validar rol y cachear userId
+  // Después de login, pedimos /auth/me para validar rol y cachear userId
   try {
     const me = await apiFetch<any>("/auth/me", { method: "GET" });
 
@@ -39,14 +52,11 @@ export async function login(emailOrPhone: string, password: string) {
         await apiFetch("/auth/logout", {
           method: "POST",
           suppressSessionExpiredEvent: true,
+          suppressActivityRefresh: true,
         });
       } catch {}
 
-      try {
-        localStorage.removeItem("kronix:auth:me:v1");
-        localStorage.removeItem("kronix:auth:userId:v1");
-      } catch {}
-
+      clearBuyerAuthCache();
       notifyAuthChanged();
       throw new Error(BUYER_ROLE_ERROR);
     }
@@ -65,30 +75,38 @@ export async function login(emailOrPhone: string, password: string) {
 }
 
 export async function logout() {
+  // Producción: cerrar contra el proxy same-origin para limpiar cookies en buyer.kronix.co.
   try {
-    await apiFetch("/auth/logout", {
+    await fetch(`/api/buyer/auth/logout?ts=${Date.now()}`, {
       method: "POST",
-      suppressSessionExpiredEvent: true,
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "x-ct-app": "buyer",
+      },
+      body: JSON.stringify({}),
     });
   } catch {
     try {
-      await fetch("/api/buyer/auth/logout", {
+      await apiFetch("/auth/logout", {
         method: "POST",
-        credentials: "include",
-        cache: "no-store",
-        headers: { "x-ct-app": "buyer" },
+        suppressSessionExpiredEvent: true,
+        suppressActivityRefresh: true,
       });
     } catch {}
   }
 
-  try {
-    localStorage.removeItem("kronix:auth:me:v1");
-    localStorage.removeItem("kronix:auth:userId:v1");
-  } catch {}
-
+  clearBuyerAuthCache();
   notifyAuthChanged();
 
-  window.location.replace("/login");
+  if (typeof window !== "undefined") {
+    window.location.replace("/login?loggedOut=1");
+
+    // Evita que los componentes que llamaron logout() ejecuten un finally con router.replace("/")
+    // y contradigan la redirección de cierre de sesión.
+    await new Promise<void>(() => {});
+  }
 }
 
 export async function refresh() {

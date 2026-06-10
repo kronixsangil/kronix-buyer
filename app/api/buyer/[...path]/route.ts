@@ -1,5 +1,5 @@
 //app\api\buyer\[...path]\route.ts
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE = process.env.NEXT_PUBLIC_API || "http://localhost:3004";
 
@@ -29,7 +29,31 @@ function buildProxyHeaders(sourceHeaders: Headers) {
   headers.delete("trailer");
   headers.delete("upgrade");
 
+  // Vercel/Next puede combinar Set-Cookie si se copia como un header normal.
+  // Lo eliminamos aquí y lo agregamos cookie por cookie más abajo.
+  headers.delete("set-cookie");
+
   return headers;
+}
+
+function splitSetCookieHeader(raw: string) {
+  return String(raw || "")
+    .split(/,(?=\s*[^;,]+=)/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function getSetCookieHeaders(headers: Headers) {
+  const h = headers as Headers & { getSetCookie?: () => string[] };
+
+  if (typeof h.getSetCookie === "function") {
+    return h.getSetCookie();
+  }
+
+  const raw = headers.get("set-cookie");
+  if (!raw) return [];
+
+  return splitSetCookieHeader(raw);
 }
 
 async function proxy(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
@@ -45,21 +69,27 @@ async function proxy(req: NextRequest, context: { params: Promise<{ path: string
   const hasBody = method !== "GET" && method !== "HEAD";
   const body = hasBody ? await req.arrayBuffer() : undefined;
 
-  const res = await fetch(targetUrl, {
+  const upstream = await fetch(targetUrl, {
     method,
     headers,
     body,
     cache: "no-store",
   });
 
-  const responseHeaders = buildProxyHeaders(res.headers);
-  const responseBody = await res.arrayBuffer();
+  const responseHeaders = buildProxyHeaders(upstream.headers);
+  const responseBody = await upstream.arrayBuffer();
 
-  return new Response(responseBody, {
-    status: res.status,
-    statusText: res.statusText,
+  const response = new NextResponse(responseBody, {
+    status: upstream.status,
+    statusText: upstream.statusText,
     headers: responseHeaders,
   });
+
+  for (const cookie of getSetCookieHeaders(upstream.headers)) {
+    response.headers.append("set-cookie", cookie);
+  }
+
+  return response;
 }
 
 export async function GET(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
