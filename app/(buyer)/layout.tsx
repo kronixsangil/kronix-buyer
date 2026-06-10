@@ -108,14 +108,17 @@ function AuthGate({
           return;
         }
 
+        setTermsAccepted(false);
+        setPrivacyAccepted(false);
+
         const forcePasswordChange = Boolean((me?.user as any)?.mustChangePassword);
         setMustChangePassword(forcePasswordChange);
         setCheckingAuth(false);
 
         if (forcePasswordChange) {
-          setCheckingLegal(false);
-          return;
-        }
+  setCheckingLegal(true);
+  return;
+}
 
         try {
           const termsOk = await checkBuyerTermsStatus();
