@@ -69,13 +69,15 @@ export default function SecurityPage() {
 
     setSaving(true);
     try {
-      await apiFetch("/users/me/change-password", {
+      await apiFetch("/auth/change-password", {
         method: "POST",
         json: {
           currentPassword,
           newPassword,
         },
       });
+
+      window.dispatchEvent(new Event("auth:changed"));
 
       setMsg("Contraseña actualizada con éxito.");
       await reload();
