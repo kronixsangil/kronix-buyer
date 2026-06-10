@@ -1,5 +1,4 @@
 // app/(buyer)/register/page.tsx
-// app/(buyer)/register/page.tsx
 "use client";
 
 import { useMemo, useState } from "react";
@@ -14,6 +13,20 @@ import {
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
+}
+
+function isValidKronixPassword(value: string) {
+  const clean = String(value ?? "").trim();
+  return clean.length >= 8 && /[a-zA-Z]/.test(clean) && /\d/.test(clean);
+}
+
+function passwordHint(value: string) {
+  const clean = String(value ?? "").trim();
+  if (!clean) return "Debe tener mínimo 8 caracteres y combinar letras y números.";
+  if (clean.length < 8) return "Faltan caracteres: mínimo 8.";
+  if (!/[a-zA-Z]/.test(clean)) return "Agrega al menos una letra.";
+  if (!/\d/.test(clean)) return "Agrega al menos un número.";
+  return "Contraseña válida.";
 }
 
 export default function BuyerRegisterPage() {
@@ -40,6 +53,8 @@ export default function BuyerRegisterPage() {
     return n;
   }, [sp]);
 
+  const passwordOk = isValidKronixPassword(password);
+
   const passwordsMatch =
     password.trim().length > 0 &&
     confirmPassword.trim().length > 0 &&
@@ -47,7 +62,7 @@ export default function BuyerRegisterPage() {
 
   const canSubmit =
     phone.trim().length >= 7 &&
-    password.trim().length >= 4 &&
+    passwordOk &&
     passwordsMatch &&
     termsAccepted &&
     !loading;
@@ -55,6 +70,12 @@ export default function BuyerRegisterPage() {
   const handleSubmit = async () => {
     setError(null);
     setLoading(true);
+
+    if (!passwordOk) {
+      setError("La contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
+      setLoading(false);
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden.");
@@ -83,7 +104,8 @@ export default function BuyerRegisterPage() {
 
       router.replace(next);
     } catch (e: any) {
-      const msg = String(e?.message ?? "").toLowerCase();
+      const raw = String(e?.message ?? "");
+      const msg = raw.toLowerCase();
 
       if (
         msg.includes("phone_already_used") ||
@@ -92,6 +114,8 @@ export default function BuyerRegisterPage() {
         setError("Este teléfono ya está registrado.");
       } else if (msg.includes("email_already_used")) {
         setError("Este email ya está registrado.");
+      } else if (msg.includes("contraseña") || msg.includes("password")) {
+        setError("La contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
       } else {
         setError("No pudimos crear tu cuenta. Revisa tus datos e intenta de nuevo.");
       }
@@ -104,14 +128,8 @@ export default function BuyerRegisterPage() {
     <div className="px-4 pb-6 pt-6">
       <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white p-4">
-          <div className="text-[11px] font-extrabold text-gray-500">
-            KroniX
-          </div>
-
-          <div className="mt-1 text-lg font-extrabold text-gray-900">
-            Crear cuenta
-          </div>
-
+          <div className="text-[11px] font-extrabold text-gray-500">KroniX</div>
+          <div className="mt-1 text-lg font-extrabold text-gray-900">Crear cuenta</div>
           <div className="mt-1 text-xs text-gray-600">
             Regístrate para guardar pedidos, direcciones y tu historial.
           </div>
@@ -119,10 +137,7 @@ export default function BuyerRegisterPage() {
 
         <div className="space-y-4 p-4">
           <div>
-            <div className="text-xs font-extrabold text-gray-800">
-              Nombre
-            </div>
-
+            <div className="text-xs font-extrabold text-gray-800">Nombre</div>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -135,10 +150,7 @@ export default function BuyerRegisterPage() {
           </div>
 
           <div>
-            <div className="text-xs font-extrabold text-gray-800">
-              Teléfono (obligatorio)
-            </div>
-
+            <div className="text-xs font-extrabold text-gray-800">Teléfono (obligatorio)</div>
             <input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -152,10 +164,7 @@ export default function BuyerRegisterPage() {
           </div>
 
           <div>
-            <div className="text-xs font-extrabold text-gray-800">
-              Email (opcional)
-            </div>
-
+            <div className="text-xs font-extrabold text-gray-800">Email (opcional)</div>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -169,23 +178,18 @@ export default function BuyerRegisterPage() {
           </div>
 
           <div>
-            <div className="text-xs font-extrabold text-gray-800">
-              Contraseña
-            </div>
-
+            <div className="text-xs font-extrabold text-gray-800">Contraseña</div>
             <div className="mt-2 flex items-center gap-2">
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 4 caracteres"
+                placeholder="8 caracteres, letras y números"
                 autoComplete="new-password"
                 type={showPass ? "text" : "password"}
                 className={cx(
                   "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50 transition",
-                  password.length > 0 &&
-                    !passwordsMatch &&
-                    confirmPassword.length > 0
-                    ? "border-red-300 bg-red-50 focus:border-red-400"
+                  password.length > 0 && !passwordOk
+                    ? "border-amber-300 bg-amber-50 focus:border-amber-400"
                     : "border-gray-200 focus:bg-white focus:border-gray-300"
                 )}
               />
@@ -202,10 +206,11 @@ export default function BuyerRegisterPage() {
               </button>
             </div>
 
-            <div className="mt-4 text-xs font-extrabold text-gray-800">
-              Confirmar contraseña
+            <div className={cx("mt-2 text-xs font-bold", passwordOk ? "text-emerald-600" : "text-gray-500")}>
+              {passwordHint(password)}
             </div>
 
+            <div className="mt-4 text-xs font-extrabold text-gray-800">Confirmar contraseña</div>
             <div className="mt-2 flex items-center gap-2">
               <input
                 value={confirmPassword}
@@ -237,13 +242,9 @@ export default function BuyerRegisterPage() {
             </div>
 
             {confirmPassword.length > 0 && !passwordsMatch ? (
-              <div className="mt-2 text-xs font-bold text-red-600">
-                Las contraseñas no coinciden.
-              </div>
+              <div className="mt-2 text-xs font-bold text-red-600">Las contraseñas no coinciden.</div>
             ) : confirmPassword.length > 0 && passwordsMatch ? (
-              <div className="mt-2 text-xs font-bold text-emerald-600">
-                Contraseñas coinciden correctamente.
-              </div>
+              <div className="mt-2 text-xs font-bold text-emerald-600">Contraseñas coinciden correctamente.</div>
             ) : null}
           </div>
 
@@ -271,8 +272,7 @@ export default function BuyerRegisterPage() {
                 >
                   Términos y Condiciones
                 </button>{" "}
-                y autorizo el tratamiento de mis datos conforme a la política de
-                privacidad de KroniX.
+                y autorizo el tratamiento de mis datos conforme a la política de privacidad de KroniX.
               </div>
             </label>
           </div>
@@ -290,10 +290,7 @@ export default function BuyerRegisterPage() {
 
           <div className="text-center text-[12px] text-gray-600">
             ¿Ya tienes cuenta?{" "}
-            <Link
-              href="/login"
-              className="font-extrabold text-blue-700 hover:underline"
-            >
+            <Link href="/login" className="font-extrabold text-blue-700 hover:underline">
               Inicia sesión
             </Link>
           </div>

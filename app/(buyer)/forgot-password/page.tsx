@@ -9,6 +9,20 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
+function isValidKronixPassword(value: string) {
+  const clean = String(value ?? "").trim();
+  return clean.length >= 8 && /[a-zA-Z]/.test(clean) && /\d/.test(clean);
+}
+
+function passwordHint(value: string) {
+  const clean = String(value ?? "").trim();
+  if (!clean) return "Debe tener mínimo 8 caracteres y combinar letras y números.";
+  if (clean.length < 8) return "Faltan caracteres: mínimo 8.";
+  if (!/[a-zA-Z]/.test(clean)) return "Agrega al menos una letra.";
+  if (!/\d/.test(clean)) return "Agrega al menos un número.";
+  return "Contraseña válida.";
+}
+
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -35,11 +49,13 @@ export default function ForgotPasswordPage() {
 
   const [devCode, setDevCode] = useState<string | null>(null);
 
+  const passwordOk = isValidKronixPassword(newPassword);
+
   const canRequest = emailOrPhone.trim().length >= 3 && !loading;
   const canReset =
     emailOrPhone.trim().length >= 3 &&
     code.trim().length >= 4 &&
-    newPassword.trim().length >= 6 &&
+    passwordOk &&
     newPassword === confirm &&
     !loading;
 
@@ -73,6 +89,18 @@ export default function ForgotPasswordPage() {
     setMsg(null);
     setLoading(true);
 
+    if (!passwordOk) {
+      setErr("La nueva contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirm) {
+      setErr("Las contraseñas no coinciden.");
+      setLoading(false);
+      return;
+    }
+
     try {
       await apiFetch("/auth/reset-password", {
         method: "POST",
@@ -88,7 +116,12 @@ export default function ForgotPasswordPage() {
         router.replace(`/login?next=${encodeURIComponent(next)}`);
       }, 700);
     } catch (e: any) {
-      setErr(e?.message || "No se pudo cambiar la contraseña.");
+      const raw = String(e?.message ?? "");
+      if (raw.toLowerCase().includes("contraseña") || raw.toLowerCase().includes("password")) {
+        setErr("La nueva contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
+      } else {
+        setErr(e?.message || "No se pudo cambiar la contraseña.");
+      }
     } finally {
       setLoading(false);
     }
@@ -97,7 +130,6 @@ export default function ForgotPasswordPage() {
   return (
     <div className="px-4 pt-6 pb-10">
       <div className="relative overflow-hidden rounded-3xl shadow-xl border border-gray-200 bg-white">
-        {/* Header premium */}
         <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-green-500 px-6 pt-8 pb-10 text-white">
           <div className="text-2xl font-extrabold">Recuperar contraseña</div>
           <div className="mt-2 text-sm text-white/90">
@@ -107,7 +139,6 @@ export default function ForgotPasswordPage() {
 
         <div className="px-6 pb-8 -mt-6">
           <div className="rounded-3xl bg-white p-6 shadow-lg">
-            {/* Mensajes */}
             {err ? (
               <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
                 {err}
@@ -119,7 +150,6 @@ export default function ForgotPasswordPage() {
               </div>
             ) : null}
 
-            {/* Paso 1 */}
             <div className={cx(step === 1 ? "block" : "hidden")}>
               <div className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                 Email o Teléfono
@@ -155,7 +185,6 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            {/* Paso 2 */}
             <div className={cx(step === 2 ? "block" : "hidden")}>
               <div className="text-xs font-bold text-gray-600 uppercase tracking-wide">
                 Email o Teléfono
@@ -197,9 +226,14 @@ export default function ForgotPasswordPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   type={showNew ? "text" : "password"}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="8 caracteres, letras y números"
                   autoComplete="new-password"
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 pr-12 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition"
+                  className={cx(
+                    "w-full rounded-2xl border px-4 py-3 pr-12 text-sm bg-gray-50 focus:bg-white outline-none transition",
+                    newPassword.length > 0 && !passwordOk
+                      ? "border-amber-300 focus:border-amber-400"
+                      : "border-gray-200 focus:border-blue-500"
+                  )}
                 />
                 <button
                   type="button"
@@ -208,6 +242,10 @@ export default function ForgotPasswordPage() {
                 >
                   {showNew ? "🙈" : "👁️"}
                 </button>
+              </div>
+
+              <div className={cx("mt-2 text-[11px] font-semibold", passwordOk ? "text-emerald-600" : "text-gray-500")}>
+                {passwordHint(newPassword)}
               </div>
 
               <div className="mt-5 text-xs font-bold text-gray-600 uppercase tracking-wide">
