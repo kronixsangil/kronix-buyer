@@ -66,21 +66,29 @@ export async function login(emailOrPhone: string, password: string) {
 
 export async function logout() {
   try {
-    await fetch("/api/buyer/auth/logout", {
+    await apiFetch("/auth/logout", {
       method: "POST",
-      credentials: "include",
-      cache: "no-store",
-      headers: {
-        "x-ct-app": "buyer",
-      },
+      suppressSessionExpiredEvent: true,
     });
-  } catch {}
+  } catch {
+    try {
+      await fetch("/api/buyer/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "x-ct-app": "buyer" },
+      });
+    } catch {}
+  }
 
   try {
-    window.dispatchEvent(new Event("auth:changed"));
+    localStorage.removeItem("kronix:auth:me:v1");
+    localStorage.removeItem("kronix:auth:userId:v1");
   } catch {}
 
-  window.location.href = "/login";
+  notifyAuthChanged();
+
+  window.location.replace("/login");
 }
 
 export async function refresh() {
