@@ -9,20 +9,6 @@ function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
-function isValidKronixPassword(value: string) {
-  const clean = String(value ?? "").trim();
-  return clean.length >= 8 && /[a-zA-Z]/.test(clean) && /\d/.test(clean);
-}
-
-function passwordHint(value: string) {
-  const clean = String(value ?? "").trim();
-  if (!clean) return "Debe tener mínimo 8 caracteres y combinar letras y números.";
-  if (clean.length < 8) return "Faltan caracteres: mínimo 8.";
-  if (!/[a-zA-Z]/.test(clean)) return "Agrega al menos una letra.";
-  if (!/\d/.test(clean)) return "Agrega al menos un número.";
-  return "Contraseña válida.";
-}
-
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -33,280 +19,153 @@ export default function ForgotPasswordPage() {
     return n;
   }, [sp]);
 
-  const [step, setStep] = useState<1 | 2>(1);
-
+  const [sent, setSent] = useState(false);
   const [emailOrPhone, setEmailOrPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const [devCode, setDevCode] = useState<string | null>(null);
+  const cleanIdentifier = emailOrPhone.trim();
+  const canRequest = cleanIdentifier.length >= 3 && !loading;
 
-  const passwordOk = isValidKronixPassword(newPassword);
-
-  const canRequest = emailOrPhone.trim().length >= 3 && !loading;
-  const canReset =
-    emailOrPhone.trim().length >= 3 &&
-    code.trim().length >= 4 &&
-    passwordOk &&
-    newPassword === confirm &&
-    !loading;
-
-  const requestCode = async () => {
+  const requestRecovery = async () => {
     setErr(null);
-    setMsg(null);
-    setDevCode(null);
     setLoading(true);
 
     try {
-      const res = await apiFetch<{ ok: boolean; devCode?: string }>(
-        "/auth/forgot-password",
-        {
-          method: "POST",
-          json: { emailOrPhone: emailOrPhone.trim() },
-        }
-      );
-
-      setMsg("Si el usuario existe, te enviamos un código para recuperar tu contraseña.");
-      if (res?.devCode) setDevCode(String(res.devCode));
-      setStep(2);
-    } catch (e: any) {
-      setErr(e?.message || "No se pudo solicitar el código. Intenta nuevamente.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetPassword = async () => {
-    setErr(null);
-    setMsg(null);
-    setLoading(true);
-
-    if (!passwordOk) {
-      setErr("La nueva contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
-      setLoading(false);
-      return;
-    }
-
-    if (newPassword !== confirm) {
-      setErr("Las contraseñas no coinciden.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      await apiFetch("/auth/reset-password", {
+      await apiFetch<{ ok: boolean; devCode?: string }>("/auth/forgot-password", {
         method: "POST",
-        json: {
-          emailOrPhone: emailOrPhone.trim(),
-          code: code.trim(),
-          newPassword: newPassword.trim(),
-        },
+        json: { emailOrPhone: cleanIdentifier },
       });
 
-      setMsg("✅ Contraseña actualizada. Ahora puedes iniciar sesión.");
-      setTimeout(() => {
-        router.replace(`/login?next=${encodeURIComponent(next)}`);
-      }, 700);
+      setSent(true);
     } catch (e: any) {
-      const raw = String(e?.message ?? "");
-      if (raw.toLowerCase().includes("contraseña") || raw.toLowerCase().includes("password")) {
-        setErr("La nueva contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
-      } else {
-        setErr(e?.message || "No se pudo cambiar la contraseña.");
-      }
+      setErr(e?.message || "No se pudo enviar la solicitud. Intenta nuevamente.");
     } finally {
       setLoading(false);
     }
   };
+
+  function goLogin() {
+    router.replace(`/login?next=${encodeURIComponent(next)}`);
+  }
 
   return (
     <div className="px-4 pt-6 pb-10">
-      <div className="relative overflow-hidden rounded-3xl shadow-xl border border-gray-200 bg-white">
-        <div className="bg-gradient-to-br from-blue-600 via-blue-500 to-green-500 px-6 pt-8 pb-10 text-white">
-          <div className="text-2xl font-extrabold">Recuperar contraseña</div>
-          <div className="mt-2 text-sm text-white/90">
-            Te ayudamos a recuperar tu acceso en minutos.
+      <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+        <div className="relative overflow-hidden bg-[linear-gradient(180deg,#061b3a_0%,#0a3768_48%,#ffffff_100%)] px-6 pt-8 pb-12 text-white">
+          <div className="pointer-events-none absolute inset-0 opacity-90">
+            <span className="absolute left-[12%] top-[20%] h-1 w-1 rounded-full bg-white" />
+            <span className="absolute left-[34%] top-[12%] h-1.5 w-1.5 rounded-full bg-white" />
+            <span className="absolute right-[18%] top-[24%] h-1 w-1 rounded-full bg-white" />
+            <span className="absolute right-[32%] top-[42%] h-1.5 w-1.5 rounded-full bg-white" />
+            <span className="absolute left-[55%] top-[30%] h-1 w-1 rounded-full bg-white" />
+          </div>
+
+          <div className="relative z-10">
+            <div className="text-2xl font-extrabold drop-shadow-sm">Recuperar contraseña</div>
+            <div className="mt-2 text-sm font-medium text-white/90">
+              Te ayudamos a recuperar tu acceso a KroniX.
+            </div>
           </div>
         </div>
 
-        <div className="px-6 pb-8 -mt-6">
-          <div className="rounded-3xl bg-white p-6 shadow-lg">
+        <div className="px-5 pb-8 -mt-8">
+          <div className="rounded-3xl bg-white p-5 shadow-[0_18px_42px_rgba(15,23,42,0.16)]">
             {err ? (
               <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
                 {err}
               </div>
             ) : null}
-            {msg ? (
-              <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
-                {msg}
-              </div>
-            ) : null}
 
-            <div className={cx(step === 1 ? "block" : "hidden")}>
-              <div className="text-xs font-bold text-gray-600 uppercase tracking-wide">
-                Email o Teléfono
-              </div>
-              <input
-                value={emailOrPhone}
-                onChange={(e) => setEmailOrPhone(e.target.value)}
-                placeholder="Ingresa tu email o número"
-                autoComplete="username"
-                className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition"
-              />
-
-              <button
-                disabled={!canRequest}
-                onClick={requestCode}
-                className={cx(
-                  "mt-6 w-full rounded-2xl py-3 text-sm font-extrabold text-white transition-all duration-200",
-                  "bg-green-600 hover:bg-green-700 active:scale-[0.98]",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                {loading ? "Enviando…" : "ENVIAR CÓDIGO"}
-              </button>
-
-              <div className="mt-4 text-center text-xs text-gray-600">
-                ¿Ya la recordaste?{" "}
-                <a
-                  href={`/login?next=${encodeURIComponent(next)}`}
-                  className="font-extrabold text-blue-700 hover:text-blue-900 underline decoration-blue-300 hover:decoration-blue-600"
-                >
-                  Volver a iniciar sesión
-                </a>
-              </div>
-            </div>
-
-            <div className={cx(step === 2 ? "block" : "hidden")}>
-              <div className="text-xs font-bold text-gray-600 uppercase tracking-wide">
-                Email o Teléfono
-              </div>
-              <input
-                value={emailOrPhone}
-                onChange={(e) => setEmailOrPhone(e.target.value)}
-                placeholder="Ingresa tu email o número"
-                autoComplete="username"
-                className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition"
-              />
-
-              <div className="mt-5 text-xs font-bold text-gray-600 uppercase tracking-wide">
-                Código
-              </div>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Ej: 123456"
-                inputMode="numeric"
-                className="mt-2 w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition"
-              />
-
-              {devCode ? (
-                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                  <div className="font-extrabold">Código (DEV)</div>
-                  <div className="mt-1">
-                    Usa este código mientras estás en localhost:{" "}
-                    <span className="font-extrabold">{devCode}</span>
+            {!sent ? (
+              <>
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                    Paso 1 de 2
+                  </div>
+                  <div className="mt-1 text-[15px] font-black text-slate-950">
+                    Solicitar recuperación
                   </div>
                 </div>
-              ) : null}
 
-              <div className="mt-5 text-xs font-bold text-gray-600 uppercase tracking-wide">
-                Nueva contraseña
-              </div>
-              <div className="mt-2 relative">
-                <input
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  type={showNew ? "text" : "password"}
-                  placeholder="8 caracteres, letras y números"
-                  autoComplete="new-password"
-                  className={cx(
-                    "w-full rounded-2xl border px-4 py-3 pr-12 text-sm bg-gray-50 focus:bg-white outline-none transition",
-                    newPassword.length > 0 && !passwordOk
-                      ? "border-amber-300 focus:border-amber-400"
-                      : "border-gray-200 focus:border-blue-500"
-                  )}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNew((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 text-lg"
-                >
-                  {showNew ? "🙈" : "👁️"}
-                </button>
-              </div>
-
-              <div className={cx("mt-2 text-[11px] font-semibold", passwordOk ? "text-emerald-600" : "text-gray-500")}>
-                {passwordHint(newPassword)}
-              </div>
-
-              <div className="mt-5 text-xs font-bold text-gray-600 uppercase tracking-wide">
-                Confirmar contraseña
-              </div>
-              <div className="mt-2 relative">
-                <input
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  type={showConfirm ? "text" : "password"}
-                  placeholder="Repite tu contraseña"
-                  autoComplete="new-password"
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 pr-12 text-sm bg-gray-50 focus:bg-white focus:border-blue-500 outline-none transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800 text-lg"
-                >
-                  {showConfirm ? "🙈" : "👁️"}
-                </button>
-              </div>
-
-              {confirm && newPassword !== confirm ? (
-                <div className="mt-2 text-[11px] font-semibold text-red-600">
-                  La confirmación no coincide.
+                <div className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-600">
+                  Email o Teléfono
                 </div>
-              ) : null}
-
-              <button
-                disabled={!canReset}
-                onClick={resetPassword}
-                className={cx(
-                  "mt-6 w-full rounded-2xl py-3 text-sm font-extrabold text-white transition-all duration-200",
-                  "bg-green-600 hover:bg-green-700 active:scale-[0.98]",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
-                )}
-              >
-                {loading ? "Actualizando…" : "ACTUALIZAR CONTRASEÑA"}
-              </button>
-
-              <div className="mt-4 flex items-center justify-between text-xs text-gray-600">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="font-extrabold text-blue-700 hover:text-blue-900 underline decoration-blue-300 hover:decoration-blue-600"
-                >
-                  Volver
-                </button>
+                <input
+                  value={emailOrPhone}
+                  onChange={(e) => setEmailOrPhone(e.target.value)}
+                  placeholder="Ingresa tu email o número"
+                  autoComplete="username"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                />
 
                 <button
-                  type="button"
-                  onClick={requestCode}
-                  className="font-extrabold text-blue-700 hover:text-blue-900 underline decoration-blue-300 hover:decoration-blue-600"
+                  disabled={!canRequest}
+                  onClick={requestRecovery}
+                  className={cx(
+                    "mt-6 w-full rounded-2xl py-3 text-sm font-extrabold text-white transition-all duration-200",
+                    "bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98]",
+                    "disabled:cursor-not-allowed disabled:opacity-50"
+                  )}
                 >
-                  Reenviar código
+                  {loading ? "Enviando…" : "SOLICITAR RECUPERACIÓN"}
                 </button>
-              </div>
-            </div>
 
-            <div className="mt-6 text-center text-[11px] text-gray-500">
+                <div className="mt-4 text-center text-xs text-slate-600">
+                  ¿Ya la recordaste?{" "}
+                  <a
+                    href={`/login?next=${encodeURIComponent(next)}`}
+                    className="font-extrabold text-blue-700 underline decoration-blue-300 hover:text-blue-900 hover:decoration-blue-600"
+                  >
+                    Volver a iniciar sesión
+                  </a>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                    Paso 2 de 2
+                  </div>
+                  <div className="mt-1 text-[15px] font-black text-slate-950">
+                    Revisa tu información
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-6 text-center">
+                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border-2 border-emerald-500 bg-white text-3xl text-emerald-600">
+                    ✉️
+                  </div>
+
+                  <div className="mt-4 text-lg font-black text-emerald-700">
+                    Solicitud enviada
+                  </div>
+
+                  <div className="mx-auto mt-3 max-w-[300px] text-sm font-medium leading-6 text-slate-700">
+                    Si tu cuenta existe, el equipo KroniX revisará la solicitud y te contactará por WhatsApp Business.
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-950 shadow-sm">
+                    {cleanIdentifier}
+                  </div>
+
+                  <div className="mt-4 text-xs font-semibold leading-5 text-slate-600">
+                    El operador podrá restablecer tu contraseña temporalmente. Por seguridad, deberás cambiarla al iniciar sesión.
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={goLogin}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-emerald-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  <span className="text-lg">↩</span>
+                  VOLVER A INICIAR SESIÓN
+                </button>
+              </>
+            )}
+
+            <div className="mt-6 text-center text-[11px] text-slate-500">
               Si tienes problemas, contáctanos por <span className="font-bold">Soporte</span>.
             </div>
           </div>
@@ -315,3 +174,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+
