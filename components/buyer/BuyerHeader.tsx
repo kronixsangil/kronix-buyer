@@ -21,6 +21,10 @@ type MeResponse =
         storeId?: string | null;
         storeCode?: string | null;
         name?: string;
+        id?: string;
+        isKronixPlusApproved?: boolean;
+        kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+        kronixPlusApprovedAt?: string | null;
       };
     }
   | { user?: any };
@@ -230,12 +234,15 @@ export default function BuyerHeader() {
     try {
       setIsChecking(true);
 
-      const data = await apiFetch<MeResponse>("/auth/me", {
+      const data = await apiFetch<any>("/users/me", {
         method: "GET",
         cache: "no-store",
-      });
+        suppressSessionExpiredEvent: true,
+      } as any);
 
-      const user = (data as any)?.user ?? null;
+      const user = data && typeof data === "object"
+        ? { ...data, sub: data.id ?? data.sub }
+        : null;
       setMe(user && typeof user === "object" ? user : null);
     } catch {
       setMe(null);
@@ -266,6 +273,10 @@ export default function BuyerHeader() {
   }, [pathname]);
 
   const isLoggedIn = !!(me && (me as any)?.sub);
+  const isPlusApproved =
+    isLoggedIn &&
+    (Boolean((me as any)?.isKronixPlusApproved) ||
+      String((me as any)?.kronixPlusStatus ?? "").toUpperCase() === "APPROVED");
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -418,6 +429,22 @@ export default function BuyerHeader() {
                   ) : (
                     <div className="absolute inset-0 rounded-full bg-white/14" />
                   )}
+
+                  {isPlusApproved ? (
+                    <span
+                      className="absolute -right-1 -top-1 z-20 grid h-[20px] w-[20px] place-items-center rounded-full bg-white shadow-[0_4px_10px_rgba(0,0,0,0.22)] ring-1 ring-white/80"
+                      aria-label="Cliente KroniX Plus aprobado"
+                      title="KroniX Plus"
+                    >
+                      <Image
+                        src="/branding/kronix/plus.png"
+                        alt="KroniX Plus"
+                        width={18}
+                        height={18}
+                        className="h-[18px] w-[18px] object-contain"
+                      />
+                    </span>
+                  ) : null}
                 </Link>
 
                 <div className="mt-1 min-h-[28px] text-center leading-tight">

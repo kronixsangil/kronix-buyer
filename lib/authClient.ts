@@ -13,6 +13,9 @@ export type AuthMePayload = {
     storeCode?: string | null;
     iat?: number;
     exp?: number;
+    isKronixPlusApproved?: boolean;
+    kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+    kronixPlusApprovedAt?: string | null;
   };
 };
 

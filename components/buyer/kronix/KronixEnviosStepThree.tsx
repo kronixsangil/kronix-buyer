@@ -348,7 +348,7 @@ export default function KronixEnviosStepThree() {
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const [statusLoading, setStatusLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [kronixPlusStatus, setKronixPlusStatus] =
     useState<KronixPlusStatusResponse | null>(null);
 
@@ -395,6 +395,23 @@ export default function KronixEnviosStepThree() {
     return walletAvailableCOP >= pricing.total && pricing.total > 0;
   }, [pricing.total, walletAvailableCOP]);
 
+  const isKronixPlusApproved = useMemo(() => {
+    const userStatus = String(user?.kronixPlusStatus ?? "").toUpperCase();
+    const refreshedStatus = String(kronixPlusStatus?.status ?? "").toUpperCase();
+
+    return (
+      Boolean(user?.isKronixPlusApproved) ||
+      userStatus === "APPROVED" ||
+      Boolean(kronixPlusStatus?.approved) ||
+      refreshedStatus === "APPROVED"
+    );
+  }, [
+    user?.isKronixPlusApproved,
+    user?.kronixPlusStatus,
+    kronixPlusStatus?.approved,
+    kronixPlusStatus?.status,
+  ]);
+
   async function getPickupGeo() {
     if (
       typeof draft.pickupLat === "number" &&
@@ -414,22 +431,16 @@ export default function KronixEnviosStepThree() {
   useEffect(() => {
     let alive = true;
 
-    async function loadStatus() {
-      if (authLoading) return;
+    async function refreshStatusInBackground() {
+      if (authLoading || !isAuthed || !user?.id) {
+        if (!alive) return;
+        setKronixPlusStatus(null);
+        setStatusLoading(false);
+        return;
+      }
 
-      if (!isAuthed) {
-  if (!alive) return;
-
-  setKronixPlusStatus(null);
-  setStatusLoading(false);
-  return;
-}
-
-if (!user?.id) {
-  // Esperar a que useAuth termine de poblar el usuario.
-  return;
-}
-
+      // La decisión inicial sale del usuario global (/users/me).
+      // Esta consulta solo refresca datos de la solicitud en segundo plano.
       setStatusLoading(true);
 
       try {
@@ -451,7 +462,7 @@ if (!user?.id) {
       }
     }
 
-    loadStatus();
+    refreshStatusInBackground();
 
     return () => {
       alive = false;
@@ -462,8 +473,8 @@ if (!user?.id) {
     let alive = true;
 
     async function loadPickupPoint() {
-      if (!cityReady || !citySlug || statusLoading) return;
-      if (!isAuthed || !user?.id || !kronixPlusStatus?.approved) {
+      if (!cityReady || !citySlug) return;
+      if (!isAuthed || !user?.id || !isKronixPlusApproved) {
         setPickupLoading(false);
         return;
       }
@@ -519,13 +530,13 @@ if (!user?.id) {
     return () => {
       alive = false;
     };
-  }, [cityReady, citySlug, statusLoading, isAuthed, user?.id, kronixPlusStatus?.approved]);
+  }, [cityReady, citySlug, isAuthed, user?.id, isKronixPlusApproved, kronixPlusStatus?.application]);
 
   useEffect(() => {
     let alive = true;
 
     async function loadWallet() {
-      if (!isAuthed || !user?.id || !city?.id || !kronixPlusStatus?.approved) {
+      if (!isAuthed || !user?.id || !city?.id || !isKronixPlusApproved) {
         if (!alive) return;
         setWallet(null);
         setWalletLoading(false);
@@ -563,7 +574,7 @@ if (!user?.id) {
     return () => {
       alive = false;
     };
-  }, [isAuthed, user?.id, city?.id, kronixPlusStatus?.approved]);
+  }, [isAuthed, user?.id, city?.id, isKronixPlusApproved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -793,8 +804,7 @@ if (!user?.id) {
 
   if (
   authLoading ||
-  statusLoading ||
-  (kronixPlusStatus?.approved && pickupLoading)
+  (isKronixPlusApproved && pickupLoading)
 ) {
     return (
       <div className="space-y-3 px-4 pb-4 pt-3">
@@ -826,8 +836,8 @@ if (!user?.id) {
     );
   }
 
-  if (!kronixPlusStatus?.approved) {
-    const status = String(kronixPlusStatus?.status ?? "NONE").toUpperCase();
+  if (!isKronixPlusApproved) {
+    const status = String(kronixPlusStatus?.status ?? user?.kronixPlusStatus ?? "NONE").toUpperCase();
     const pending = status === "PENDING";
 
     return (
