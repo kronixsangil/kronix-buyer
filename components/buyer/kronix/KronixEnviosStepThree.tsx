@@ -417,12 +417,18 @@ export default function KronixEnviosStepThree() {
     async function loadStatus() {
       if (authLoading) return;
 
-      if (!isAuthed || !user?.id) {
-        if (!alive) return;
-        setKronixPlusStatus(null);
-        setStatusLoading(false);
-        return;
-      }
+      if (!isAuthed) {
+  if (!alive) return;
+
+  setKronixPlusStatus(null);
+  setStatusLoading(false);
+  return;
+}
+
+if (!user?.id) {
+  // Esperar a que useAuth termine de poblar el usuario.
+  return;
+}
 
       setStatusLoading(true);
 
@@ -785,7 +791,11 @@ export default function KronixEnviosStepThree() {
     }
   }
 
-  if (authLoading || statusLoading || pickupLoading) {
+  if (
+  authLoading ||
+  statusLoading ||
+  (kronixPlusStatus?.approved && pickupLoading)
+) {
     return (
       <div className="space-y-3 px-4 pb-4 pt-3">
         <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
