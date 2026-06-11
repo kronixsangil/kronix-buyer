@@ -101,8 +101,8 @@ function getUserPhone(user: any) {
 function PriceLine({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-[5px] last:border-b-0">
-      <div className={highlight ? "text-[14px] font-black text-slate-950" : "text-[13px] font-semibold text-slate-600"}>{label}</div>
-      <div className={highlight ? "text-[17px] font-black text-slate-950" : "text-[14px] font-black text-slate-900"}>{value}</div>
+      <div className={highlight ? "text-[15px] font-black text-slate-950" : "text-[14px] font-semibold text-slate-600"}>{label}</div>
+      <div className={highlight ? "text-[18px] font-black text-slate-950" : "text-[15px] font-black text-slate-900"}>{value}</div>
     </div>
   );
 }
@@ -562,7 +562,7 @@ export default function DomicilioExpressStepOne() {
         {addresses.length > 0 || addressesLoading ? (
           <div className="rounded-[15px] border border-blue-100 bg-blue-50 px-2 py-2">
             <label className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-700">Usar dirección guardada</label>
-            <select disabled={addressesLoading} defaultValue="" onChange={(e) => applySavedAddress(e.target.value)} className="h-9 w-full rounded-[14px] border border-blue-100 bg-white px-3 text-[12px] font-bold text-slate-900 outline-none">
+            <select disabled={addressesLoading} defaultValue="" onChange={(e) => applySavedAddress(e.target.value)} className="h-10 w-full rounded-[14px] border border-blue-100 bg-white px-4 text-[13px] font-bold text-slate-900 outline-none">
               <option value="">{addressesLoading ? "Cargando..." : "Seleccionar dirección"}</option>
               {addresses.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -573,7 +573,7 @@ export default function DomicilioExpressStepOne() {
           </div>
         ) : null}
 
-        <button type="button" onClick={useCurrentLocation} disabled={geoLoading} className={["mt-2 h-12 w-full rounded-[16px] px-4 text-[12px] font-black text-white shadow-sm transition", geoLoading ? "cursor-not-allowed bg-slate-300" : "bg-emerald-600 hover:bg-emerald-700"].join(" ")}>
+        <button type="button" onClick={useCurrentLocation} disabled={geoLoading} className={["mt-2 h-12 w-full rounded-[16px] px-4 text-[14px] font-black text-white shadow-sm transition", geoLoading ? "cursor-not-allowed bg-slate-300" : "bg-emerald-600 hover:bg-emerald-700"].join(" ")}>
           {geoLoading ? "Tomando ubicación..." : "📍 Usar mi ubicación actual"}
         </button>
 
@@ -593,7 +593,7 @@ export default function DomicilioExpressStepOne() {
             }}
             onBlur={() => setTouched(true)}
             placeholder="Dirección o ubicación de inicio *"
-            className={["h-12 w-full rounded-[14px] border bg-slate-50 px-3 text-[14px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !pickupOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-blue-300"].join(" ")}
+            className={["h-12 w-full rounded-[14px] border bg-slate-50 px-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !pickupOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-blue-300"].join(" ")}
             maxLength={220}
           />
 
@@ -602,7 +602,7 @@ export default function DomicilioExpressStepOne() {
             onChange={(e) => updateField("pickupReference", e.target.value)}
             placeholder="Referencia"
             rows={2}
-            className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-3 py-2 text-[14px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
+            className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-2 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
             maxLength={120}
           />
         </div>
@@ -617,7 +617,7 @@ export default function DomicilioExpressStepOne() {
             onChange={(e) => updateField("senderName", e.target.value)}
             onBlur={() => setTouched(true)}
             placeholder="Contacto"
-            className={["h-12 w-full rounded-[12px] border bg-slate-50 px-3 text-[14px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !senderNameOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-emerald-300"].join(" ")}
+            className={["h-12 w-full rounded-[12px] border bg-slate-50 px-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !senderNameOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-emerald-300"].join(" ")}
             maxLength={80}
           />
 
@@ -628,7 +628,7 @@ export default function DomicilioExpressStepOne() {
             onChange={(e) => updateField("senderPhone", formatPhoneDraft(e.target.value))}
             placeholder="Celular"
             inputMode="numeric"
-            className="h-12 w-full rounded-[12px] border border-slate-200 bg-slate-50 px-3 text-[12px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:bg-white"
+            className="h-12 w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 text-[14px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:bg-white"
             maxLength={20}
           />
 
@@ -640,14 +640,14 @@ export default function DomicilioExpressStepOne() {
             placeholder="Indicación rápida"
             rows={2}
             maxLength={300}
-            className={["w-full rounded-[12px] border bg-slate-50 px-3 py-2 text-[12px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !taskOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-emerald-300"].join(" ")}
+            className={["w-full rounded-[12px] border bg-slate-50 px-4 py-2 text-[14px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !taskOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-emerald-300"].join(" ")}
           />
         </div>
       </div>
 
       <div className="rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[14px] font-black text-slate-900">Precio estimado</div>
+          <div className="text-[16px] font-black text-slate-900">Precio estimado</div>
           <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
             {pricingLoading ? "Calculando..." : pricing.zoneNumber ? `Zona ${pricing.zoneNumber}` : "Zona pendiente"}
           </div>
@@ -665,7 +665,7 @@ export default function DomicilioExpressStepOne() {
 
       <div className="rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[14px] font-black text-slate-900">KroniX Wallet</div>
+          <div className="text-[16px] font-black text-slate-900">KroniX Wallet</div>
           <div className={["rounded-full px-2.5 py-1 text-[10px] font-black ring-1", hasEnoughWalletBalance ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-amber-50 text-amber-700 ring-amber-100"].join(" ")}>
             {walletLoading ? "Consultando..." : hasEnoughWalletBalance ? "Saldo OK" : "Recargar"}
           </div>
@@ -695,7 +695,7 @@ export default function DomicilioExpressStepOne() {
         disabled={!ready || submitting || pricingLoading || walletLoading || !zoneCalculation || !hasEnoughWalletBalance}
         onClick={requestConfirm}
         className={[
-          "w-full rounded-[20px] py-3 text-[13px] font-black text-white transition",
+          "w-full rounded-[20px] py-3 text-[15px] font-black text-white transition",
           ready && !submitting && !pricingLoading && !walletLoading && zoneCalculation && hasEnoughWalletBalance
             ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_10px_18px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
             : "cursor-not-allowed bg-slate-300 shadow-none",
