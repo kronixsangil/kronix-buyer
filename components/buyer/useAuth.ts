@@ -11,6 +11,7 @@ export type MeUser = {
   phone: string;
   email?: string | null;
   nickname?: string | null;
+  profileImageUrl?: string | null;
   role: "BUYER" | "STORE" | "DRIVER" | "ADMIN";
   isKronixPlusApproved?: boolean;
   kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;

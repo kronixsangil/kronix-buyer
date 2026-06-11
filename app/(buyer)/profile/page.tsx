@@ -27,6 +27,7 @@ type MeResponse =
         phone?: string;
         email?: string;
         name?: string;
+        profileImageUrl?: string | null;
       };
     }
   | { user?: any };
@@ -65,12 +66,12 @@ export default function ProfilePage() {
     try {
       setIsChecking(true);
 
-      const data = await apiFetch<MeResponse>("/auth/me", {
+      const data = await apiFetch<any>("/users/me", {
         method: "GET",
         cache: "no-store",
       });
 
-      const user = (data as any)?.user ?? null;
+      const user = (data as any)?.user ?? data ?? null;
       setMe(user && typeof user === "object" ? user : null);
     } catch {
       setMe(null);
@@ -168,8 +169,18 @@ export default function ProfilePage() {
             <div className="relative p-3">
               <div className="flex items-start justify-between gap-2">
   <div className="flex items-center gap-2">
-    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/15 font-extrabold text-white ring-1 ring-white/25 backdrop-blur-sm">
-      {initials}
+    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-white/15 font-extrabold text-white ring-1 ring-white/25 backdrop-blur-sm">
+      {(me as any)?.profileImageUrl ? (
+        <Image
+          src={String((me as any).profileImageUrl)}
+          alt="Foto de perfil"
+          fill
+          className="object-cover"
+          sizes="44px"
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center">{initials}</div>
+      )}
     </div>
 
     <div className="min-w-0">

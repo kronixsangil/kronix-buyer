@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { getMe } from "@/lib/authClient";
 import { apiFetch } from "@/lib/api";
 
@@ -31,6 +32,7 @@ type SessionMeShape = {
     phone?: string | null;
     name?: string | null;
     nickname?: string | null;
+    profileImageUrl?: string | null;
   };
 };
 
@@ -41,6 +43,7 @@ type ApiMe = {
   phone: string | null;
   email: string | null;
   nickname: string | null;
+  profileImageUrl?: string | null;
   role?: string | null;
   defaultAddress?: string | null;
   defaultLat?: number | null;
@@ -63,6 +66,7 @@ export default function InfoPage() {
 
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -127,12 +131,14 @@ export default function InfoPage() {
           setProfile(null);
           setName(String(out.user?.name ?? "").trim());
           setNickname(String(out.user?.nickname ?? "").trim());
+          setProfileImageUrl(String((out.user as any)?.profileImageUrl ?? "").trim());
           return;
         }
 
         setProfile(prof.data);
         setName(String(prof.data?.name ?? "").trim());
         setNickname(String(prof.data?.nickname ?? "").trim());
+        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
       } finally {
         if (!alive) return;
         setChecking(false);
@@ -145,6 +151,21 @@ export default function InfoPage() {
   }, [router]);
 
   const canSave = !saving && !checking;
+
+  async function handlePhotoFile(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMsg({ kind: "err", text: "Selecciona una imagen válida." });
+      return;
+    }
+    if (file.size > 750_000) {
+      setMsg({ kind: "err", text: "La foto debe pesar máximo 750 KB." });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setProfileImageUrl(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  }
 
   async function handleSave() {
     if (!canSave) return;
@@ -160,6 +181,7 @@ export default function InfoPage() {
         json: {
           name: name.trim() || null,
           nickname: nickname.trim() || null,
+          profileImageUrl: profileImageUrl.trim() || null,
         },
       });
 
@@ -172,12 +194,14 @@ export default function InfoPage() {
               nickname: updated.nickname ?? prev.nickname,
               email: updated.email ?? prev.email,
               phone: updated.phone ?? prev.phone,
+              profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
             }
           : (updated as ApiMe)
       );
 
       setName(String(updated?.name ?? name).trim());
       setNickname(String(updated?.nickname ?? nickname).trim());
+      setProfileImageUrl(String(updated?.profileImageUrl ?? profileImageUrl).trim());
 
       // ✅ Recarga suave desde API para asegurar consistencia
       const prof = await fetchProfile();
@@ -185,6 +209,7 @@ export default function InfoPage() {
         setProfile(prof.data);
         setName(String(prof.data?.name ?? "").trim());
         setNickname(String(prof.data?.nickname ?? "").trim());
+        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
       }
 
       // Avisamos al header/perfil (compat con ambos eventos)
@@ -249,8 +274,18 @@ export default function InfoPage() {
       {/* Card superior */}
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gray-900 text-white font-extrabold">
-            {avatar}
+          <div className="relative h-12 w-12 overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold">
+            {profileImageUrl ? (
+              <Image
+                src={profileImageUrl}
+                alt="Foto de perfil"
+                fill
+                className="object-cover"
+                sizes="48px"
+              />
+            ) : (
+              <div className="grid h-full w-full place-items-center">{avatar}</div>
+            )}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -263,6 +298,40 @@ export default function InfoPage() {
           </div>
 
           <div className="shrink-0 text-xs font-extrabold text-emerald-700">En línea</div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="text-xs font-extrabold text-gray-800">Foto de perfil</div>
+        <div className="mt-3 flex items-center gap-3">
+          <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-gray-900 text-white shadow-sm ring-1 ring-gray-200">
+            {profileImageUrl ? (
+              <Image src={profileImageUrl} alt="Foto de perfil" fill className="object-cover" sizes="64px" />
+            ) : (
+              <div className="grid h-full w-full place-items-center text-sm font-extrabold">{avatar}</div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]">
+              Elegir foto
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {profileImageUrl ? (
+              <button
+                type="button"
+                onClick={() => setProfileImageUrl("")}
+                className="ml-2 rounded-2xl border border-gray-200 px-4 py-3 text-xs font-extrabold text-gray-700"
+              >
+                Quitar
+              </button>
+            ) : null}
+            <div className="mt-2 text-[11px] text-gray-500">Usa una imagen cuadrada. Máximo 750 KB.</div>
+          </div>
         </div>
       </div>
 

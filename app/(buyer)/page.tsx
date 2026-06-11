@@ -14,9 +14,13 @@ type MeResponse =
   | {
       user: {
         sub?: string;
+        id?: string;
         name?: string;
         email?: string;
         phone?: string;
+        isKronixPlusApproved?: boolean;
+        kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
+        kronixPlusApprovedAt?: string | null;
       };
     }
   | { user?: any };
@@ -635,13 +639,16 @@ contactName: "",
   useEffect(() => {
     let alive = true;
 
-    apiFetch<MeResponse>("/auth/me", {
+    apiFetch<any>("/users/me", {
       method: "GET",
       cache: "no-store",
-    })
+      suppressSessionExpiredEvent: true,
+    } as any)
       .then((data) => {
         if (!alive) return;
-        const user = (data as any)?.user ?? null;
+        const user = data && typeof data === "object"
+          ? { ...data, sub: data.id ?? data.sub }
+          : null;
         setMe(user && typeof user === "object" ? user : null);
       })
       .catch(() => {
@@ -720,6 +727,12 @@ email: prev.email || String(app?.email ?? ""),
   const cityDepartment = String(city?.department ?? "").trim();
 
   const isLoggedIn = !!(me && (me as any)?.sub);
+  const isPlusApproved =
+    isLoggedIn &&
+    (Boolean((me as any)?.isKronixPlusApproved) ||
+      Boolean(kronixPlusStatus?.approved) ||
+      String((me as any)?.kronixPlusStatus ?? kronixPlusStatus?.status ?? "")
+        .toUpperCase() === "APPROVED");
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -757,7 +770,7 @@ email: prev.email || String(app?.email ?? ""),
       return;
     }
 
-    if (kronixPlusStatus?.approved) {
+    if (isPlusApproved) {
       router.push("/kronix/enviar");
       return;
     }
@@ -919,6 +932,30 @@ if (kronixPlusForm.address.trim().length < 8) {
                 sizes="292px"
                 priority
               />
+
+              {isPlusApproved ? (
+                <div
+                  className="pointer-events-none absolute z-30"
+                  style={{
+                    left: "50%",
+                    top: "62px",
+                    transform: "translate(188px, -35px) scale(1)",
+                    transformOrigin: "center",
+                  }}
+                  aria-label="Cliente KroniX Plus aprobado"
+                  title="KroniX Plus"
+                >
+                  <div className="relative h-[34px] w-[34px]">
+                    <Image
+                      src="/branding/kronix/plus.png"
+                      alt="KroniX Plus"
+                      fill
+                      className="object-contain"
+                      sizes="34px"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
 

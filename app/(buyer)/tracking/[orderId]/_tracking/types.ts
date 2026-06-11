@@ -143,6 +143,7 @@ export type ApiTrackingSnapshot = {
       id: string;
       name: string;
       phone: string | null;
+      profileImageUrl?: string | null;
       vehicle?: { brand: string | null; plate: string | null } | null;
     } | null;
   };
