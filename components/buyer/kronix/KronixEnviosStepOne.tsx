@@ -1,3 +1,10 @@
+/**
+ * OBSOLETO
+ * Conservado temporalmente por compatibilidad y respaldo.
+ * KroniX Envíos utiliza actualmente el flujo One Touch
+ * implementado en KronixEnviosStepThree.
+ 
+
 // components/buyer/kronix/KronixEnviosStepOne.tsx
 "use client";
 
@@ -492,3 +499,4 @@ export default function KronixEnviosStepOne() {
     </div>
   );
 }
+  */

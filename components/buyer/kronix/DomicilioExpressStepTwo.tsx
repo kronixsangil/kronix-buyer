@@ -1,3 +1,9 @@
+/**
+ * OBSOLETO
+ * Conservado temporalmente por compatibilidad y respaldo.
+ * KroniX Envíos utiliza actualmente el flujo One Touch
+ * implementado en KronixEnviosStepThree.
+
 // components/buyer/kronix/DomicilioExpressStepTwo.tsx
 "use client";
 
@@ -693,4 +699,4 @@ if (pickupHasCoords) {
       />
     </div>
   );
-}
+}*/

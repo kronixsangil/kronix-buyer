@@ -79,9 +79,7 @@ export function loadKronixRecogerDraft(): KronixPickupDraft {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
 
-    if (!raw) {
-      return { ...EMPTY_KRONIX_RECOGER_DRAFT };
-    }
+    if (!raw) return { ...EMPTY_KRONIX_RECOGER_DRAFT };
 
     const parsed = JSON.parse(raw) as Partial<KronixPickupDraft> | null;
 
@@ -108,7 +106,8 @@ export function loadKronixRecogerDraft(): KronixPickupDraft {
       receiverName: sanitizeText(parsed?.receiverName),
       receiverPhone: sanitizeText(parsed?.receiverPhone),
 
-      notes: sanitizeText(parsed?.notes),
+      // La tarea NO se recupera del localStorage. Debe escribirse nueva en cada solicitud.
+      notes: "",
 
       zoneFeeCOP: sanitizeMoney(parsed?.zoneFeeCOP) || 1000,
       tipCOP: sanitizeMoney(parsed?.tipCOP),
@@ -145,7 +144,8 @@ export function saveKronixRecogerDraft(draft: KronixPickupDraft) {
         receiverName: sanitizeText(draft.receiverName),
         receiverPhone: sanitizeText(draft.receiverPhone),
 
-        notes: sanitizeText(draft.notes),
+        // La tarea no se guarda para evitar repetir el último mandado.
+        notes: "",
 
         zoneFeeCOP: sanitizeMoney(draft.zoneFeeCOP) || 1000,
         tipCOP: sanitizeMoney(draft.tipCOP),

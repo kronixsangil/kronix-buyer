@@ -3,22 +3,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import {
+  clearKronixRecogerDraft,
   type KronixPickupDraft,
   formatPhoneDraft,
   loadKronixRecogerDraft,
   saveKronixRecogerDraft,
 } from "@/components/buyer/kronix/kronixRecogerDraft";
+import AuthRequiredModal from "@/components/buyer/AuthRequiredModal";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { useAuth } from "@/components/buyer/useAuth";
-import { apiFetch } from "@/lib/api";
-import Image from "next/image";
-
-const LocationPickerMap = dynamic(
-  () => import("@/components/buyer/maps/LocationPickerMap"),
-  { ssr: false }
-);
+import { apiFetch, type ApiError } from "@/lib/api";
+import { geocodeAddressOSMInCity } from "@/lib/geocode";
 
 type AddressItem = {
   id: string;
@@ -32,28 +28,167 @@ type AddressItem = {
   isFavorite?: boolean;
 };
 
+type CreateCourierOrderResponse = {
+  id: string;
+  status: string;
+  flowStatus: string;
+  totalCOP: number;
+  createdAt: string;
+  orderType: "COURIER" | "STORE";
+};
+
+type CourierZoneCalculateResponse = {
+  serviceType: "PICKUP_AND_DELIVERY" | "SEND_PACKAGE" | "ERRAND";
+  zone: {
+    id: string;
+    zoneNumber: number;
+    name: string;
+    isNegotiable: boolean;
+    isInsideCoverage: boolean;
+  };
+  pricing: {
+    baseServiceCOP: number;
+    zoneFeeCOP: number;
+    serviceFeeCOP: number;
+    packageLargeFeeCOP: number;
+    additionalPointsFeeCOP: number;
+    returnFeeCOP: number;
+    complexityFeeCOP: number;
+    tipCOP: number;
+    totalCOP: number;
+  };
+  message: string;
+};
+
+type WalletResponse = {
+  ok?: boolean;
+  wallet?: {
+    id: string;
+    userId: string;
+    cityId: string;
+    cashBalanceCOP: number;
+    bonusBalanceCOP: number;
+    totalAvailableCOP: number;
+    isActive: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
+};
+
+function formatCOP(value: number) {
+  return Number(value || 0).toLocaleString("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  });
+}
+
+function getSafeMoney(value: unknown) {
+  const n = Math.round(Number(value ?? 0));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function getUserName(user: any) {
   return String(user?.name ?? user?.user?.name ?? "").trim();
 }
 
 function getUserPhone(user: any) {
-  return String(user?.phone ?? user?.user?.phone ?? "").replace(/\D/g, "").slice(0, 15);
+  return String(user?.phone ?? user?.user?.phone ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 15);
+}
+
+function PriceLine({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-[5px] last:border-b-0">
+      <div className={highlight ? "text-[14px] font-black text-slate-950" : "text-[13px] font-semibold text-slate-600"}>{label}</div>
+      <div className={highlight ? "text-[17px] font-black text-slate-950" : "text-[14px] font-black text-slate-900"}>{value}</div>
+    </div>
+  );
+}
+
+function ConfirmationModal({
+  open,
+  submitting,
+  totalCOP,
+  walletAvailableCOP,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  submitting: boolean;
+  totalCOP: number;
+  walletAvailableCOP: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-[390px] overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-black/10">
+        <div className="relative px-5 pb-5 pt-5 text-white">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.28),transparent_34%),linear-gradient(135deg,#03102b_0%,#082b63_55%,#0f172a_100%)]" />
+          <div className="relative z-10">
+            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">Confirmación KroniX</div>
+            <div className="mt-2 text-[22px] font-black leading-tight">Confirmar y pagar con Wallet</div>
+            <div className="mt-2 text-[13px] font-semibold leading-5 text-white/85">
+              KroniX descontará el valor estimado de tu Wallet y creará el Domicilio Express de inmediato.
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 p-5">
+          <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 text-[13px] font-black text-emerald-950">
+              <span>Saldo Wallet</span>
+              <span>{formatCOP(walletAvailableCOP)}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-3 border-t border-emerald-100 pt-2 text-[13px] font-black text-emerald-950">
+              <span>Valor a descontar</span>
+              <span>{formatCOP(totalCOP)}</span>
+            </div>
+          </div>
+
+          <div className="rounded-[22px] border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] font-bold leading-5 text-blue-900">
+            El valor mostrado es una estimación inicial y puede variar por lluvias, tráfico, tiempos de espera, distancias superiores a las previstas, paquetes grandes, pesados, voluminosos o cualquier condición especial detectada durante la prestación del servicio. El motorizado podrá realizar cobro extra en efectivo en caso de que se presenten estas condiciones.
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button type="button" onClick={onClose} disabled={submitting} className="rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-[14px] font-black text-slate-800 shadow-sm disabled:opacity-50">
+              Cancelar
+            </button>
+            <button type="button" onClick={onConfirm} disabled={submitting} className="rounded-[22px] bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] px-4 py-3 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(5,150,105,0.24)] disabled:opacity-60">
+              {submitting ? "Pagando..." : "Aceptar y pagar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DomicilioExpressStepOne() {
   const router = useRouter();
-  const { citySlug, cityReady } = useBuyerCity();
-  const { user } = useAuth();
+  const { isAuthed, isLoading: authLoading, user } = useAuth();
+  const { city, citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
 
-  const [form, setForm] = useState<KronixPickupDraft>(loadKronixRecogerDraft());
+  const [form, setForm] = useState<KronixPickupDraft>(() => loadKronixRecogerDraft());
   const [touched, setTouched] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
-
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
-
-  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [zoneCalculation, setZoneCalculation] = useState<CourierZoneCalculateResponse | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<WalletResponse["wallet"] | null>(null);
 
   useEffect(() => {
     const draft = loadKronixRecogerDraft();
@@ -62,8 +197,10 @@ export default function DomicilioExpressStepOne() {
 
     setForm({
       ...draft,
-      senderName: draft.senderName.trim() || profileName,
-      senderPhone: draft.senderPhone.trim() || profilePhone,
+      senderName: profileName || draft.senderName.trim(),
+      senderPhone: profilePhone || draft.senderPhone.trim(),
+      notes: "",
+      packageType: "Domicilio Express",
     });
   }, [user]);
 
@@ -72,46 +209,56 @@ export default function DomicilioExpressStepOne() {
   }, [form]);
 
   useEffect(() => {
+    let alive = true;
+
     async function loadAddresses() {
       if (!cityReady || !citySlug) return;
-
       setAddressesLoading(true);
 
       try {
-        const rows = await apiFetch<AddressItem[]>(
-          `/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`,
-          { suppressSessionExpiredEvent: true } as any
-        );
-
+        const rows = await apiFetch<AddressItem[]>(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, { suppressSessionExpiredEvent: true } as any);
+        if (!alive) return;
         setAddresses(Array.isArray(rows) ? rows : []);
       } catch {
+        if (!alive) return;
         setAddresses([]);
       } finally {
-        setAddressesLoading(false);
+        if (alive) setAddressesLoading(false);
       }
     }
 
     loadAddresses();
+    return () => {
+      alive = false;
+    };
   }, [cityReady, citySlug]);
 
   const pickupOk = form.pickupAddress.trim().length >= 8;
   const senderNameOk = form.senderName.trim().length >= 3;
   const taskOk = form.notes.trim().length >= 5;
 
-  const canContinue = useMemo(() => {
-    return pickupOk && senderNameOk && taskOk;
-  }, [pickupOk, senderNameOk, taskOk]);
+  const ready = useMemo(() => pickupOk && senderNameOk && taskOk && !!citySlug, [citySlug, pickupOk, senderNameOk, taskOk]);
 
-  function updateField<K extends keyof KronixPickupDraft>(
-    key: K,
-    value: KronixPickupDraft[K]
-  ) {
+  const pricing = useMemo(() => {
+    const apiPricing = zoneCalculation?.pricing;
+    return {
+      baseFee: getSafeMoney(apiPricing?.baseServiceCOP),
+      zoneFee: getSafeMoney(apiPricing?.zoneFeeCOP),
+      serviceFee: getSafeMoney(apiPricing?.serviceFeeCOP),
+      total: getSafeMoney(apiPricing?.totalCOP),
+      zoneNumber: zoneCalculation?.zone?.zoneNumber ?? null,
+      isNegotiable: Boolean(zoneCalculation?.zone?.isNegotiable),
+      deliveryFee: getSafeMoney(apiPricing?.baseServiceCOP) + getSafeMoney(apiPricing?.zoneFeeCOP),
+    };
+  }, [zoneCalculation]);
+
+  const walletAvailableCOP = useMemo(() => Number(wallet?.totalAvailableCOP ?? 0), [wallet?.totalAvailableCOP]);
+  const hasEnoughWalletBalance = useMemo(() => walletAvailableCOP >= pricing.total && pricing.total > 0, [pricing.total, walletAvailableCOP]);
+
+  function updateField<K extends keyof KronixPickupDraft>(key: K, value: KronixPickupDraft[K]) {
     setGeoError(null);
-
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setCreateError(null);
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   function applySavedAddress(id: string) {
@@ -120,21 +267,22 @@ export default function DomicilioExpressStepOne() {
 
     setTouched(false);
     setGeoError(null);
+    setCreateError(null);
 
     setForm((prev) => ({
       ...prev,
       pickupPlaceName: String(selected.placeName ?? selected.label ?? "").trim(),
       pickupAddress: String(selected.address ?? "").trim(),
       pickupReference: String(selected.reference ?? "").trim(),
-      pickupLat: typeof selected.lat === "number" ? selected.lat : null,
-      pickupLng: typeof selected.lng === "number" ? selected.lng : null,
+      pickupLat: selected.lat != null && Number.isFinite(Number(selected.lat)) ? Number(selected.lat) : null,
+      pickupLng: selected.lng != null && Number.isFinite(Number(selected.lng)) ? Number(selected.lng) : null,
       pickupUseCurrentLocation: false,
     }));
   }
 
   function useCurrentLocation() {
     setGeoError(null);
-    setShowMapPicker(false);
+    setCreateError(null);
 
     if (!navigator?.geolocation) {
       setGeoError("Tu navegador no permite usar ubicación actual.");
@@ -152,9 +300,7 @@ export default function DomicilioExpressStepOne() {
           ...prev,
           pickupPlaceName: "Mi ubicación actual",
           pickupAddress: "Mi ubicación actual",
-          pickupReference:
-            prev.pickupReference.trim() ||
-            "El conductor debe llegar a mi ubicación GPS actual.",
+          pickupReference: prev.pickupReference.trim() || "El conductor debe llegar a mi ubicación GPS actual.",
           pickupLat: lat,
           pickupLng: lng,
           pickupUseCurrentLocation: true,
@@ -164,287 +310,403 @@ export default function DomicilioExpressStepOne() {
         setGeoLoading(false);
       },
       () => {
-        setGeoError(
-          "No pudimos tomar tu ubicación. Revisa permisos del navegador o escribe la dirección manualmente."
-        );
+        setGeoError("No pudimos tomar tu ubicación. Revisa permisos del navegador o escribe la dirección manualmente.");
         setGeoLoading(false);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 60000,
-      }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
   }
 
-  function handleContinue() {
-    setTouched(true);
-    if (!canContinue) return;
+  async function getPickupGeo() {
+    if (typeof form.pickupLat === "number" && typeof form.pickupLng === "number" && Number.isFinite(form.pickupLat) && Number.isFinite(form.pickupLng)) {
+      return { lat: Number(form.pickupLat), lng: Number(form.pickupLng) };
+    }
 
-    saveKronixRecogerDraft({
-      ...form,
-      packageType: "Domicilio Express",
-      packageDescription:
-        form.packageDescription.trim() ||
-        "Servicio express: el cliente explicará la tarea al llegar el conductor.",
-      receiverName: form.senderName.trim() || "Cliente",
-      receiverPhone: form.senderPhone.trim(),
-      dropoffPlaceName: form.pickupPlaceName,
-      dropoffAddress: form.pickupAddress,
-      dropoffReference: form.pickupReference,
-      dropoffLat: form.pickupLat ?? null,
-      dropoffLng: form.pickupLng ?? null,
-    });
-
-    router.push("/kronix/recoger?step=2");
+    return await geocodeAddressOSMInCity(form.pickupAddress, cityGeoLabel);
   }
 
-  console.log("LAT LNG PICKUP:", form.pickupLat, form.pickupLng);
+  useEffect(() => {
+    let alive = true;
+
+    async function loadWallet() {
+      if (!isAuthed || !user?.id || !city?.id) {
+        if (!alive) return;
+        setWallet(null);
+        setWalletLoading(false);
+        return;
+      }
+
+      setWalletLoading(true);
+      setWalletError(null);
+
+      try {
+        const response = await apiFetch<WalletResponse>(`/wallet/me?cityId=${encodeURIComponent(city.id)}`, { method: "GET", suppressSessionExpiredEvent: true } as any);
+        if (!alive) return;
+        setWallet(response?.wallet ?? null);
+      } catch (e: any) {
+        if (!alive) return;
+        setWallet(null);
+        setWalletError(String(e?.message ?? "").trim() || "No pudimos consultar tu saldo KroniX Wallet.");
+      } finally {
+        if (alive) setWalletLoading(false);
+      }
+    }
+
+    loadWallet();
+    return () => {
+      alive = false;
+    };
+  }, [isAuthed, user?.id, city?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function calculatePricing() {
+      setPricingError(null);
+      setZoneCalculation(null);
+
+      if (!ready || !citySlug) return;
+      setPricingLoading(true);
+
+      try {
+        const pickupGeo = await getPickupGeo();
+
+        if (!pickupGeo) {
+          if (!cancelled) setPricingError(`No pudimos ubicar con precisión el punto de inicio en ${cityLabel}. Revisa la dirección.`);
+          return;
+        }
+
+        const response = await apiFetch<CourierZoneCalculateResponse>("/courier/zones/calculate", {
+          method: "POST",
+          json: {
+            citySlug,
+            serviceType: "PICKUP_AND_DELIVERY",
+            points: [
+              {
+                lat: pickupGeo.lat,
+                lng: pickupGeo.lng,
+                label: "Punto de inicio Domicilio Express",
+                address: form.pickupAddress.trim(),
+              },
+            ],
+            tipCOP: 0,
+          },
+        });
+
+        if (!cancelled) setZoneCalculation(response);
+      } catch (e: any) {
+        const err = e as ApiError;
+        if (!cancelled) setPricingError(String(err?.message ?? "").trim() || "No pudimos calcular la tarifa automática en este momento.");
+      } finally {
+        if (!cancelled) setPricingLoading(false);
+      }
+    }
+
+    calculatePricing();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, citySlug, cityLabel, cityGeoLabel, form.pickupAddress, form.pickupLat, form.pickupLng]);
+
+  function requestConfirm() {
+    setTouched(true);
+    setCreateError(null);
+
+    if (!authLoading && !isAuthed) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    if (!ready) {
+      setCreateError("Revisa ubicación, contacto e indicación del servicio.");
+      return;
+    }
+
+    if (!zoneCalculation) {
+      setCreateError("Aún no tenemos la tarifa automática lista. Espera unos segundos e inténtalo de nuevo.");
+      return;
+    }
+
+    if (walletLoading) {
+      setCreateError("Estamos consultando tu saldo KroniX Wallet. Espera unos segundos.");
+      return;
+    }
+
+    if (walletError) {
+      setCreateError(walletError);
+      return;
+    }
+
+    if (!wallet?.isActive) {
+      setCreateError("Debes tener una KroniX Wallet activa para confirmar este servicio.");
+      return;
+    }
+
+    if (!hasEnoughWalletBalance) {
+      setCreateError("Saldo insuficiente en tu KroniX Wallet. Recarga saldo antes de confirmar.");
+      return;
+    }
+
+    setShowConfirmModal(true);
+  }
+
+  async function handleSubmit() {
+    setCreateError(null);
+
+    if (!ready || !zoneCalculation) return;
+
+    if (!user?.id) {
+      setCreateError("No pudimos identificar tu sesión. Vuelve a iniciar sesión.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const pickupGeo = await getPickupGeo();
+
+      if (!pickupGeo) {
+        setCreateError(`No pudimos ubicar con precisión el punto de inicio en ${cityLabel}. Revisa la dirección e inténtalo de nuevo.`);
+        setSubmitting(false);
+        return;
+      }
+
+      const nextDraft: KronixPickupDraft = {
+        ...form,
+        packageType: "Domicilio Express",
+        packageDescription: form.packageDescription.trim() || "Servicio express: el cliente explicará la tarea al llegar el conductor.",
+        receiverName: form.senderName.trim() || "Cliente",
+        receiverPhone: form.senderPhone.trim(),
+        dropoffPlaceName: form.pickupPlaceName,
+        dropoffAddress: form.pickupAddress,
+        dropoffReference: form.pickupReference,
+        dropoffLat: pickupGeo.lat,
+        dropoffLng: pickupGeo.lng,
+        tipCOP: 0,
+      };
+
+      saveKronixRecogerDraft(nextDraft);
+
+      const packageDescription = [
+        "SERVICIO: Domicilio Express",
+        "TIPO: Motorizado rápido para tarea simple",
+        `ZONA CALCULADA: Zona ${pricing.zoneNumber ?? "pendiente"}`,
+        `VALOR ZONA: ${formatCOP(pricing.zoneFee)}`,
+        `COSTO SERVICIO: ${formatCOP(pricing.serviceFee)}`,
+        "PROPINA: $ 0",
+        "",
+        `INDICACIÓN DEL CLIENTE: ${form.notes.trim()}`,
+        "",
+        "CONDICIÓN OPERATIVA:",
+        "Servicio Domicilio Express cubre zona urbana cercana y paquetes/tareas de tamaño normal sin pérdidas de tiempo excesivas. En caso de que el servicio exceda estas condiciones, el cliente podrá renegociar el servicio con el motorizado en punto o cancelar según política KroniX.",
+        "",
+        "NOTA OPERATIVA: El cliente explicará detalles adicionales cuando llegue el conductor.",
+      ].filter(Boolean).join("\n");
+
+      const payload = {
+        orderType: "COURIER" as const,
+        courierServiceType: "PICKUP_AND_DELIVERY" as const,
+        customerId: user.id,
+        citySlug,
+        paymentMethod: "WALLET",
+        autoPayWithWallet: true,
+        dropoffAddress: form.pickupAddress.trim(),
+        dropoffLat: pickupGeo.lat,
+        dropoffLng: pickupGeo.lng,
+        customerNote: form.notes.trim() || undefined,
+        deliveryFeeCOP: pricing.deliveryFee,
+        serviceFeeCOP: pricing.serviceFee,
+        promoCOP: 0,
+        tipCOP: 0,
+        totalCOP: pricing.total,
+        packageType: "Domicilio Express",
+        packageDescription,
+        origin: {
+          address: form.pickupAddress.trim(),
+          lat: pickupGeo.lat,
+          lng: pickupGeo.lng,
+          placeName: form.pickupPlaceName.trim() || "Punto de inicio",
+          reference: form.pickupReference.trim() || undefined,
+          senderName: form.senderName.trim(),
+          senderPhone: form.senderPhone.trim() || undefined,
+        },
+        destination: {
+          address: form.pickupAddress.trim(),
+          lat: pickupGeo.lat,
+          lng: pickupGeo.lng,
+          placeName: form.pickupPlaceName.trim() || "Punto de inicio",
+          reference: form.pickupReference.trim() || undefined,
+          receiverName: form.senderName.trim(),
+          receiverPhone: form.senderPhone.trim() || undefined,
+        },
+      };
+
+      const created = await apiFetch<CreateCourierOrderResponse>("/orders", { method: "POST", json: payload });
+
+      if (!created?.id) throw new Error("La API no devolvió un id de orden válido.");
+
+      clearKronixRecogerDraft();
+      router.push(`/tracking/${created.id}`);
+    } catch (e: any) {
+      const err = e as ApiError;
+      const msg = String(err?.message ?? "").trim() || "No se pudo crear la solicitud en este momento.";
+      setCreateError(msg);
+      setSubmitting(false);
+      setShowConfirmModal(false);
+    }
+  }
 
   return (
-    <div className="space-y-2">
-      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-        <div className="flex items-start gap-3">
-          <div className="relative h-[62px] w-[62px] shrink-0 overflow-visible">
-            <Image
-              src="/branding/kronix/recoger-llevar.png"
-              alt="Domicilio Express"
-              fill
-              className="object-contain scale-[1.5] translate-x-[-2px] translate-y-0"
-              sizes="62px"
-            />
-          </div>
-
-          <div className="min-w-0">
-            <div className="text-[18px] font-black leading-tight text-slate-900">
-              ¿Dónde debe llegar el motorizado?
-            </div>
-            <div className="mt-1 text-[13px] leading-5 text-slate-500">
-              Usa tu ubicación actual, selecciona en el mapa, una dirección guardada o escribe el punto donde inicia el servicio.
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          <button
-            type="button"
-            onClick={useCurrentLocation}
-            disabled={geoLoading}
-            className={[
-              "w-full rounded-[22px] px-4 py-4 text-[15px] font-black text-white shadow-sm transition",
-              geoLoading
-                ? "cursor-not-allowed bg-slate-300"
-                : "bg-emerald-600 hover:bg-emerald-700",
-            ].join(" ")}
-          >
-            {geoLoading ? "Tomando ubicación..." : "📍 Usar mi ubicación actual"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setGeoError(null);
-              setShowMapPicker((prev) => !prev);
-            }}
-            className="w-full rounded-[22px] border border-blue-200 bg-blue-50 px-4 py-4 text-[15px] font-black text-blue-800 shadow-sm transition hover:bg-blue-100"
-          >
-            🗺️ {showMapPicker ? "Cerrar mapa" : "Seleccionar en el mapa"}
-          </button>
-
-          {showMapPicker ? (
-            <LocationPickerMap
-              initialLat={
-                typeof form.pickupLat === "number" ? form.pickupLat : undefined
-              }
-              initialLng={
-                typeof form.pickupLng === "number" ? form.pickupLng : undefined
-              }
-              onSelect={({ lat, lng, address }) => {
-                setForm((prev) => ({
-                  ...prev,
-                    pickupPlaceName: "Lugar seleccionado desde mapa",
-                    pickupAddress: "Ubicación seleccionada desde mapa",
-                    pickupReference: "",
-                    pickupLat: lat,
-                    pickupLng: lng,
-
-                    // 🔥 ESTA ES LA CLAVE
-                    pickupUseCurrentLocation: true,
-                }));
-
-                setTouched(false);
-                setGeoError(null);
-                setShowMapPicker(false);
-              }}
-            />
-          ) : null}
-
-          {geoError ? (
-            <div className="rounded-[18px] border border-red-200 bg-red-50 px-3 py-2 text-[12px] font-semibold text-red-700">
-              {geoError}
-            </div>
-          ) : null}
-
-          {addresses.length > 0 || addressesLoading ? (
-            <div className="rounded-[22px] border border-blue-100 bg-blue-50 px-3 py-3">
-              <label className="mb-2 block text-[12px] font-extrabold uppercase tracking-[0.12em] text-blue-700">
-                Usar dirección guardada
-              </label>
-
-              <select
-                disabled={addressesLoading}
-                defaultValue=""
-                onChange={(e) => applySavedAddress(e.target.value)}
-                className="w-full rounded-[18px] border border-blue-100 bg-white px-3 py-3 text-[14px] font-bold text-slate-900 outline-none"
-              >
-                <option value="">
-                  {addressesLoading ? "Cargando direcciones..." : "Seleccionar dirección"}
+    <div className="space-y-1 px-0 pb-4 pt-0">
+      <div className="rounded-[18px] border border-slate-200 bg-white p-2 shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
+        {addresses.length > 0 || addressesLoading ? (
+          <div className="rounded-[15px] border border-blue-100 bg-blue-50 px-2 py-2">
+            <label className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-700">Usar dirección guardada</label>
+            <select disabled={addressesLoading} defaultValue="" onChange={(e) => applySavedAddress(e.target.value)} className="h-9 w-full rounded-[14px] border border-blue-100 bg-white px-3 text-[12px] font-bold text-slate-900 outline-none">
+              <option value="">{addressesLoading ? "Cargando..." : "Seleccionar dirección"}</option>
+              {addresses.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {`${a.isDefault ? "🏠 " : a.isFavorite ? "❤️ " : ""}${a.placeName || a.label || "Dirección guardada"} — ${a.address}`}
                 </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
-                {addresses.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {`${a.isDefault ? "🏠 " : a.isFavorite ? "❤️ " : ""}${
-                      a.placeName || a.label || "Dirección guardada"
-                    } — ${a.address}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+        <button type="button" onClick={useCurrentLocation} disabled={geoLoading} className={["mt-2 h-12 w-full rounded-[16px] px-4 text-[12px] font-black text-white shadow-sm transition", geoLoading ? "cursor-not-allowed bg-slate-300" : "bg-emerald-600 hover:bg-emerald-700"].join(" ")}>
+          {geoLoading ? "Tomando ubicación..." : "📍 Usar mi ubicación actual"}
+        </button>
 
+        {geoError ? (
+          <div className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">{geoError}</div>
+        ) : null}
+
+        <div className="mt-2 grid gap-1.5">
           <input
             type="text"
-            value={form.pickupPlaceName}
-            onChange={(e) => updateField("pickupPlaceName", e.target.value)}
-            placeholder="Nombre del lugar: Mi casa, oficina, local..."
-            className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
-            maxLength={80}
-          />
-
-          <textarea
             value={form.pickupAddress}
             onChange={(e) => {
               const value = e.target.value;
-
               setGeoError(null);
-
-              setForm((prev) => ({
-                ...prev,
-                pickupAddress: value,
-                pickupLat: null,
-                pickupLng: null,
-                pickupUseCurrentLocation: false,
-              }));
+              setCreateError(null);
+              setForm((prev) => ({ ...prev, pickupAddress: value, pickupLat: null, pickupLng: null, pickupUseCurrentLocation: false }));
             }}
             onBlur={() => setTouched(true)}
             placeholder="Dirección o ubicación de inicio *"
-            rows={3}
-            className={[
-              "w-full rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:bg-white",
-              touched && !pickupOk
-                ? "border-red-300 focus:border-red-400"
-                : "border-slate-200 focus:border-blue-300",
-            ].join(" ")}
+            className={["h-12 w-full rounded-[14px] border bg-slate-50 px-3 text-[14px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !pickupOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-blue-300"].join(" ")}
             maxLength={220}
           />
 
-          <input
-            type="text"
+          <textarea
             value={form.pickupReference}
             onChange={(e) => updateField("pickupReference", e.target.value)}
-            placeholder="Referencia adicional: portón, apto, local..."
-            className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
+            placeholder="Referencia"
+            rows={2}
+            className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-3 py-2 text-[14px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
             maxLength={120}
           />
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.07)]">
-        <div className="text-[18px] font-black text-slate-900">
-          ¿Qué necesitas que haga el motorizado?
-        </div>
-
-        <div className="mt-1 text-[13px] leading-5 text-slate-500">
-          Tus datos se cargan automáticamente. Solo escribe una indicación rápida.
-        </div>
-
-        <div className="mt-4 space-y-3">
+      <div className="rounded-[18px] border border-slate-200 bg-white p-2 shadow-[0_6px_14px_rgba(15,23,42,0.05)]">
+        <div className="grid grid-cols-[70px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
+          <label className="text-[14px] font-black text-slate-700">Contacto</label>
           <input
             type="text"
             value={form.senderName}
             onChange={(e) => updateField("senderName", e.target.value)}
             onBlur={() => setTouched(true)}
-            placeholder="Tu nombre *"
-            className={[
-              "w-full rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:bg-white",
-              touched && !senderNameOk
-                ? "border-red-300 focus:border-red-400"
-                : "border-slate-200 focus:border-emerald-300",
-            ].join(" ")}
+            placeholder="Contacto"
+            className={["h-12 w-full rounded-[12px] border bg-slate-50 px-3 text-[14px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !senderNameOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-emerald-300"].join(" ")}
             maxLength={80}
           />
 
+          <label className="text-[14px] font-black text-slate-700">Celular</label>
           <input
             type="text"
             value={form.senderPhone}
             onChange={(e) => updateField("senderPhone", formatPhoneDraft(e.target.value))}
-            placeholder="Tu teléfono"
+            placeholder="Celular"
             inputMode="numeric"
-            className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:bg-white"
+            className="h-12 w-full rounded-[12px] border border-slate-200 bg-slate-50 px-3 text-[12px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:bg-white"
             maxLength={20}
           />
 
+          <label className="self-start pt-2 text-[14px] font-black text-slate-700">Tarea</label>
           <textarea
             value={form.notes}
             onChange={(e) => updateField("notes", e.target.value)}
             onBlur={() => setTouched(true)}
-            placeholder="Ej: Necesito un motorizado para una vuelta rápida. Yo le explico al llegar."
-            rows={4}
+            placeholder="Indicación rápida"
+            rows={2}
             maxLength={300}
-            className={[
-              "w-full rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:bg-white",
-              touched && !taskOk
-                ? "border-red-300 focus:border-red-400"
-                : "border-slate-200 focus:border-emerald-300",
-            ].join(" ")}
+            className={["w-full rounded-[12px] border bg-slate-50 px-3 py-2 text-[12px] font-semibold text-slate-900 outline-none transition focus:bg-white", touched && !taskOk ? "border-red-300 focus:border-red-400" : "border-slate-200 focus:border-emerald-300"].join(" ")}
           />
-
-          <div className="flex items-center justify-between gap-3 text-[12px]">
-            <span
-              className={
-                touched && !taskOk ? "font-semibold text-red-600" : "text-slate-500"
-              }
-            >
-              {touched && !taskOk
-                ? "Escribe una indicación mínima para el conductor."
-                : "Servicio rápido: el conductor llega y tú le explicas los detalles."}
-            </span>
-
-            <span className="shrink-0 font-semibold text-slate-400">
-              {form.notes.length}/300
-            </span>
-          </div>
         </div>
       </div>
 
-      {touched && !canContinue ? (
-        <div className="rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
-          Revisa ubicación, nombre e indicación del servicio.
+      <div className="rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[14px] font-black text-slate-900">Precio estimado</div>
+          <div className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
+            {pricingLoading ? "Calculando..." : pricing.zoneNumber ? `Zona ${pricing.zoneNumber}` : "Zona pendiente"}
+          </div>
         </div>
-      ) : null}
+
+        {pricingError ? <div className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">{pricingError}</div> : null}
+
+        <div className="mt-2 rounded-[16px] bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200">
+          <PriceLine label="Base del servicio" value={formatCOP(pricing.baseFee)} />
+          <PriceLine label="Costo servicio" value={formatCOP(pricing.serviceFee)} />
+          <div className="my-1 border-t border-slate-200" />
+          <PriceLine label="Total estimado" value={formatCOP(pricing.total)} highlight />
+        </div>
+      </div>
+
+      <div className="rounded-[18px] border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[14px] font-black text-slate-900">KroniX Wallet</div>
+          <div className={["rounded-full px-2.5 py-1 text-[10px] font-black ring-1", hasEnoughWalletBalance ? "bg-emerald-50 text-emerald-700 ring-emerald-100" : "bg-amber-50 text-amber-700 ring-amber-100"].join(" ")}>
+            {walletLoading ? "Consultando..." : hasEnoughWalletBalance ? "Saldo OK" : "Recargar"}
+          </div>
+        </div>
+
+        <div className="mt-2 rounded-[16px] bg-slate-50 px-3 py-1.5 ring-1 ring-slate-200">
+          <PriceLine label="Saldo disponible" value={walletLoading ? "..." : formatCOP(walletAvailableCOP)} />
+          <PriceLine label="Costo del servicio" value={formatCOP(pricing.total)} />
+          <div className="my-1 border-t border-slate-200" />
+          <PriceLine label={hasEnoughWalletBalance ? "Disponible después" : "Falta por recargar"} value={hasEnoughWalletBalance ? formatCOP(walletAvailableCOP - pricing.total) : formatCOP(Math.max(pricing.total - walletAvailableCOP, 0))} highlight />
+        </div>
+
+        {walletError ? <div className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">{walletError}</div> : null}
+
+        {!walletLoading && pricing.total > 0 && !hasEnoughWalletBalance ? (
+          <button type="button" onClick={() => router.push("/wallet")} className="mt-2 h-10 w-full rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 text-[12px] font-black text-emerald-800 shadow-sm">
+            Ir a Wallet para recargar
+          </button>
+        ) : null}
+      </div>
+
+      {touched && !ready ? <div className="rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">Revisa ubicación, contacto e indicación del servicio.</div> : null}
+      {createError ? <div className="rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">{createError}</div> : null}
 
       <button
         type="button"
-        onClick={handleContinue}
+        disabled={!ready || submitting || pricingLoading || walletLoading || !zoneCalculation || !hasEnoughWalletBalance}
+        onClick={requestConfirm}
         className={[
-          "w-full rounded-[24px] py-4 text-[15px] font-black text-white transition",
-          canContinue
-            ? "bg-[linear-gradient(90deg,#0c45ff_0%,#0b8bdf_50%,#1fd09a_100%)] shadow-[0_12px_22px_rgba(12,69,255,0.22)] hover:scale-[0.995]"
+          "w-full rounded-[20px] py-3 text-[13px] font-black text-white transition",
+          ready && !submitting && !pricingLoading && !walletLoading && zoneCalculation && hasEnoughWalletBalance
+            ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_10px_18px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
             : "cursor-not-allowed bg-slate-300 shadow-none",
         ].join(" ")}
       >
-        Continuar
+        {submitting ? "Pagando y creando express..." : "Confirmar y pagar con Wallet"}
       </button>
+
+      <ConfirmationModal open={showConfirmModal} submitting={submitting} totalCOP={pricing.total} walletAvailableCOP={walletAvailableCOP} onClose={() => setShowConfirmModal(false)} onConfirm={handleSubmit} />
+
+      <AuthRequiredModal open={showAuthModal} onConfirm={() => router.push(`/login?next=${encodeURIComponent("/kronix/recoger")}`)} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 }
