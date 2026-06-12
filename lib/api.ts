@@ -5,6 +5,7 @@ export type ApiFetchOptions = RequestInit & {
   json?: any;
   suppressSessionExpiredEvent?: boolean;
   suppressActivityRefresh?: boolean;
+  _retriedAfterRefresh?: boolean;
 };
 
 export type ApiError = Error & {
@@ -48,6 +49,39 @@ function shouldRefreshActivity(path: string, opts: ApiFetchOptions) {
   if (p.includes("/auth/logout")) return false;
   if (p.includes("/auth/refresh")) return false;
 
+  return true;
+}
+
+function canRetryAfterRefresh(path: string, opts: ApiFetchOptions) {
+  if (opts._retriedAfterRefresh) return false;
+  if (opts.suppressSessionExpiredEvent) return false;
+  if (typeof window === "undefined") return false;
+
+  const p = String(path || "");
+  if (p.includes("/auth/login")) return false;
+  if (p.includes("/auth/register")) return false;
+  if (p.includes("/auth/logout")) return false;
+  if (p.includes("/auth/refresh")) return false;
+
+  return true;
+}
+
+async function tryRefreshAccessToken() {
+  const base = getApiBase();
+  const refreshUrl = joinUrl(base, "/auth/refresh");
+
+  const res = await fetch(refreshUrl, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: {
+      "x-ct-app": CT_APP,
+    },
+  });
+
+  if (!res.ok) return false;
+
+  lastActivityRefreshAt = Date.now();
   return true;
 }
 
@@ -124,6 +158,17 @@ export async function apiFetch<T = any>(
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
 
+    if ((res.status === 401 || res.status === 403) && canRetryAfterRefresh(path, opts)) {
+      const refreshed = await tryRefreshAccessToken().catch(() => false);
+
+      if (refreshed) {
+        return apiFetch<T>(path, {
+          ...opts,
+          _retriedAfterRefresh: true,
+        });
+      }
+    }
+
     if (!opts.suppressSessionExpiredEvent && (res.status === 401 || res.status === 403)) {
       try {
         const { emitSessionExpiredOnce } = await import("./sessionExpired");
@@ -146,3 +191,4 @@ export async function apiFetch<T = any>(
 
   return (await res.json()) as T;
 }
+

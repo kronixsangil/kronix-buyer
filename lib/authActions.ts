@@ -75,6 +75,10 @@ export async function login(emailOrPhone: string, password: string) {
 }
 
 export async function logout() {
+  // Limpieza local primero: la UI deja de creer que hay sesión aunque el backend tarde.
+  clearBuyerAuthCache();
+  notifyAuthChanged();
+
   // Producción: cerrar contra el proxy same-origin para limpiar cookies en buyer.kronix.co.
   try {
     await fetch(`/api/buyer/auth/logout?ts=${Date.now()}`, {
@@ -102,11 +106,9 @@ export async function logout() {
 
   if (typeof window !== "undefined") {
     window.location.replace("/login?loggedOut=1");
-
-    // Evita que los componentes que llamaron logout() ejecuten un finally con router.replace("/")
-    // y contradigan la redirección de cierre de sesión.
-    await new Promise<void>(() => {});
   }
+
+  return { ok: true };
 }
 
 export async function refresh() {

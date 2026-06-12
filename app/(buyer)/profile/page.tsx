@@ -22,6 +22,7 @@ import tycIcon from "@/public/icons/tyc.png";
 type MeResponse =
   | {
       user: {
+        id?: string;
         sub?: string;
         role?: string;
         phone?: string;
@@ -71,7 +72,12 @@ export default function ProfilePage() {
         cache: "no-store",
       });
 
-      const user = (data as any)?.user ?? data ?? null;
+      const rawUser = (data as any)?.user ?? data ?? null;
+      const user =
+        rawUser && typeof rawUser === "object"
+          ? { ...rawUser, sub: rawUser.sub ?? rawUser.id }
+          : null;
+
       setMe(user && typeof user === "object" ? user : null);
     } catch {
       setMe(null);
@@ -98,7 +104,11 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isLoggedIn = !!(me && (me as any)?.sub);
+  const isLoggedIn = !!(
+    me &&
+    (String((me as any)?.sub ?? "").trim() ||
+      String((me as any)?.id ?? "").trim())
+  );
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -126,13 +136,14 @@ export default function ProfilePage() {
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
+
+    // Limpieza visual inmediata: evita que quede mostrando sesión vieja si la red tarda.
+    setMe(null);
+
     try {
       await logout();
     } finally {
       setLoggingOut(false);
-      window.dispatchEvent(new Event("ct-auth-changed"));
-      window.dispatchEvent(new Event("auth:changed"));
-      router.replace("/");
     }
   }
 
@@ -480,3 +491,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

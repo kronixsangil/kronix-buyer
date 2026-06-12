@@ -25,6 +25,7 @@ type MeResponse =
         isKronixPlusApproved?: boolean;
         kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
         kronixPlusApprovedAt?: string | null;
+        profileImageUrl?: string | null;
       };
     }
   | { user?: any };
@@ -260,10 +261,12 @@ export default function BuyerHeader() {
     const onFocus = () => refreshMe();
 
     window.addEventListener("ct-auth-changed", onAuthChanged);
+    window.addEventListener("auth:changed", onAuthChanged);
     window.addEventListener("focus", onFocus);
 
     return () => {
       window.removeEventListener("ct-auth-changed", onAuthChanged);
+      window.removeEventListener("auth:changed", onAuthChanged);
       window.removeEventListener("focus", onFocus);
     };
   }, []);
@@ -299,14 +302,14 @@ export default function BuyerHeader() {
     if (loggingOut) return;
     setLoggingOut(true);
 
+    // Limpieza visual inmediata: evita que quede mostrando sesión vieja si la red tarda.
+    setMe(null);
+    setMenuOpen(false);
+
     try {
       await logout();
     } finally {
       setLoggingOut(false);
-      setMenuOpen(false);
-      window.dispatchEvent(new Event("ct-auth-changed"));
-      window.dispatchEvent(new Event("auth:changed"));
-      router.replace("/");
     }
   }
 
@@ -444,12 +447,22 @@ export default function BuyerHeader() {
                 title="Perfil"
               >
                 {isLoggedIn ? (
-                  <>
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white-400 to-white-600" />
-                    <div className="relative z-10 grid h-full w-full place-items-center">
-                      <span className="text-sm font-extrabold text-white">{initials}</span>
-                    </div>
-                  </>
+                  (me as any)?.profileImageUrl ? (
+                    <Image
+                      src={String((me as any).profileImageUrl)}
+                      alt="Foto de perfil"
+                      fill
+                      className="object-cover"
+                      sizes="44px"
+                    />
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white-400 to-white-600" />
+                      <div className="relative z-10 grid h-full w-full place-items-center">
+                        <span className="text-sm font-extrabold text-white">{initials}</span>
+                      </div>
+                    </>
+                  )
                 ) : (
                   <div className="absolute inset-0 rounded-full bg-white/14" />
                 )}
@@ -613,3 +626,4 @@ export default function BuyerHeader() {
   </>
 );
 }
+
