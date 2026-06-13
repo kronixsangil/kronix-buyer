@@ -1,9 +1,8 @@
 // app/(buyer)/profile/info/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { getMe } from "@/lib/authClient";
 import { apiFetch } from "@/lib/api";
 
@@ -36,7 +35,6 @@ type SessionMeShape = {
   };
 };
 
-// Respuesta real del backend (UsersService.getMe / updateMe)
 type ApiMe = {
   id: string;
   name: string | null;
@@ -53,15 +51,30 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
+function ProfileAvatar({ src, fallback, sizeClass }: { src?: string | null; fallback: string; sizeClass: string }) {
+  const cleanSrc = String(src ?? "").trim();
+
+  return (
+    <div className={`relative overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold ${sizeClass}`}>
+      {cleanSrc ? (
+        // Usamos <img> para soportar data:image/base64 sin fallos de next/image.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={cleanSrc} alt="Foto de perfil" className="h-full w-full object-cover" />
+      ) : (
+        <div className="grid h-full w-full place-items-center">{fallback}</div>
+      )}
+    </div>
+  );
+}
+
 export default function InfoPage() {
   const router = useRouter();
 
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
   const [checking, setChecking] = useState(true);
-
-  // Sesión (solo para validar login y mostrar email/teléfono si quieres)
   const [session, setSession] = useState<SessionMeShape | null>(null);
-
-  // Perfil real desde API
   const [profile, setProfile] = useState<ApiMe | null>(null);
 
   const [name, setName] = useState("");
@@ -81,7 +94,6 @@ export default function InfoPage() {
 
   async function fetchProfile() {
     try {
-      // ✅ IMPORTANTÍSIMO: usar apiFetch para que mande x-ct-app: buyer + cookies
       const j = await apiFetch<ApiMe>("/users/me", { method: "GET", cache: "no-store" });
       return { ok: true as const, kind: "OK" as const, data: j };
     } catch (e: any) {
@@ -106,7 +118,6 @@ export default function InfoPage() {
 
     (async () => {
       try {
-        // 1) Validar sesión del frontend
         const out = (await getMe()) as SessionMeShape | null;
         if (!alive) return;
 
@@ -117,7 +128,6 @@ export default function InfoPage() {
 
         setSession(out);
 
-        // 2) Cargar perfil real desde API
         const prof = await fetchProfile();
         if (!alive) return;
 
@@ -153,17 +163,28 @@ export default function InfoPage() {
   const canSave = !saving && !checking;
 
   async function handlePhotoFile(file: File | null) {
+    setMsg(null);
+
     if (!file) return;
+
     if (!file.type.startsWith("image/")) {
       setMsg({ kind: "err", text: "Selecciona una imagen válida." });
       return;
     }
+
     if (file.size > 750_000) {
       setMsg({ kind: "err", text: "La foto debe pesar máximo 750 KB." });
       return;
     }
+
     const reader = new FileReader();
-    reader.onload = () => setProfileImageUrl(String(reader.result ?? ""));
+    reader.onload = () => {
+      setProfileImageUrl(String(reader.result ?? ""));
+      setMsg({ kind: "ok", text: "Foto cargada. Presiona Guardar cambios para aplicarla." });
+    };
+    reader.onerror = () => {
+      setMsg({ kind: "err", text: "No pudimos leer la foto. Intenta con otra imagen." });
+    };
     reader.readAsDataURL(file);
   }
 
@@ -174,7 +195,6 @@ export default function InfoPage() {
     setSaving(true);
 
     try {
-      // ✅ IMPORTANTÍSIMO: usar apiFetch (manda x-ct-app + cookies)
       const updated = await apiFetch<Partial<ApiMe>>("/users/me", {
         method: "PATCH",
         cache: "no-store",
@@ -185,7 +205,6 @@ export default function InfoPage() {
         },
       });
 
-      // Actualizamos UI local con lo que devuelve PATCH
       setProfile((prev) =>
         prev
           ? {
@@ -203,7 +222,6 @@ export default function InfoPage() {
       setNickname(String(updated?.nickname ?? nickname).trim());
       setProfileImageUrl(String(updated?.profileImageUrl ?? profileImageUrl).trim());
 
-      // ✅ Recarga suave desde API para asegurar consistencia
       const prof = await fetchProfile();
       if (prof.ok) {
         setProfile(prof.data);
@@ -212,7 +230,6 @@ export default function InfoPage() {
         setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
       }
 
-      // Avisamos al header/perfil (compat con ambos eventos)
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth:changed"));
         window.dispatchEvent(new Event("ct-auth-changed"));
@@ -271,22 +288,9 @@ export default function InfoPage() {
       <div className="text-lg font-extrabold text-gray-900">Tu información</div>
       <div className="mt-1 text-xs text-gray-600">Datos personales y preferencias</div>
 
-      {/* Card superior */}
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-12 overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold">
-            {profileImageUrl ? (
-              <Image
-                src={profileImageUrl}
-                alt="Foto de perfil"
-                fill
-                className="object-cover"
-                sizes="48px"
-              />
-            ) : (
-              <div className="grid h-full w-full place-items-center">{avatar}</div>
-            )}
-          </div>
+          <ProfileAvatar src={profileImageUrl} fallback={avatar} sizeClass="h-12 w-12" />
 
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-extrabold text-gray-900">
@@ -304,38 +308,67 @@ export default function InfoPage() {
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-xs font-extrabold text-gray-800">Foto de perfil</div>
         <div className="mt-3 flex items-center gap-3">
-          <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-gray-900 text-white shadow-sm ring-1 ring-gray-200">
-            {profileImageUrl ? (
-              <Image src={profileImageUrl} alt="Foto de perfil" fill className="object-cover" sizes="64px" />
-            ) : (
-              <div className="grid h-full w-full place-items-center text-sm font-extrabold">{avatar}</div>
-            )}
-          </div>
+          <ProfileAvatar src={profileImageUrl} fallback={avatar} sizeClass="h-16 w-16 shadow-sm ring-1 ring-gray-200" />
+
           <div className="min-w-0 flex-1">
-            <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]">
-              Elegir foto
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)}
-              />
-            </label>
-            {profileImageUrl ? (
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setProfileImageUrl("")}
-                className="ml-2 rounded-2xl border border-gray-200 px-4 py-3 text-xs font-extrabold text-gray-700"
+                onClick={() => galleryInputRef.current?.click()}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]"
               >
-                Quitar
+                Elegir foto
               </button>
-            ) : null}
-            <div className="mt-2 text-[11px] text-gray-500">Usa una imagen cuadrada. Máximo 750 KB.</div>
+
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]"
+              >
+                Tomar foto
+              </button>
+
+              {profileImageUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setProfileImageUrl("")}
+                  className="rounded-2xl border border-gray-200 px-4 py-3 text-xs font-extrabold text-gray-700"
+                >
+                  Quitar
+                </button>
+              ) : null}
+            </div>
+
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                handlePhotoFile(e.target.files?.[0] ?? null);
+                e.currentTarget.value = "";
+              }}
+            />
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              className="hidden"
+              onChange={(e) => {
+                handlePhotoFile(e.target.files?.[0] ?? null);
+                e.currentTarget.value = "";
+              }}
+            />
+
+            <div className="mt-2 text-[11px] text-gray-500">
+              Usa una imagen cuadrada. Máximo 750 KB. Recuerda guardar cambios.
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Mensajes */}
       {msg ? (
         <div
           className={cx(
@@ -349,7 +382,6 @@ export default function InfoPage() {
         </div>
       ) : null}
 
-      {/* Form */}
       <div className="mt-4 space-y-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="text-xs font-extrabold text-gray-800">Nombre</div>
