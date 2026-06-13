@@ -1,9 +1,28 @@
 //app\(buyer)\tracking\[orderId]\_tracking\TrackingDriverCard.tsx
 "use client";
 
-import Image from "next/image";
 import type { TrackingViewModel } from "./types";
 import { buildWhatsAppUrl, normalizePhoneAny } from "./utils";
+
+
+function encodePathFileName(fileName: string) {
+  return fileName
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function buildOfficialDriverPhotoSrc(profileImageUrl?: string | null, driverName?: string | null) {
+  const raw = String(profileImageUrl ?? "").trim();
+
+  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/branding/Driver_Pictures/")) return encodePathFileName(raw);
+
+  const name = String(driverName ?? "").trim();
+  if (!name) return "";
+
+  return `/branding/Driver_Pictures/${encodeURIComponent(name)}.jpg`;
+}
 
 export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
   if (!vm.fromApi) return null;
@@ -11,7 +30,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
   const prof = vm.tracking?.driver?.profile ?? null;
   const name = String(prof?.name ?? "").trim();
   const phone = normalizePhoneAny(prof?.phone ?? null);
-  const profileImageUrl = String((prof as any)?.profileImageUrl ?? "").trim();
+  const profileImageUrl = buildOfficialDriverPhotoSrc((prof as any)?.profileImageUrl ?? null, name);
   const brand = String(prof?.vehicle?.brand ?? "").trim();
   const plate = String(prof?.vehicle?.plate ?? "").trim();
 
@@ -51,16 +70,16 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
           <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
             <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm">
               {profileImageUrl ? (
-                <Image
+                <img
                   src={profileImageUrl}
-                  alt="Foto del conductor"
-                  fill
-                  className="object-cover"
-                  sizes="44px"
+                  alt="Foto oficial del conductor"
+                  className="block h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">{initials}</div>
-              )}
+              ) : null}
+              <div className="flex h-full w-full items-center justify-center">{initials}</div>
             </div>
 
             <div className="min-w-0 flex-1">
