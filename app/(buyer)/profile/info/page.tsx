@@ -51,59 +51,66 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
-async function fileToCompressedDataUrl(file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) {
+async function imageFileToDataUrl(file: File): Promise<string> {
+  if (!file || !file.type.startsWith("image/")) {
     throw new Error("Selecciona una imagen válida.");
   }
 
+  const rawDataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("No pudimos leer la foto."));
+    reader.readAsDataURL(file);
+  });
+
+  if (!rawDataUrl.startsWith("data:image/")) {
+    throw new Error("No pudimos preparar la foto.");
+  }
+
+  // Si ya es liviana, la mostramos tal cual. Esto garantiza vista inmediata.
+  if (rawDataUrl.length <= 720_000) return rawDataUrl;
+
+  // Si es pesada, intentamos comprimirla. Si el navegador falla, mostramos error claro.
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = document.createElement("img");
       el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("No pudimos leer la foto. Intenta con otra imagen."));
+      el.onerror = () => reject(new Error("No pudimos procesar la foto. Intenta con una imagen más liviana."));
       el.src = objectUrl;
     });
 
     const srcW = img.naturalWidth || img.width;
     const srcH = img.naturalHeight || img.height;
-
-    if (!srcW || !srcH) {
-      throw new Error("La foto no tiene dimensiones válidas.");
-    }
+    if (!srcW || !srcH) throw new Error("La foto no tiene dimensiones válidas.");
 
     const cropSize = Math.min(srcW, srcH);
     const sx = Math.max(0, Math.floor((srcW - cropSize) / 2));
     const sy = Math.max(0, Math.floor((srcH - cropSize) / 2));
-    const outputSize = 512;
 
     const canvas = document.createElement("canvas");
-    canvas.width = outputSize;
-    canvas.height = outputSize;
+    canvas.width = 480;
+    canvas.height = 480;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Tu navegador no permitió procesar la imagen.");
 
-    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, outputSize, outputSize);
+    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 480, 480);
 
-    let quality = 0.78;
-    let dataUrl = canvas.toDataURL("image/jpeg", quality);
+    let quality = 0.72;
+    let compressed = canvas.toDataURL("image/jpeg", quality);
 
-    while (dataUrl.length > 720_000 && quality > 0.45) {
+    while (compressed.length > 720_000 && quality > 0.36) {
       quality -= 0.08;
-      dataUrl = canvas.toDataURL("image/jpeg", quality);
+      compressed = canvas.toDataURL("image/jpeg", quality);
     }
 
-    if (!dataUrl.startsWith("data:image/")) {
-      throw new Error("No pudimos preparar la foto.");
+    if (compressed.length > 800_000) {
+      throw new Error("La foto quedó muy pesada. Intenta con otra imagen o toma una foto más cerca.");
     }
 
-    if (dataUrl.length > 800_000) {
-      throw new Error("La foto sigue siendo muy pesada. Intenta tomarla más cerca o usar otra imagen.");
-    }
-
-    return dataUrl;
+    return compressed;
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -204,20 +211,32 @@ export default function InfoPage() {
 
   const canSave = !saving && !checking && !processingPhoto;
 
-  async function handlePhotoFile(file: File | null) {
-    if (!file) return;
+  async function handlePhotoInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.currentTarget;
+    const file = input.files?.[0] ?? null;
 
     setMsg(null);
+
+    if (!file) {
+      input.value = "";
+      return;
+    }
+
     setProcessingPhoto(true);
 
     try {
-      const dataUrl = await fileToCompressedDataUrl(file);
+      const dataUrl = await imageFileToDataUrl(file);
+
+      // IMPORTANTE: esto fuerza el render inmediato antes de guardar.
       setProfileImageUrl(dataUrl);
-      setMsg({ kind: "ok", text: "Foto cargada. Ahora toca Guardar cambios." });
+      setProfile((prev) => (prev ? { ...prev, profileImageUrl: dataUrl } : prev));
+
+      setMsg({ kind: "ok", text: "Foto cargada y visible. Ahora toca Guardar cambios." });
     } catch (e: any) {
       setMsg({ kind: "err", text: e?.message || "No pudimos cargar la foto." });
     } finally {
       setProcessingPhoto(false);
+      input.value = "";
       if (chooseInputRef.current) chooseInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
@@ -293,16 +312,19 @@ export default function InfoPage() {
   }
 
   function AvatarBox({ size = 48 }: { size?: number }) {
+    const src = String(profileImageUrl || "").trim();
+
     return (
       <div
         className="overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold"
         style={{ width: size, height: size }}
       >
-        {profileImageUrl ? (
+        {src ? (
           <img
-            src={profileImageUrl}
+            key={src.slice(0, 60)}
+            src={src}
             alt="Foto de perfil"
-            className="h-full w-full object-cover"
+            className="block h-full w-full object-cover"
           />
         ) : (
           <div className="grid h-full w-full place-items-center">{avatar}</div>
@@ -368,29 +390,35 @@ export default function InfoPage() {
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => chooseInputRef.current?.click()}
-                disabled={processingPhoto}
-                className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
-              >
+              <label className="relative inline-flex cursor-pointer overflow-hidden rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]">
                 Elegir foto
-              </button>
+                <input
+                  ref={chooseInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  onChange={handlePhotoInputChange}
+                />
+              </label>
 
-              <button
-                type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                disabled={processingPhoto}
-                className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
-              >
+              <label className="relative inline-flex cursor-pointer overflow-hidden rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]">
                 Tomar foto
-              </button>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  onChange={handlePhotoInputChange}
+                />
+              </label>
 
               {profileImageUrl ? (
                 <button
                   type="button"
                   onClick={() => {
                     setProfileImageUrl("");
+                    setProfile((prev) => (prev ? { ...prev, profileImageUrl: "" } : prev));
                     setMsg({ kind: "ok", text: "Foto removida. Toca Guardar cambios para confirmar." });
                   }}
                   disabled={processingPhoto}
@@ -401,27 +429,10 @@ export default function InfoPage() {
               ) : null}
             </div>
 
-            <input
-              ref={chooseInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
-            />
-
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="user"
-              className="hidden"
-              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
-            />
-
             <div className="mt-2 text-[11px] text-gray-500">
               {processingPhoto
                 ? "Procesando foto…"
-                : "Usa una imagen cuadrada. Después de verla aquí, toca Guardar cambios."}
+                : "Toca Elegir foto o Tomar foto. Cuando aparezca aquí, toca Guardar cambios."}
             </div>
           </div>
         </div>
