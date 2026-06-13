@@ -1,5 +1,4 @@
 // app/(buyer)/profile/info/page.tsx
-// app/(buyer)/profile/info/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +21,15 @@ function initialsOf(name?: string | null, email?: string | null) {
   const a = parts[0]?.[0] ?? "U";
   const b = parts.length > 1 ? parts[1]?.[0] : parts[0]?.[1];
   return (a + (b ?? "")).toUpperCase();
+}
+
+function normalizeProfileImageUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/api/")) return raw;
+  if (raw.startsWith("/")) return `/api/buyer${raw}`;
+  return raw;
 }
 
 type SessionMeShape = {
@@ -52,95 +60,10 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
-async function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = String(reader.result ?? "");
-      if (!result.startsWith("data:")) {
-        reject(new Error("No pudimos leer la foto."));
-        return;
-      }
-
-      resolve(result);
-    };
-
-    reader.onerror = () => reject(new Error("No pudimos leer la foto."));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function compressDataUrlForDatabase(file: File): Promise<string> {
-  const rawDataUrl = await fileToDataUrl(file);
-
-  const isProbablyImage =
-    rawDataUrl.startsWith("data:image/") ||
-    String(file.type || "").startsWith("image/") ||
-    /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(String(file.name || ""));
-
-  if (!isProbablyImage) {
-    throw new Error("Selecciona una imagen válida.");
-  }
-
-  if (rawDataUrl.length <= 700_000) return rawDataUrl;
-
-  const objectUrl = URL.createObjectURL(file);
-
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const el = document.createElement("img");
-      el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("No pudimos procesar la foto. Intenta con una imagen JPG o PNG."));
-      el.src = objectUrl;
-    });
-
-    const srcW = img.naturalWidth || img.width;
-    const srcH = img.naturalHeight || img.height;
-
-    if (!srcW || !srcH) {
-      throw new Error("La foto no tiene dimensiones válidas.");
-    }
-
-    const cropSize = Math.min(srcW, srcH);
-    const sx = Math.max(0, Math.floor((srcW - cropSize) / 2));
-    const sy = Math.max(0, Math.floor((srcH - cropSize) / 2));
-
-    const outputSize = 420;
-    const canvas = document.createElement("canvas");
-    canvas.width = outputSize;
-    canvas.height = outputSize;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      throw new Error("Tu navegador no permitió procesar la foto.");
-    }
-
-    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, outputSize, outputSize);
-
-    let quality = 0.7;
-    let dataUrl = canvas.toDataURL("image/jpeg", quality);
-
-    while (dataUrl.length > 700_000 && quality > 0.35) {
-      quality -= 0.08;
-      dataUrl = canvas.toDataURL("image/jpeg", quality);
-    }
-
-    if (dataUrl.length > 800_000) {
-      throw new Error("La foto quedó muy pesada. Intenta con otra imagen.");
-    }
-
-    return dataUrl;
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
 export default function InfoPage() {
   const router = useRouter();
   const chooseInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
-  const previewObjectUrlRef = useRef<string>("");
 
   const [checking, setChecking] = useState(true);
   const [session, setSession] = useState<SessionMeShape | null>(null);
@@ -148,15 +71,10 @@ export default function InfoPage() {
 
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
-
-  // Valor que se guarda en API / Neon.
   const [profileImageUrl, setProfileImageUrl] = useState("");
 
-  // Valor que se ve en pantalla inmediatamente. Para fotos nuevas usamos objectURL.
-  const [previewSrc, setPreviewSrc] = useState("");
-
   const [saving, setSaving] = useState(false);
-  const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const email = profile?.email ?? session?.user?.email ?? null;
@@ -167,26 +85,7 @@ export default function InfoPage() {
     [profile?.name, session?.user?.name, email]
   );
 
-  useEffect(() => {
-    return () => {
-      if (previewObjectUrlRef.current) {
-        URL.revokeObjectURL(previewObjectUrlRef.current);
-        previewObjectUrlRef.current = "";
-      }
-    };
-  }, []);
-
-  function clearPreviewObjectUrl() {
-    if (previewObjectUrlRef.current) {
-      URL.revokeObjectURL(previewObjectUrlRef.current);
-      previewObjectUrlRef.current = "";
-    }
-  }
-
-  function setPreviewFromSaved(value: string) {
-    clearPreviewObjectUrl();
-    setPreviewSrc(value);
-  }
+  const avatarSrc = normalizeProfileImageUrl(profileImageUrl);
 
   async function fetchProfile() {
     try {
@@ -233,24 +132,18 @@ export default function InfoPage() {
         }
 
         if (!prof.ok) {
-          const fallbackImage = String((out.user as any)?.profileImageUrl ?? "").trim();
-
           setMsg({ kind: "err", text: String(prof.data ?? "No pudimos cargar tu información.") });
           setProfile(null);
           setName(String(out.user?.name ?? "").trim());
           setNickname(String(out.user?.nickname ?? "").trim());
-          setProfileImageUrl(fallbackImage);
-          setPreviewFromSaved(fallbackImage);
+          setProfileImageUrl(String((out.user as any)?.profileImageUrl ?? "").trim());
           return;
         }
-
-        const savedImage = String(prof.data?.profileImageUrl ?? "").trim();
 
         setProfile(prof.data);
         setName(String(prof.data?.name ?? "").trim());
         setNickname(String(prof.data?.nickname ?? "").trim());
-        setProfileImageUrl(savedImage);
-        setPreviewFromSaved(savedImage);
+        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
       } finally {
         if (!alive) return;
         setChecking(false);
@@ -262,66 +155,101 @@ export default function InfoPage() {
     };
   }, [router]);
 
-  const canSave = !saving && !checking && !processingPhoto;
+  const canSave = !saving && !checking && !uploadingPhoto;
 
-  async function handlePhotoInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const input = e.currentTarget;
-    const file = input.files?.[0] ?? null;
+  async function handlePhotoFile(file: File | null) {
+    if (!file) return;
 
-alert(
-  file
-    ? `ARCHIVO RECIBIDO\nNombre: ${file.name}\nTipo: ${file.type}\nTamaño: ${file.size}`
-    : "NO LLEGÓ NINGÚN ARCHIVO"
-);
+    setMsg(null);
 
-setMsg(null);
-
-    if (!file) {
-      input.value = "";
-      return;
-    }
-
-    const isProbablyImage =
+    const isImage =
       String(file.type || "").startsWith("image/") ||
       /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(String(file.name || ""));
 
-    if (!isProbablyImage) {
+    if (!isImage) {
       setMsg({ kind: "err", text: "Selecciona una imagen válida." });
-      input.value = "";
       return;
     }
 
-    clearPreviewObjectUrl();
+    const maxMb = 5;
+    if (file.size > maxMb * 1024 * 1024) {
+      setMsg({ kind: "err", text: `La foto no puede pesar más de ${maxMb} MB.` });
+      return;
+    }
 
-    const objectUrl = URL.createObjectURL(file);
-    previewObjectUrlRef.current = objectUrl;
-
-    // Primero mostramos la foto real inmediatamente, sin esperar canvas/base64.
-    setPreviewSrc(objectUrl);
-    alert("Preview: " + objectUrl);
-    setMsg({
-      kind: "ok",
-      text: `Foto recibida: ${file.name || "cámara"} (${Math.round(file.size / 1024)} KB). Procesando...`,
-    });
-await new Promise((resolve) => setTimeout(resolve, 150));
-    setProcessingPhoto(true);
+    setUploadingPhoto(true);
 
     try {
-      const dataUrl = await compressDataUrlForDatabase(file);
+      const formData = new FormData();
+      formData.append("file", file);
 
-      // Este es el valor que se enviará al PATCH /users/me.
-      setProfileImageUrl(dataUrl);
-      setProfile((prev) => (prev ? { ...prev, profileImageUrl: dataUrl } : prev));
+      const uploaded = await apiFetch<{ ok: boolean; profileImageUrl: string }>("/users/me/profile-photo", {
+        method: "POST",
+        body: formData,
+        cache: "no-store",
+      });
 
-      setMsg({ kind: "ok", text: "Foto cargada y visible. Ahora toca Guardar cambios." });
+      const nextUrl = String(uploaded?.profileImageUrl ?? "").trim();
+
+      setProfileImageUrl(nextUrl);
+      setProfile((prev) => (prev ? { ...prev, profileImageUrl: nextUrl } : prev));
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth:changed"));
+        window.dispatchEvent(new Event("ct-auth-changed"));
+      }
+
+      setMsg({ kind: "ok", text: "Foto actualizada correctamente." });
     } catch (e: any) {
-      setProfileImageUrl("");
-      setMsg({ kind: "err", text: e?.message || "No pudimos cargar la foto." });
+      const detail = String(e?.message ?? "").trim();
+      setMsg({ kind: "err", text: detail || "No pudimos subir la foto. Intenta de nuevo." });
     } finally {
-      setProcessingPhoto(false);
-      input.value = "";
+      setUploadingPhoto(false);
       if (chooseInputRef.current) chooseInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
+    }
+  }
+
+  async function removePhoto() {
+    if (uploadingPhoto || saving) return;
+
+    setMsg(null);
+    setSaving(true);
+
+    try {
+      const updated = await apiFetch<Partial<ApiMe>>("/users/me", {
+        method: "PATCH",
+        cache: "no-store",
+        json: {
+          name: name.trim() || null,
+          nickname: nickname.trim() || null,
+          profileImageUrl: null,
+        },
+      });
+
+      setProfileImageUrl("");
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              name: updated.name ?? prev.name,
+              nickname: updated.nickname ?? prev.nickname,
+              profileImageUrl: null,
+            }
+          : prev
+      );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("auth:changed"));
+        window.dispatchEvent(new Event("ct-auth-changed"));
+      }
+
+      setMsg({ kind: "ok", text: "Foto removida correctamente." });
+    } catch (e: any) {
+      const detail = String(e?.message ?? "").trim();
+      setMsg({ kind: "err", text: detail || "No pudimos quitar la foto." });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -332,21 +260,14 @@ await new Promise((resolve) => setTimeout(resolve, 150));
     setSaving(true);
 
     try {
-      const payloadImage = String(profileImageUrl || "").trim();
-
       const updated = await apiFetch<Partial<ApiMe>>("/users/me", {
         method: "PATCH",
         cache: "no-store",
         json: {
           name: name.trim() || null,
           nickname: nickname.trim() || null,
-          profileImageUrl: payloadImage || null,
         },
       });
-
-      const savedImage = String(
-        updated?.profileImageUrl !== undefined ? updated.profileImageUrl ?? "" : payloadImage
-      ).trim();
 
       setProfile((prev) =>
         prev
@@ -356,25 +277,21 @@ await new Promise((resolve) => setTimeout(resolve, 150));
               nickname: updated.nickname ?? prev.nickname,
               email: updated.email ?? prev.email,
               phone: updated.phone ?? prev.phone,
-              profileImageUrl: savedImage || null,
+              profileImageUrl:
+                updated.profileImageUrl !== undefined ? updated.profileImageUrl : prev.profileImageUrl,
             }
           : (updated as ApiMe)
       );
 
       setName(String(updated?.name ?? name).trim());
       setNickname(String(updated?.nickname ?? nickname).trim());
-      setProfileImageUrl(savedImage);
-      setPreviewFromSaved(savedImage);
 
       const prof = await fetchProfile();
       if (prof.ok) {
-        const freshImage = String(prof.data?.profileImageUrl ?? "").trim();
-
         setProfile(prof.data);
         setName(String(prof.data?.name ?? "").trim());
         setNickname(String(prof.data?.nickname ?? "").trim());
-        setProfileImageUrl(freshImage);
-        setPreviewFromSaved(freshImage);
+        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
       }
 
       if (typeof window !== "undefined") {
@@ -404,18 +321,14 @@ await new Promise((resolve) => setTimeout(resolve, 150));
   }
 
   function AvatarBox({ size = 48 }: { size?: number }) {
-    console.log("Avatar SRC:", previewSrc, profileImageUrl);
-    const src = String(previewSrc || profileImageUrl || "").trim();
-
     return (
       <div
         className="overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold"
         style={{ width: size, height: size }}
       >
-        {src ? (
+        {avatarSrc ? (
           <img
-            key={src}
-            src={src}
+            src={avatarSrc}
             alt="Foto de perfil"
             className="block h-full w-full object-cover"
           />
@@ -483,40 +396,29 @@ await new Promise((resolve) => setTimeout(resolve, 150));
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-2">
-              <label className="relative inline-flex cursor-pointer overflow-hidden rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]">
+              <button
+                type="button"
+                onClick={() => chooseInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
+              >
                 Elegir foto
-                <input
-                  ref={chooseInputRef}
-                  type="file"
-                  accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  onChange={handlePhotoInputChange}
-                />
-              </label>
+              </button>
 
-              <label className="relative inline-flex cursor-pointer overflow-hidden rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
+              >
                 Tomar foto
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                  capture="user"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                  onChange={handlePhotoInputChange}
-                />
-              </label>
+              </button>
 
-              {previewSrc || profileImageUrl ? (
+              {profileImageUrl ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    clearPreviewObjectUrl();
-                    setPreviewSrc("");
-                    setProfileImageUrl("");
-                    setProfile((prev) => (prev ? { ...prev, profileImageUrl: "" } : prev));
-                    setMsg({ kind: "ok", text: "Foto removida. Toca Guardar cambios para confirmar." });
-                  }}
-                  disabled={processingPhoto}
+                  onClick={removePhoto}
+                  disabled={uploadingPhoto || saving}
                   className="rounded-2xl border border-gray-200 px-4 py-3 text-xs font-extrabold text-gray-700 disabled:opacity-60"
                 >
                   Quitar
@@ -524,10 +426,27 @@ await new Promise((resolve) => setTimeout(resolve, 150));
               ) : null}
             </div>
 
+            <input
+              ref={chooseInputRef}
+              type="file"
+              accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+              className="hidden"
+              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
+            />
+
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+              capture="user"
+              className="hidden"
+              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
+            />
+
             <div className="mt-2 text-[11px] text-gray-500">
-              {processingPhoto
-                ? "Procesando foto…"
-                : "Primero debe verse aquí. Luego toca Guardar cambios."}
+              {uploadingPhoto
+                ? "Subiendo foto…"
+                : "La foto se guarda automáticamente al elegirla o tomarla."}
             </div>
           </div>
         </div>
@@ -600,7 +519,7 @@ await new Promise((resolve) => setTimeout(resolve, 150));
             "bg-green-600 hover:bg-green-700 disabled:opacity-50"
           )}
         >
-          {saving ? "Guardando…" : processingPhoto ? "Procesando foto…" : "Guardar cambios"}
+          {saving ? "Guardando…" : "Guardar cambios"}
         </button>
       </div>
     </div>
