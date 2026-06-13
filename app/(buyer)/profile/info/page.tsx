@@ -268,7 +268,13 @@ export default function InfoPage() {
     const input = e.currentTarget;
     const file = input.files?.[0] ?? null;
 
-    setMsg(null);
+alert(
+  file
+    ? `ARCHIVO RECIBIDO\nNombre: ${file.name}\nTipo: ${file.type}\nTamaño: ${file.size}`
+    : "NO LLEGÓ NINGÚN ARCHIVO"
+);
+
+setMsg(null);
 
     if (!file) {
       input.value = "";
