@@ -1,5 +1,4 @@
 // app/(buyer)/profile/info/page.tsx
-// app/(buyer)/profile/info/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -52,66 +51,62 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
-async function imageFileToCompressedDataUrl(file: File) {
+async function fileToCompressedDataUrl(file: File): Promise<string> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Selecciona una imagen válida.");
   }
 
-  const rawUrl = URL.createObjectURL(file);
+  const objectUrl = URL.createObjectURL(file);
 
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new window.Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error("No pudimos leer la imagen."));
-      image.src = rawUrl;
+      const el = document.createElement("img");
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("No pudimos leer la foto. Intenta con otra imagen."));
+      el.src = objectUrl;
     });
 
-    const maxSide = 520;
-    const width = img.naturalWidth || img.width;
-    const height = img.naturalHeight || img.height;
-    const ratio = Math.min(1, maxSide / Math.max(width, height));
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+
+    if (!srcW || !srcH) {
+      throw new Error("La foto no tiene dimensiones válidas.");
+    }
+
+    const cropSize = Math.min(srcW, srcH);
+    const sx = Math.max(0, Math.floor((srcW - cropSize) / 2));
+    const sy = Math.max(0, Math.floor((srcH - cropSize) / 2));
+    const outputSize = 512;
+
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * ratio));
-    canvas.height = Math.max(1, Math.round(height * ratio));
+    canvas.width = outputSize;
+    canvas.height = outputSize;
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("No pudimos preparar la imagen.");
+    if (!ctx) throw new Error("Tu navegador no permitió procesar la imagen.");
 
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, outputSize, outputSize);
 
-    let quality = 0.82;
+    let quality = 0.78;
     let dataUrl = canvas.toDataURL("image/jpeg", quality);
 
-    while (dataUrl.length > 700_000 && quality > 0.45) {
+    while (dataUrl.length > 720_000 && quality > 0.45) {
       quality -= 0.08;
       dataUrl = canvas.toDataURL("image/jpeg", quality);
     }
 
+    if (!dataUrl.startsWith("data:image/")) {
+      throw new Error("No pudimos preparar la foto.");
+    }
+
     if (dataUrl.length > 800_000) {
-      throw new Error("La foto quedó demasiado pesada. Intenta con otra imagen.");
+      throw new Error("La foto sigue siendo muy pesada. Intenta tomarla más cerca o usar otra imagen.");
     }
 
     return dataUrl;
   } finally {
-    URL.revokeObjectURL(rawUrl);
+    URL.revokeObjectURL(objectUrl);
   }
-}
-
-function AvatarPreview({ src, fallback, sizeClass }: { src: string; fallback: string; sizeClass: string }) {
-  return (
-    <div className={`relative overflow-hidden bg-gray-900 text-white font-extrabold ${sizeClass}`}>
-      {src ? (
-        <img
-          src={src}
-          alt="Foto de perfil"
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="grid h-full w-full place-items-center">{fallback}</div>
-      )}
-    </div>
-  );
 }
 
 export default function InfoPage() {
@@ -128,7 +123,7 @@ export default function InfoPage() {
   const [profileImageUrl, setProfileImageUrl] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [photoLoading, setPhotoLoading] = useState(false);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const email = profile?.email ?? session?.user?.email ?? null;
@@ -207,22 +202,22 @@ export default function InfoPage() {
     };
   }, [router]);
 
-  const canSave = !saving && !checking && !photoLoading;
+  const canSave = !saving && !checking && !processingPhoto;
 
   async function handlePhotoFile(file: File | null) {
     if (!file) return;
 
     setMsg(null);
-    setPhotoLoading(true);
+    setProcessingPhoto(true);
 
     try {
-      const dataUrl = await imageFileToCompressedDataUrl(file);
+      const dataUrl = await fileToCompressedDataUrl(file);
       setProfileImageUrl(dataUrl);
-      setMsg({ kind: "ok", text: "Foto cargada. Ahora presiona Guardar cambios." });
+      setMsg({ kind: "ok", text: "Foto cargada. Ahora toca Guardar cambios." });
     } catch (e: any) {
-      setMsg({ kind: "err", text: String(e?.message ?? "No pudimos cargar la foto.") });
+      setMsg({ kind: "err", text: e?.message || "No pudimos cargar la foto." });
     } finally {
-      setPhotoLoading(false);
+      setProcessingPhoto(false);
       if (chooseInputRef.current) chooseInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
@@ -253,7 +248,8 @@ export default function InfoPage() {
               nickname: updated.nickname ?? prev.nickname,
               email: updated.email ?? prev.email,
               phone: updated.phone ?? prev.phone,
-              profileImageUrl: updated.profileImageUrl ?? prev.profileImageUrl,
+              profileImageUrl:
+                updated.profileImageUrl !== undefined ? updated.profileImageUrl : prev.profileImageUrl,
             }
           : (updated as ApiMe)
       );
@@ -296,6 +292,25 @@ export default function InfoPage() {
     }
   }
 
+  function AvatarBox({ size = 48 }: { size?: number }) {
+    return (
+      <div
+        className="overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold"
+        style={{ width: size, height: size }}
+      >
+        {profileImageUrl ? (
+          <img
+            src={profileImageUrl}
+            alt="Foto de perfil"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="grid h-full w-full place-items-center">{avatar}</div>
+        )}
+      </div>
+    );
+  }
+
   if (checking) {
     return (
       <div className="px-4 pb-6 pt-4">
@@ -330,7 +345,7 @@ export default function InfoPage() {
 
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <AvatarPreview src={profileImageUrl} fallback={avatar} sizeClass="h-12 w-12 rounded-2xl" />
+          <AvatarBox size={48} />
 
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-extrabold text-gray-900">
@@ -347,15 +362,16 @@ export default function InfoPage() {
 
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-xs font-extrabold text-gray-800">Foto de perfil</div>
+
         <div className="mt-3 flex items-center gap-3">
-          <AvatarPreview src={profileImageUrl} fallback={avatar} sizeClass="h-16 w-16 rounded-2xl shadow-sm ring-1 ring-gray-200" />
+          <AvatarBox size={64} />
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={photoLoading}
                 onClick={() => chooseInputRef.current?.click()}
+                disabled={processingPhoto}
                 className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
               >
                 Elegir foto
@@ -363,8 +379,8 @@ export default function InfoPage() {
 
               <button
                 type="button"
-                disabled={photoLoading}
                 onClick={() => cameraInputRef.current?.click()}
+                disabled={processingPhoto}
                 className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
               >
                 Tomar foto
@@ -373,8 +389,12 @@ export default function InfoPage() {
               {profileImageUrl ? (
                 <button
                   type="button"
-                  onClick={() => setProfileImageUrl("")}
-                  className="rounded-2xl border border-gray-200 px-4 py-3 text-xs font-extrabold text-gray-700"
+                  onClick={() => {
+                    setProfileImageUrl("");
+                    setMsg({ kind: "ok", text: "Foto removida. Toca Guardar cambios para confirmar." });
+                  }}
+                  disabled={processingPhoto}
+                  className="rounded-2xl border border-gray-200 px-4 py-3 text-xs font-extrabold text-gray-700 disabled:opacity-60"
                 >
                   Quitar
                 </button>
@@ -386,19 +406,22 @@ export default function InfoPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
             />
+
             <input
               ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="user"
               className="hidden"
-              onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
             />
 
             <div className="mt-2 text-[11px] text-gray-500">
-              {photoLoading ? "Procesando foto…" : "Usa una imagen cuadrada. Recuerda guardar cambios."}
+              {processingPhoto
+                ? "Procesando foto…"
+                : "Usa una imagen cuadrada. Después de verla aquí, toca Guardar cambios."}
             </div>
           </div>
         </div>
@@ -471,7 +494,7 @@ export default function InfoPage() {
             "bg-green-600 hover:bg-green-700 disabled:opacity-50"
           )}
         >
-          {saving ? "Guardando…" : "Guardar cambios"}
+          {saving ? "Guardando…" : processingPhoto ? "Procesando foto…" : "Guardar cambios"}
         </button>
       </div>
     </div>
