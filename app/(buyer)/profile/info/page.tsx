@@ -1,7 +1,7 @@
 // app/(buyer)/profile/info/page.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe } from "@/lib/authClient";
 import { apiFetch } from "@/lib/api";
@@ -62,9 +62,6 @@ type ApiMe = {
 
 export default function InfoPage() {
   const router = useRouter();
-  const chooseInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
-
   const [checking, setChecking] = useState(true);
   const [session, setSession] = useState<SessionMeShape | null>(null);
   const [profile, setProfile] = useState<ApiMe | null>(null);
@@ -205,8 +202,6 @@ export default function InfoPage() {
       setMsg({ kind: "err", text: detail || "No pudimos subir la foto. Intenta de nuevo." });
     } finally {
       setUploadingPhoto(false);
-      if (chooseInputRef.current) chooseInputRef.current.value = "";
-      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   }
 
@@ -396,23 +391,36 @@ export default function InfoPage() {
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => chooseInputRef.current?.click()}
-                disabled={uploadingPhoto}
-                className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
+              <label
+                className={cx(
+                  "relative inline-flex cursor-pointer overflow-hidden rounded-2xl px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]",
+                  uploadingPhoto ? "pointer-events-none bg-slate-900 opacity-60" : "bg-slate-900"
+                )}
               >
                 Elegir foto
-              </button>
+                <input
+                  type="file"
+                  accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
+                />
+              </label>
 
-              <button
-                type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                disabled={uploadingPhoto}
-                className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
+              <label
+                className={cx(
+                  "relative inline-flex cursor-pointer overflow-hidden rounded-2xl px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]",
+                  uploadingPhoto ? "pointer-events-none bg-emerald-600 opacity-60" : "bg-emerald-600"
+                )}
               >
                 Tomar foto
-              </button>
+                <input
+                  type="file"
+                  accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                  capture="user"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
+                />
+              </label>
 
               {profileImageUrl ? (
                 <button
@@ -425,23 +433,6 @@ export default function InfoPage() {
                 </button>
               ) : null}
             </div>
-
-            <input
-              ref={chooseInputRef}
-              type="file"
-              accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-              className="hidden"
-              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
-            />
-
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-              capture="user"
-              className="hidden"
-              onChange={(e) => handlePhotoFile(e.currentTarget.files?.[0] ?? null)}
-            />
 
             <div className="mt-2 text-[11px] text-gray-500">
               {uploadingPhoto

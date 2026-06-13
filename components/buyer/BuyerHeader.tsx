@@ -1,4 +1,5 @@
 // components/buyer/BuyerHeader.tsx
+// components/buyer/BuyerHeader.tsx
 "use client";
 
 import Link from "next/link";
@@ -41,6 +42,16 @@ function getInitials(input?: string) {
       : parts[0]?.[1] ?? "";
   return (a + b).toUpperCase();
 }
+
+function normalizeProfileImageUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/api/")) return raw;
+  if (raw.startsWith("/")) return `/api/buyer${raw}`;
+  return raw;
+}
+
 
 function IconHome({ active }: { active?: boolean }) {
   return (
@@ -292,6 +303,7 @@ export default function BuyerHeader() {
   }, [me]);
 
   const initials = useMemo(() => getInitials(displayName), [displayName]);
+  const profileImageUrl = normalizeProfileImageUrl((me as any)?.profileImageUrl);
 
   const cityTitle = useMemo(() => {
     const name = String(city?.name ?? "").trim();
@@ -447,13 +459,11 @@ export default function BuyerHeader() {
                 title="Perfil"
               >
                 {isLoggedIn ? (
-                  (me as any)?.profileImageUrl ? (
-                    <Image
-                      src={String((me as any).profileImageUrl)}
+                  profileImageUrl ? (
+                    <img
+                      src={profileImageUrl}
                       alt="Foto de perfil"
-                      fill
-                      className="object-cover"
-                      sizes="44px"
+                      className="block h-full w-full object-cover"
                     />
                   ) : (
                     <>
@@ -557,8 +567,12 @@ export default function BuyerHeader() {
                 <div className="absolute left-1/2 top-4 h-20 w-40 -translate-x-1/2 rounded-full bg-white/8 blur-2xl" />
 
                 <div className="relative flex items-center gap-3">
-                  <div className="grid h-14 w-14 place-items-center rounded-full bg-white/15 font-extrabold ring-1 ring-white/20 backdrop-blur-sm">
-                    {isLoggedIn ? initials : "KR"}
+                  <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-white/15 font-extrabold ring-1 ring-white/20 backdrop-blur-sm">
+                    {isLoggedIn && profileImageUrl ? (
+                      <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
+                    ) : (
+                      isLoggedIn ? initials : "KR"
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -626,4 +640,3 @@ export default function BuyerHeader() {
   </>
 );
 }
-

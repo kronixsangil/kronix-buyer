@@ -1,4 +1,5 @@
 // app/(buyer)/page.tsx
+// app/(buyer)/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -21,6 +22,7 @@ type MeResponse =
         isKronixPlusApproved?: boolean;
         kronixPlusStatus?: "NONE" | "PENDING" | "APPROVED" | "REJECTED" | string;
         kronixPlusApprovedAt?: string | null;
+        profileImageUrl?: string | null;
       };
     }
   | { user?: any };
@@ -114,6 +116,16 @@ function getInitials(input?: string) {
       : parts[0]?.[1] ?? "";
   return (a + b).toUpperCase();
 }
+
+function normalizeProfileImageUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/api/")) return raw;
+  if (raw.startsWith("/")) return `/api/buyer${raw}`;
+  return raw;
+}
+
 
 function HeaderCut() {
   return (
@@ -636,6 +648,23 @@ contactName: "",
 
   const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
 
+  async function refreshMe() {
+    try {
+      const data = await apiFetch<any>("/users/me", {
+        method: "GET",
+        cache: "no-store",
+        suppressSessionExpiredEvent: true,
+      } as any);
+
+      const user = data && typeof data === "object"
+        ? { ...data, sub: data.id ?? data.sub }
+        : null;
+      setMe(user && typeof user === "object" ? user : null);
+    } catch {
+      setMe(null);
+    }
+  }
+
   useEffect(() => {
     let alive = true;
 
@@ -656,8 +685,19 @@ contactName: "",
         setMe(null);
       });
 
+    const onAuthChanged = () => {
+      if (alive) void refreshMe();
+    };
+
+    window.addEventListener("ct-auth-changed", onAuthChanged);
+    window.addEventListener("auth:changed", onAuthChanged);
+    window.addEventListener("focus", onAuthChanged);
+
     return () => {
       alive = false;
+      window.removeEventListener("ct-auth-changed", onAuthChanged);
+      window.removeEventListener("auth:changed", onAuthChanged);
+      window.removeEventListener("focus", onAuthChanged);
     };
   }, []);
 
@@ -722,6 +762,7 @@ email: prev.email || String(app?.email ?? ""),
   }, [me]);
 
   const initials = useMemo(() => getInitials(displayName), [displayName]);
+  const profileImageUrl = normalizeProfileImageUrl((me as any)?.profileImageUrl);
 
   const cityName = String(city?.name ?? "").trim() || "Tu ciudad";
   const cityDepartment = String(city?.department ?? "").trim();
@@ -961,10 +1002,14 @@ if (kronixPlusForm.address.trim().length < 8) {
 
           <Link
             href="/profile"
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10 text-sm font-black text-white shadow-sm backdrop-blur"
+            className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-white/20 bg-white/10 text-sm font-black text-white shadow-sm backdrop-blur"
             aria-label="Perfil"
           >
-            {initials}
+            {isLoggedIn && profileImageUrl ? (
+              <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </Link>
         </div>
 
@@ -1000,8 +1045,12 @@ if (kronixPlusForm.address.trim().length < 8) {
                 <div className="absolute left-1/2 top-4 h-20 w-40 -translate-x-1/2 rounded-full bg-white/8 blur-2xl" />
 
                 <div className="relative flex items-center gap-3">
-                  <div className="grid h-14 w-14 place-items-center rounded-full bg-white/15 font-extrabold ring-1 ring-white/20 backdrop-blur-sm">
-                    {isLoggedIn ? initials : "KR"}
+                  <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-white/15 font-extrabold ring-1 ring-white/20 backdrop-blur-sm">
+                    {isLoggedIn && profileImageUrl ? (
+                      <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
+                    ) : (
+                      isLoggedIn ? initials : "KR"
+                    )}
                   </div>
 
                   <div className="min-w-0 flex-1">
