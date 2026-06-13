@@ -303,7 +303,7 @@ setMsg(null);
       kind: "ok",
       text: `Foto recibida: ${file.name || "cámara"} (${Math.round(file.size / 1024)} KB). Procesando...`,
     });
-
+await new Promise((resolve) => setTimeout(resolve, 150));
     setProcessingPhoto(true);
 
     try {
