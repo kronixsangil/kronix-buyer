@@ -298,6 +298,7 @@ setMsg(null);
 
     // Primero mostramos la foto real inmediatamente, sin esperar canvas/base64.
     setPreviewSrc(objectUrl);
+    alert("Preview: " + objectUrl);
     setMsg({
       kind: "ok",
       text: `Foto recibida: ${file.name || "cámara"} (${Math.round(file.size / 1024)} KB). Procesando...`,
@@ -403,6 +404,7 @@ setMsg(null);
   }
 
   function AvatarBox({ size = 48 }: { size?: number }) {
+    console.log("Avatar SRC:", previewSrc, profileImageUrl);
     const src = String(previewSrc || profileImageUrl || "").trim();
 
     return (
