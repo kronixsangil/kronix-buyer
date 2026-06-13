@@ -1,4 +1,5 @@
 // app/(buyer)/profile/info/page.tsx
+// app/(buyer)/profile/info/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,66 +52,85 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
-async function imageFileToDataUrl(file: File): Promise<string> {
-  if (!file || !file.type.startsWith("image/")) {
-    throw new Error("Selecciona una imagen válida.");
-  }
-
-  const rawDataUrl = await new Promise<string>((resolve, reject) => {
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
+
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      if (!result.startsWith("data:")) {
+        reject(new Error("No pudimos leer la foto."));
+        return;
+      }
+
+      resolve(result);
+    };
+
     reader.onerror = () => reject(new Error("No pudimos leer la foto."));
     reader.readAsDataURL(file);
   });
+}
 
-  if (!rawDataUrl.startsWith("data:image/")) {
-    throw new Error("No pudimos preparar la foto.");
+async function compressDataUrlForDatabase(file: File): Promise<string> {
+  const rawDataUrl = await fileToDataUrl(file);
+
+  const isProbablyImage =
+    rawDataUrl.startsWith("data:image/") ||
+    String(file.type || "").startsWith("image/") ||
+    /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(String(file.name || ""));
+
+  if (!isProbablyImage) {
+    throw new Error("Selecciona una imagen válida.");
   }
 
-  // Si ya es liviana, la mostramos tal cual. Esto garantiza vista inmediata.
-  if (rawDataUrl.length <= 720_000) return rawDataUrl;
+  if (rawDataUrl.length <= 700_000) return rawDataUrl;
 
-  // Si es pesada, intentamos comprimirla. Si el navegador falla, mostramos error claro.
   const objectUrl = URL.createObjectURL(file);
 
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = document.createElement("img");
       el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error("No pudimos procesar la foto. Intenta con una imagen más liviana."));
+      el.onerror = () => reject(new Error("No pudimos procesar la foto. Intenta con una imagen JPG o PNG."));
       el.src = objectUrl;
     });
 
     const srcW = img.naturalWidth || img.width;
     const srcH = img.naturalHeight || img.height;
-    if (!srcW || !srcH) throw new Error("La foto no tiene dimensiones válidas.");
+
+    if (!srcW || !srcH) {
+      throw new Error("La foto no tiene dimensiones válidas.");
+    }
 
     const cropSize = Math.min(srcW, srcH);
     const sx = Math.max(0, Math.floor((srcW - cropSize) / 2));
     const sy = Math.max(0, Math.floor((srcH - cropSize) / 2));
 
+    const outputSize = 420;
     const canvas = document.createElement("canvas");
-    canvas.width = 480;
-    canvas.height = 480;
+    canvas.width = outputSize;
+    canvas.height = outputSize;
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Tu navegador no permitió procesar la imagen.");
+    if (!ctx) {
+      throw new Error("Tu navegador no permitió procesar la foto.");
+    }
 
-    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, 480, 480);
+    ctx.drawImage(img, sx, sy, cropSize, cropSize, 0, 0, outputSize, outputSize);
 
-    let quality = 0.72;
-    let compressed = canvas.toDataURL("image/jpeg", quality);
+    let quality = 0.7;
+    let dataUrl = canvas.toDataURL("image/jpeg", quality);
 
-    while (compressed.length > 720_000 && quality > 0.36) {
+    while (dataUrl.length > 700_000 && quality > 0.35) {
       quality -= 0.08;
-      compressed = canvas.toDataURL("image/jpeg", quality);
+      dataUrl = canvas.toDataURL("image/jpeg", quality);
     }
 
-    if (compressed.length > 800_000) {
-      throw new Error("La foto quedó muy pesada. Intenta con otra imagen o toma una foto más cerca.");
+    if (dataUrl.length > 800_000) {
+      throw new Error("La foto quedó muy pesada. Intenta con otra imagen.");
     }
 
-    return compressed;
+    return dataUrl;
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -120,6 +140,7 @@ export default function InfoPage() {
   const router = useRouter();
   const chooseInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const previewObjectUrlRef = useRef<string>("");
 
   const [checking, setChecking] = useState(true);
   const [session, setSession] = useState<SessionMeShape | null>(null);
@@ -127,7 +148,12 @@ export default function InfoPage() {
 
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
+
+  // Valor que se guarda en API / Neon.
   const [profileImageUrl, setProfileImageUrl] = useState("");
+
+  // Valor que se ve en pantalla inmediatamente. Para fotos nuevas usamos objectURL.
+  const [previewSrc, setPreviewSrc] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [processingPhoto, setProcessingPhoto] = useState(false);
@@ -140,6 +166,27 @@ export default function InfoPage() {
     () => initialsOf(profile?.name ?? session?.user?.name, email),
     [profile?.name, session?.user?.name, email]
   );
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+        previewObjectUrlRef.current = "";
+      }
+    };
+  }, []);
+
+  function clearPreviewObjectUrl() {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = "";
+    }
+  }
+
+  function setPreviewFromSaved(value: string) {
+    clearPreviewObjectUrl();
+    setPreviewSrc(value);
+  }
 
   async function fetchProfile() {
     try {
@@ -186,18 +233,24 @@ export default function InfoPage() {
         }
 
         if (!prof.ok) {
+          const fallbackImage = String((out.user as any)?.profileImageUrl ?? "").trim();
+
           setMsg({ kind: "err", text: String(prof.data ?? "No pudimos cargar tu información.") });
           setProfile(null);
           setName(String(out.user?.name ?? "").trim());
           setNickname(String(out.user?.nickname ?? "").trim());
-          setProfileImageUrl(String((out.user as any)?.profileImageUrl ?? "").trim());
+          setProfileImageUrl(fallbackImage);
+          setPreviewFromSaved(fallbackImage);
           return;
         }
+
+        const savedImage = String(prof.data?.profileImageUrl ?? "").trim();
 
         setProfile(prof.data);
         setName(String(prof.data?.name ?? "").trim());
         setNickname(String(prof.data?.nickname ?? "").trim());
-        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
+        setProfileImageUrl(savedImage);
+        setPreviewFromSaved(savedImage);
       } finally {
         if (!alive) return;
         setChecking(false);
@@ -222,17 +275,40 @@ export default function InfoPage() {
       return;
     }
 
+    const isProbablyImage =
+      String(file.type || "").startsWith("image/") ||
+      /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(String(file.name || ""));
+
+    if (!isProbablyImage) {
+      setMsg({ kind: "err", text: "Selecciona una imagen válida." });
+      input.value = "";
+      return;
+    }
+
+    clearPreviewObjectUrl();
+
+    const objectUrl = URL.createObjectURL(file);
+    previewObjectUrlRef.current = objectUrl;
+
+    // Primero mostramos la foto real inmediatamente, sin esperar canvas/base64.
+    setPreviewSrc(objectUrl);
+    setMsg({
+      kind: "ok",
+      text: `Foto recibida: ${file.name || "cámara"} (${Math.round(file.size / 1024)} KB). Procesando...`,
+    });
+
     setProcessingPhoto(true);
 
     try {
-      const dataUrl = await imageFileToDataUrl(file);
+      const dataUrl = await compressDataUrlForDatabase(file);
 
-      // IMPORTANTE: esto fuerza el render inmediato antes de guardar.
+      // Este es el valor que se enviará al PATCH /users/me.
       setProfileImageUrl(dataUrl);
       setProfile((prev) => (prev ? { ...prev, profileImageUrl: dataUrl } : prev));
 
       setMsg({ kind: "ok", text: "Foto cargada y visible. Ahora toca Guardar cambios." });
     } catch (e: any) {
+      setProfileImageUrl("");
       setMsg({ kind: "err", text: e?.message || "No pudimos cargar la foto." });
     } finally {
       setProcessingPhoto(false);
@@ -249,15 +325,21 @@ export default function InfoPage() {
     setSaving(true);
 
     try {
+      const payloadImage = String(profileImageUrl || "").trim();
+
       const updated = await apiFetch<Partial<ApiMe>>("/users/me", {
         method: "PATCH",
         cache: "no-store",
         json: {
           name: name.trim() || null,
           nickname: nickname.trim() || null,
-          profileImageUrl: profileImageUrl.trim() || null,
+          profileImageUrl: payloadImage || null,
         },
       });
+
+      const savedImage = String(
+        updated?.profileImageUrl !== undefined ? updated.profileImageUrl ?? "" : payloadImage
+      ).trim();
 
       setProfile((prev) =>
         prev
@@ -267,22 +349,25 @@ export default function InfoPage() {
               nickname: updated.nickname ?? prev.nickname,
               email: updated.email ?? prev.email,
               phone: updated.phone ?? prev.phone,
-              profileImageUrl:
-                updated.profileImageUrl !== undefined ? updated.profileImageUrl : prev.profileImageUrl,
+              profileImageUrl: savedImage || null,
             }
           : (updated as ApiMe)
       );
 
       setName(String(updated?.name ?? name).trim());
       setNickname(String(updated?.nickname ?? nickname).trim());
-      setProfileImageUrl(String(updated?.profileImageUrl ?? profileImageUrl).trim());
+      setProfileImageUrl(savedImage);
+      setPreviewFromSaved(savedImage);
 
       const prof = await fetchProfile();
       if (prof.ok) {
+        const freshImage = String(prof.data?.profileImageUrl ?? "").trim();
+
         setProfile(prof.data);
         setName(String(prof.data?.name ?? "").trim());
         setNickname(String(prof.data?.nickname ?? "").trim());
-        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
+        setProfileImageUrl(freshImage);
+        setPreviewFromSaved(freshImage);
       }
 
       if (typeof window !== "undefined") {
@@ -312,7 +397,7 @@ export default function InfoPage() {
   }
 
   function AvatarBox({ size = 48 }: { size?: number }) {
-    const src = String(profileImageUrl || "").trim();
+    const src = String(previewSrc || profileImageUrl || "").trim();
 
     return (
       <div
@@ -321,7 +406,7 @@ export default function InfoPage() {
       >
         {src ? (
           <img
-            key={src.slice(0, 60)}
+            key={src}
             src={src}
             alt="Foto de perfil"
             className="block h-full w-full object-cover"
@@ -395,7 +480,7 @@ export default function InfoPage() {
                 <input
                   ref={chooseInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   onChange={handlePhotoInputChange}
                 />
@@ -406,17 +491,19 @@ export default function InfoPage() {
                 <input
                   ref={cameraInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
                   capture="user"
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   onChange={handlePhotoInputChange}
                 />
               </label>
 
-              {profileImageUrl ? (
+              {previewSrc || profileImageUrl ? (
                 <button
                   type="button"
                   onClick={() => {
+                    clearPreviewObjectUrl();
+                    setPreviewSrc("");
                     setProfileImageUrl("");
                     setProfile((prev) => (prev ? { ...prev, profileImageUrl: "" } : prev));
                     setMsg({ kind: "ok", text: "Foto removida. Toca Guardar cambios para confirmar." });
@@ -432,7 +519,7 @@ export default function InfoPage() {
             <div className="mt-2 text-[11px] text-gray-500">
               {processingPhoto
                 ? "Procesando foto…"
-                : "Toca Elegir foto o Tomar foto. Cuando aparezca aquí, toca Guardar cambios."}
+                : "Primero debe verse aquí. Luego toca Guardar cambios."}
             </div>
           </div>
         </div>
