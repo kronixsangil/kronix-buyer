@@ -22,13 +22,11 @@ import tycIcon from "@/public/icons/tyc.png";
 type MeResponse =
   | {
       user: {
-        id?: string;
         sub?: string;
         role?: string;
         phone?: string;
         email?: string;
         name?: string;
-        profileImageUrl?: string | null;
       };
     }
   | { user?: any };
@@ -54,6 +52,15 @@ function getInitials(input?: string) {
   return (a + b).toUpperCase();
 }
 
+function normalizeProfileImageUrl(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:")) return raw;
+  if (raw.startsWith("/api/")) return raw;
+  if (raw.startsWith("/")) return `/api/buyer${raw}`;
+  return raw;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const { city, cities, citiesLoading, setCity } = useBuyerCity();
@@ -67,17 +74,12 @@ export default function ProfilePage() {
     try {
       setIsChecking(true);
 
-      const data = await apiFetch<any>("/users/me", {
+      const data = await apiFetch<MeResponse>("/auth/me", {
         method: "GET",
         cache: "no-store",
       });
 
-      const rawUser = (data as any)?.user ?? data ?? null;
-      const user =
-        rawUser && typeof rawUser === "object"
-          ? { ...rawUser, sub: rawUser.sub ?? rawUser.id }
-          : null;
-
+      const user = (data as any)?.user ?? null;
       setMe(user && typeof user === "object" ? user : null);
     } catch {
       setMe(null);
@@ -104,11 +106,7 @@ export default function ProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isLoggedIn = !!(
-    me &&
-    (String((me as any)?.sub ?? "").trim() ||
-      String((me as any)?.id ?? "").trim())
-  );
+  const isLoggedIn = !!(me && (me as any)?.sub);
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -133,17 +131,21 @@ export default function ProfilePage() {
 
   const initials = useMemo(() => getInitials(displayName), [displayName]);
 
+  const profilePhotoSrc = useMemo(
+    () => normalizeProfileImageUrl((me as any)?.profileImageUrl),
+    [me]
+  );
+
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
-
-    // Limpieza visual inmediata: evita que quede mostrando sesión vieja si la red tarda.
-    setMe(null);
-
     try {
       await logout();
     } finally {
       setLoggingOut(false);
+      window.dispatchEvent(new Event("ct-auth-changed"));
+      window.dispatchEvent(new Event("auth:changed"));
+      router.replace("/");
     }
   }
 
@@ -181,13 +183,11 @@ export default function ProfilePage() {
               <div className="flex items-start justify-between gap-2">
   <div className="flex items-center gap-2">
     <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-white/15 font-extrabold text-white ring-1 ring-white/25 backdrop-blur-sm">
-      {(me as any)?.profileImageUrl ? (
-        <Image
-          src={String((me as any).profileImageUrl)}
+      {profilePhotoSrc ? (
+        <img
+          src={profilePhotoSrc}
           alt="Foto de perfil"
-          fill
-          className="object-cover"
-          sizes="44px"
+          className="block h-full w-full object-cover"
         />
       ) : (
         <div className="grid h-full w-full place-items-center">{initials}</div>
@@ -491,4 +491,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
