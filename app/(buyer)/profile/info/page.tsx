@@ -1,4 +1,5 @@
 // app/(buyer)/profile/info/page.tsx
+// app/(buyer)/profile/info/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,15 +52,61 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
-function ProfileAvatar({ src, fallback, sizeClass }: { src?: string | null; fallback: string; sizeClass: string }) {
-  const cleanSrc = String(src ?? "").trim();
+async function imageFileToCompressedDataUrl(file: File) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Selecciona una imagen válida.");
+  }
 
+  const rawUrl = URL.createObjectURL(file);
+
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("No pudimos leer la imagen."));
+      image.src = rawUrl;
+    });
+
+    const maxSide = 520;
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    const ratio = Math.min(1, maxSide / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("No pudimos preparar la imagen.");
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    let quality = 0.82;
+    let dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+    while (dataUrl.length > 700_000 && quality > 0.45) {
+      quality -= 0.08;
+      dataUrl = canvas.toDataURL("image/jpeg", quality);
+    }
+
+    if (dataUrl.length > 800_000) {
+      throw new Error("La foto quedó demasiado pesada. Intenta con otra imagen.");
+    }
+
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(rawUrl);
+  }
+}
+
+function AvatarPreview({ src, fallback, sizeClass }: { src: string; fallback: string; sizeClass: string }) {
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gray-900 text-white font-extrabold ${sizeClass}`}>
-      {cleanSrc ? (
-        // Usamos <img> para soportar data:image/base64 sin fallos de next/image.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={cleanSrc} alt="Foto de perfil" className="h-full w-full object-cover" />
+    <div className={`relative overflow-hidden bg-gray-900 text-white font-extrabold ${sizeClass}`}>
+      {src ? (
+        <img
+          src={src}
+          alt="Foto de perfil"
+          className="h-full w-full object-cover"
+        />
       ) : (
         <div className="grid h-full w-full place-items-center">{fallback}</div>
       )}
@@ -69,8 +116,7 @@ function ProfileAvatar({ src, fallback, sizeClass }: { src?: string | null; fall
 
 export default function InfoPage() {
   const router = useRouter();
-
-  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const chooseInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [checking, setChecking] = useState(true);
@@ -82,6 +128,7 @@ export default function InfoPage() {
   const [profileImageUrl, setProfileImageUrl] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [photoLoading, setPhotoLoading] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const email = profile?.email ?? session?.user?.email ?? null;
@@ -160,32 +207,25 @@ export default function InfoPage() {
     };
   }, [router]);
 
-  const canSave = !saving && !checking;
+  const canSave = !saving && !checking && !photoLoading;
 
   async function handlePhotoFile(file: File | null) {
-    setMsg(null);
-
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      setMsg({ kind: "err", text: "Selecciona una imagen válida." });
-      return;
-    }
+    setMsg(null);
+    setPhotoLoading(true);
 
-    if (file.size > 750_000) {
-      setMsg({ kind: "err", text: "La foto debe pesar máximo 750 KB." });
-      return;
+    try {
+      const dataUrl = await imageFileToCompressedDataUrl(file);
+      setProfileImageUrl(dataUrl);
+      setMsg({ kind: "ok", text: "Foto cargada. Ahora presiona Guardar cambios." });
+    } catch (e: any) {
+      setMsg({ kind: "err", text: String(e?.message ?? "No pudimos cargar la foto.") });
+    } finally {
+      setPhotoLoading(false);
+      if (chooseInputRef.current) chooseInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setProfileImageUrl(String(reader.result ?? ""));
-      setMsg({ kind: "ok", text: "Foto cargada. Presiona Guardar cambios para aplicarla." });
-    };
-    reader.onerror = () => {
-      setMsg({ kind: "err", text: "No pudimos leer la foto. Intenta con otra imagen." });
-    };
-    reader.readAsDataURL(file);
   }
 
   async function handleSave() {
@@ -290,7 +330,7 @@ export default function InfoPage() {
 
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <ProfileAvatar src={profileImageUrl} fallback={avatar} sizeClass="h-12 w-12" />
+          <AvatarPreview src={profileImageUrl} fallback={avatar} sizeClass="h-12 w-12 rounded-2xl" />
 
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-extrabold text-gray-900">
@@ -308,22 +348,24 @@ export default function InfoPage() {
       <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="text-xs font-extrabold text-gray-800">Foto de perfil</div>
         <div className="mt-3 flex items-center gap-3">
-          <ProfileAvatar src={profileImageUrl} fallback={avatar} sizeClass="h-16 w-16 shadow-sm ring-1 ring-gray-200" />
+          <AvatarPreview src={profileImageUrl} fallback={avatar} sizeClass="h-16 w-16 rounded-2xl shadow-sm ring-1 ring-gray-200" />
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => galleryInputRef.current?.click()}
-                className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]"
+                disabled={photoLoading}
+                onClick={() => chooseInputRef.current?.click()}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
               >
                 Elegir foto
               </button>
 
               <button
                 type="button"
+                disabled={photoLoading}
                 onClick={() => cameraInputRef.current?.click()}
-                className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99]"
+                className="rounded-2xl bg-emerald-600 px-4 py-3 text-xs font-extrabold text-white active:scale-[0.99] disabled:opacity-60"
               >
                 Tomar foto
               </button>
@@ -340,30 +382,23 @@ export default function InfoPage() {
             </div>
 
             <input
-              ref={galleryInputRef}
+              ref={chooseInputRef}
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => {
-                handlePhotoFile(e.target.files?.[0] ?? null);
-                e.currentTarget.value = "";
-              }}
+              onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)}
             />
-
             <input
               ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="user"
               className="hidden"
-              onChange={(e) => {
-                handlePhotoFile(e.target.files?.[0] ?? null);
-                e.currentTarget.value = "";
-              }}
+              onChange={(e) => handlePhotoFile(e.target.files?.[0] ?? null)}
             />
 
             <div className="mt-2 text-[11px] text-gray-500">
-              Usa una imagen cuadrada. Máximo 750 KB. Recuerda guardar cambios.
+              {photoLoading ? "Procesando foto…" : "Usa una imagen cuadrada. Recuerda guardar cambios."}
             </div>
           </div>
         </div>
