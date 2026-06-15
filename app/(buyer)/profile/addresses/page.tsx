@@ -49,7 +49,7 @@ type AddressForm = {
   isDefault: boolean;
   isFavorite: boolean;
   lat?: number | null;
-lng?: number | null;
+  lng?: number | null;
 };
 
 const EMPTY_FORM: AddressForm = {
@@ -62,8 +62,11 @@ const EMPTY_FORM: AddressForm = {
   isDefault: false,
   isFavorite: false,
   lat: null,
-lng: null,
+  lng: null,
 };
+
+const inputClass =
+  "w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white";
 
 function formatDate(iso?: string) {
   const ms = Date.parse(String(iso ?? ""));
@@ -84,7 +87,52 @@ function formFromAddress(a: AddressItem): AddressForm {
     contactPhone: a.contactPhone ?? "",
     isDefault: Boolean(a.isDefault),
     isFavorite: Boolean(a.isFavorite || a.isDefault),
+    lat: typeof a.lat === "number" ? a.lat : null,
+    lng: typeof a.lng === "number" ? a.lng : null,
   };
+}
+
+function sortAddresses(items: AddressItem[]) {
+  return [...items].sort((a, b) => {
+    const aDefault = a.isDefault ? 1 : 0;
+    const bDefault = b.isDefault ? 1 : 0;
+    if (aDefault !== bDefault) return bDefault - aDefault;
+
+    const aFav = a.isFavorite ? 1 : 0;
+    const bFav = b.isFavorite ? 1 : 0;
+    if (aFav !== bFav) return bFav - aFav;
+
+    const aUsage = Number(a.usageCount ?? 0);
+    const bUsage = Number(b.usageCount ?? 0);
+    if (aUsage !== bUsage) return bUsage - aUsage;
+
+    const aTime = Date.parse(String(a.lastUsedAt ?? a.updatedAt ?? ""));
+    const bTime = Date.parse(String(b.lastUsedAt ?? b.updatedAt ?? ""));
+    return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+  });
+}
+
+function addressTitle(a: AddressItem) {
+  return `📍 ${a.label ? `${a.label}: ` : ""}${a.placeName ? `${a.placeName} · ` : ""}${a.address}`;
+}
+
+function FieldRow({
+  label,
+  children,
+  align = "center",
+}: {
+  label: string;
+  children: React.ReactNode;
+  align?: "center" | "start";
+}) {
+  return (
+    <div className={["grid grid-cols-[82px_1fr] gap-2", align === "start" ? "items-start" : "items-center"].join(" ")}>
+      <label className={["text-xs font-extrabold text-slate-900", align === "start" ? "pt-3" : ""].join(" ")}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 export default function AddressesPage() {
@@ -106,20 +154,27 @@ export default function AddressesPage() {
   const [editTouched, setEditTouched] = useState(false);
 
   const [showMap, setShowMap] = useState(false);
-const [mapTarget, setMapTarget] = useState<"create" | "edit" | null>(null);
+  const [mapTarget, setMapTarget] = useState<"create" | "edit" | null>(null);
+  const [expandedAddressIds, setExpandedAddressIds] = useState<Set<string>>(() => new Set());
 
-  const canSave = useMemo(() => {
-    return form.address.trim().length >= 8;
-  }, [form.address]);
+  const canSave = useMemo(() => form.address.trim().length >= 8, [form.address]);
+  const canSaveEdit = useMemo(() => editForm.address.trim().length >= 8, [editForm.address]);
 
-  const canSaveEdit = useMemo(() => {
-    return editForm.address.trim().length >= 8;
-  }, [editForm.address]);
+  const sortedItems = useMemo(() => sortAddresses(items), [items]);
 
   const favoritesCount = useMemo(
     () => items.filter((item) => item.isFavorite).length,
     [items]
   );
+
+  function toggleAddress(id: string) {
+    setExpandedAddressIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const load = async () => {
     if (!cityReady || !citySlug) return;
@@ -131,7 +186,7 @@ const [mapTarget, setMapTarget] = useState<"create" | "edit" | null>(null);
       const list = await apiFetch<AddressItem[]>(
         `/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`
       );
-      setItems(Array.isArray(list) ? list : []);
+      setItems(Array.isArray(list) ? sortAddresses(list) : []);
     } catch (e: any) {
       setErr(e?.message || "No se pudieron cargar direcciones");
       setItems([]);
@@ -183,43 +238,42 @@ const [mapTarget, setMapTarget] = useState<"create" | "edit" | null>(null);
   }
 
   async function postAddress(payload: AddressForm) {
-  if (!citySlug) throw new Error("No se encontró ciudad activa.");
+    if (!citySlug) throw new Error("No se encontró ciudad activa.");
 
-  const addressText = payload.address.trim();
+    const addressText = payload.address.trim();
 
-let lat = payload.lat;
-let lng = payload.lng;
+    let lat = payload.lat;
+    let lng = payload.lng;
 
-// 🔥 SOLO geocodifica si NO viene del mapa
-if (!lat || !lng) {
-  const geo = await geocodeAddressOSMInCity(addressText, cityGeoLabel);
+    if (!lat || !lng) {
+      const geo = await geocodeAddressOSMInCity(addressText, cityGeoLabel);
 
-  if (!geo) {
-    throw new Error(
-      `No pudimos ubicar esa dirección en ${cityLabel}. Revisa que esté bien escrita e intenta de nuevo.`
-    );
+      if (!geo) {
+        throw new Error(
+          `No pudimos ubicar esa dirección en ${cityLabel}. Revisa que esté bien escrita e intenta de nuevo.`
+        );
+      }
+
+      lat = geo.lat;
+      lng = geo.lng;
+    }
+
+    return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, {
+      method: "POST",
+      json: {
+        label: payload.label.trim() || null,
+        placeName: payload.placeName.trim() || null,
+        address: addressText,
+        reference: payload.reference.trim() || null,
+        contactName: payload.contactName.trim() || null,
+        contactPhone: payload.contactPhone.trim() || null,
+        lat,
+        lng,
+        isDefault: payload.isDefault,
+        isFavorite: payload.isDefault ? true : payload.isFavorite,
+      },
+    });
   }
-
-  lat = geo.lat;
-  lng = geo.lng;
-}
-
-return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, {
-  method: "POST",
-  json: {
-    label: payload.label.trim() || null,
-    placeName: payload.placeName.trim() || null,
-    address: addressText,
-    reference: payload.reference.trim() || null,
-    contactName: payload.contactName.trim() || null,
-    contactPhone: payload.contactPhone.trim() || null,
-    lat,
-    lng,
-    isDefault: payload.isDefault,
-    isFavorite: payload.isDefault ? true : payload.isFavorite,
-  },
-});
-}
 
   const saveAddress = async () => {
     setTouched(true);
@@ -318,6 +372,7 @@ return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, 
     setAddOpen(false);
     setSuccess(null);
     setErr(null);
+    setExpandedAddressIds((prev) => new Set(prev).add(a.id));
 
     if (editingId === a.id) {
       setEditingId(null);
@@ -351,100 +406,113 @@ return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, 
     const valid = value.address.trim().length >= 8;
 
     return (
-      <div className="mt-3 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <input
-          value={value.label}
-          onChange={(e) => onChange("label", e.target.value)}
-          placeholder="Etiqueta opcional: Casa, Trabajo, Mamá..."
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-blue-300 focus:bg-white"
-          maxLength={30}
-        />
+      <div className="mt-2 space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <FieldRow label="Etiqueta">
+          <input
+            value={value.label}
+            onChange={(e) => onChange("label", e.target.value)}
+            placeholder="Casa, Trabajo, Mamá..."
+            className={inputClass}
+            maxLength={30}
+          />
+        </FieldRow>
 
-        <input
-          value={value.placeName}
-          onChange={(e) => onChange("placeName", e.target.value)}
-          placeholder="Nombre del lugar: Edificio, local, conjunto..."
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-blue-300 focus:bg-white"
-          maxLength={80}
-        />
+        <FieldRow label="Lugar">
+          <input
+            value={value.placeName}
+            onChange={(e) => onChange("placeName", e.target.value)}
+            placeholder="Edificio, local, conjunto..."
+            className={inputClass}
+            maxLength={80}
+          />
+        </FieldRow>
 
-        <textarea
-          value={value.address}
-          onChange={(e) => onChange("address", e.target.value)}
-          onBlur={onTouched}
-          placeholder="Dirección completa *"
-          rows={3}
-          className={[
-            "w-full rounded-xl border bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:bg-white",
-            touchedValue && !valid
-              ? "border-red-300 focus:border-red-400"
-              : "border-gray-200 focus:border-blue-300",
-          ].join(" ")}
-          maxLength={220}
-        />
+        <FieldRow label="Dirección" align="start">
+          <textarea
+            value={value.address}
+            onChange={(e) => onChange("address", e.target.value)}
+            onBlur={onTouched}
+            placeholder="Dirección completa *"
+            rows={2}
+            className={[
+              `${inputClass} resize-none`,
+              touchedValue && !valid
+                ? "border-red-300 focus:border-red-400"
+                : "border-slate-200 focus:border-blue-300",
+            ].join(" ")}
+            maxLength={220}
+          />
+        </FieldRow>
 
         <button
-  type="button"
-  onClick={() => {
-    setShowMap(true);
-    setMapTarget(saveLabel.includes("Guardar") ? "create" : "edit");
-  }}
-  className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-extrabold text-blue-800"
->
-  📍 Seleccionar en mapa
-</button>
+          type="button"
+          onClick={() => {
+            setShowMap(true);
+            setMapTarget(saveLabel.includes("Guardar dirección") ? "create" : "edit");
+          }}
+          className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm font-extrabold text-blue-800"
+        >
+          📍 Seleccionar en mapa
+        </button>
 
-{showMap && (
-  <div className="mt-3 rounded-2xl overflow-hidden border">
-    <LocationPickerMap
-      onSelect={({ lat, lng, address }) => {
-        if (mapTarget === "create") {
-          setForm((prev) => ({
-            ...prev,
-            address,
-            lat,
-            lng,
-          }));
-        } else {
-          setEditForm((prev) => ({
-            ...prev,
-            address,
-            lat,
-            lng,
-          }));
-        }
+        {showMap && (
+          <div className="mt-2 overflow-hidden rounded-2xl border">
+            <LocationPickerMap
+              onSelect={({ lat, lng, address }) => {
+                if (mapTarget === "create") {
+                  setForm((prev) => ({
+                    ...prev,
+                    address,
+                    lat,
+                    lng,
+                  }));
+                } else {
+                  setEditForm((prev) => ({
+                    ...prev,
+                    address,
+                    lat,
+                    lng,
+                  }));
+                }
 
-        setShowMap(false);
-        setMapTarget(null);
-      }}
-    />
-  </div>
-)}
+                setShowMap(false);
+                setMapTarget(null);
+              }}
+            />
+          </div>
+        )}
 
-        <input
-          value={value.reference}
-          onChange={(e) => onChange("reference", e.target.value)}
-          placeholder="Referencia adicional: portería, color, timbre..."
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-blue-300 focus:bg-white"
-          maxLength={120}
-        />
+        <FieldRow label="Referencia" align="start">
+          <textarea
+            value={value.reference}
+            onChange={(e) => onChange("reference", e.target.value)}
+            placeholder="Portería, color, timbre..."
+            rows={2}
+            className={`${inputClass} resize-none`}
+            maxLength={120}
+          />
+        </FieldRow>
 
-        <input
-          value={value.contactName}
-          onChange={(e) => onChange("contactName", e.target.value)}
-          placeholder="Contacto opcional para esta dirección"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-blue-300 focus:bg-white"
-          maxLength={80}
-        />
+        <FieldRow label="Contacto">
+          <input
+            value={value.contactName}
+            onChange={(e) => onChange("contactName", e.target.value)}
+            placeholder="Contacto opcional"
+            className={inputClass}
+            maxLength={80}
+          />
+        </FieldRow>
 
-        <input
-          value={value.contactPhone}
-          onChange={(e) => onChange("contactPhone", formatPhone(e.target.value))}
-          placeholder="Teléfono opcional"
-          inputMode="numeric"
-          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-blue-300 focus:bg-white"
-          maxLength={15}
-        />
+        <FieldRow label="Celular">
+          <input
+            value={value.contactPhone}
+            onChange={(e) => onChange("contactPhone", formatPhone(e.target.value))}
+            placeholder="Teléfono opcional"
+            inputMode="numeric"
+            className={inputClass}
+            maxLength={15}
+          />
+        </FieldRow>
 
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -503,18 +571,18 @@ return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, 
   }
 
   return (
-    <div className="px-4 pb-6 pt-4">
+    <div className="px-4 pb-6 pt-2">
       <div className="text-lg font-extrabold text-gray-900">Direcciones</div>
 
       <div className="mt-1 text-xs text-gray-600">
         Guarda hasta 10 direcciones. Puedes tener 1 predeterminada y hasta 6 favoritas.
       </div>
 
-      <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 shadow-sm">
+      <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 shadow-sm">
         Ciudad activa: <span className="font-extrabold">{cityLabel}</span>
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-2 grid grid-cols-3 gap-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-3 text-center shadow-sm">
           <div className="text-lg font-black text-gray-900">{items.length}/10</div>
           <div className="text-[11px] font-bold text-gray-500">Guardadas</div>
@@ -532,13 +600,13 @@ return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, 
       </div>
 
       {!authLoading && !isAuthed ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        <div className="mt-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           Inicia sesión para ver y guardar tus direcciones.
         </div>
       ) : null}
 
       {isAuthed ? (
-        <div className="mt-4">
+        <div className="mt-2">
           <button
             type="button"
             onClick={() => {
@@ -575,148 +643,163 @@ return apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, 
       ) : null}
 
       {success ? (
-        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800">
+        <div className="mt-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-800">
           {success}
         </div>
       ) : null}
 
       {err ? (
-        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+        <div className="mt-2 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-800">
           {err}
         </div>
       ) : null}
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-2 space-y-2">
         {isLoading ? (
           <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 shadow-sm">
             Cargando direcciones…
           </div>
-        ) : items.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 shadow-sm">
             Aún no tienes direcciones guardadas para <b>{cityLabel}</b>.
           </div>
         ) : (
-          items.map((a, index) => (
-            <div
-              key={a.id}
-              className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <div className="min-w-0">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-700">
-                    #{index + 1}
-                  </span>
+          sortedItems.map((a, index) => {
+            const open = expandedAddressIds.has(a.id) || editingId === a.id;
 
-                  {a.isDefault ? (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
-                      🏠 Predeterminada
+            return (
+              <div
+                key={a.id}
+                className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleAddress(a.id)}
+                  className="block w-full text-left"
+                  aria-expanded={open}
+                >
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-black text-gray-700">
+                      #{index + 1}
                     </span>
-                  ) : null}
 
-                  {a.isFavorite ? (
-                    <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700">
-                      ❤️ Favorita
+                    {a.isDefault ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                        🏠 Predeterminada
+                      </span>
+                    ) : null}
+
+                    {a.isFavorite ? (
+                      <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-black text-rose-700">
+                        ❤️ Favorita
+                      </span>
+                    ) : !a.isDefault ? (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-500">
+                        Dinámica
+                      </span>
+                    ) : null}
+
+                    <span className="ml-auto rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-black text-blue-700">
+                      {open ? "Ver menos" : "Ver más"}
                     </span>
-                  ) : (
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-500">
-                      Dinámica
-                    </span>
-                  )}
-                </div>
-
-                <div className="text-sm font-extrabold text-gray-900">
-                  📍 {a.label ? `${a.label}: ` : ""}
-                  {a.placeName ? `${a.placeName} · ` : ""}
-                  {a.address}
-                </div>
-
-                {a.reference ? (
-                  <div className="mt-1 text-xs font-semibold text-gray-600">
-                    Referencia: {a.reference}
                   </div>
+
+                  <div className="line-clamp-2 text-sm font-extrabold leading-5 text-gray-900">
+                    {addressTitle(a)}
+                  </div>
+                </button>
+
+                {open ? (
+                  <>
+                    {a.reference ? (
+                      <div className="mt-1 text-xs font-semibold text-gray-600">
+                        Referencia: {a.reference}
+                      </div>
+                    ) : null}
+
+                    {a.contactName || a.contactPhone ? (
+                      <div className="mt-1 text-xs font-semibold text-gray-600">
+                        Contacto: {a.contactName || "Sin nombre"}
+                        {a.contactPhone ? ` · ${a.contactPhone}` : ""}
+                      </div>
+                    ) : null}
+
+                    {a.city ? (
+                      <div className="mt-1 text-xs font-semibold text-blue-700">
+                        {a.city.name}, {a.city.department}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-1 text-xs text-gray-600">
+                      Último uso: {formatDate(a.lastUsedAt || a.updatedAt)}
+                      {typeof a.usageCount === "number" ? ` · Usos: ${a.usageCount}` : ""}
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-[46px_46px_1fr_1fr] gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleFavorite(a.id)}
+                        className={[
+                          "h-10 rounded-xl text-xs font-extrabold ring-1",
+                          a.isFavorite
+                            ? "bg-rose-50 text-rose-700 ring-rose-200"
+                            : "bg-white text-gray-700 ring-gray-200",
+                        ].join(" ")}
+                      >
+                        {a.isFavorite ? "❤️" : "♡"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDefault(a.id)}
+                        disabled={a.isDefault}
+                        className={[
+                          "h-10 rounded-xl text-xs font-extrabold ring-1",
+                          a.isDefault
+                            ? "cursor-not-allowed bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-white text-blue-700 ring-gray-200",
+                        ].join(" ")}
+                      >
+                        🏠
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEdit(a)}
+                        className="h-10 rounded-xl bg-blue-50 px-3 text-xs font-extrabold text-blue-800 ring-1 ring-blue-200"
+                      >
+                        ✎ Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => remove(a.id)}
+                        className="h-10 rounded-xl bg-gray-50 px-3 text-xs font-extrabold text-gray-900 ring-1 ring-gray-200"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </>
                 ) : null}
 
-                {a.contactName || a.contactPhone ? (
-                  <div className="mt-1 text-xs font-semibold text-gray-600">
-                    Contacto: {a.contactName || "Sin nombre"}
-                    {a.contactPhone ? ` · ${a.contactPhone}` : ""}
-                  </div>
-                ) : null}
-
-                {a.city ? (
-                  <div className="mt-1 text-xs font-semibold text-blue-700">
-                    {a.city.name}, {a.city.department}
-                  </div>
-                ) : null}
-
-                <div className="mt-1 text-xs text-gray-600">
-                  Último uso: {formatDate(a.lastUsedAt || a.updatedAt)}
-                  {typeof a.usageCount === "number" ? ` · Usos: ${a.usageCount}` : ""}
-                </div>
+                {editingId === a.id
+                  ? renderAddressForm({
+                      value: editForm,
+                      touchedValue: editTouched,
+                      onChange: updateEditField,
+                      onTouched: () => setEditTouched(true),
+                      onSave: () => saveEdit(a.id),
+                      onCancel: () => {
+                        setEditingId(null);
+                        setEditForm(EMPTY_FORM);
+                        setEditTouched(false);
+                      },
+                      saveLabel: "Guardar cambios",
+                    })
+                  : null}
               </div>
-
-              <div className="mt-3 grid grid-cols-[46px_46px_1fr_1fr] gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleFavorite(a.id)}
-                  className={[
-                    "h-10 rounded-xl text-xs font-extrabold ring-1",
-                    a.isFavorite
-                      ? "bg-rose-50 text-rose-700 ring-rose-200"
-                      : "bg-white text-gray-700 ring-gray-200",
-                  ].join(" ")}
-                >
-                  {a.isFavorite ? "❤️" : "♡"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDefault(a.id)}
-                  disabled={a.isDefault}
-                  className={[
-                    "h-10 rounded-xl text-xs font-extrabold ring-1",
-                    a.isDefault
-                      ? "cursor-not-allowed bg-emerald-50 text-emerald-700 ring-emerald-200"
-                      : "bg-white text-blue-700 ring-gray-200",
-                  ].join(" ")}
-                >
-                  🏠
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => openEdit(a)}
-                  className="h-10 rounded-xl bg-blue-50 px-3 text-xs font-extrabold text-blue-800 ring-1 ring-blue-200"
-                >
-                  ✎ Editar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => remove(a.id)}
-                  className="h-10 rounded-xl bg-gray-50 px-3 text-xs font-extrabold text-gray-900 ring-1 ring-gray-200"
-                >
-                  Eliminar
-                </button>
-              </div>
-
-              {editingId === a.id
-                ? renderAddressForm({
-                    value: editForm,
-                    touchedValue: editTouched,
-                    onChange: updateEditField,
-                    onTouched: () => setEditTouched(true),
-                    onSave: () => saveEdit(a.id),
-                    onCancel: () => {
-                      setEditingId(null);
-                      setEditForm(EMPTY_FORM);
-                      setEditTouched(false);
-                    },
-                    saveLabel: "Guardar cambios",
-                  })
-                : null}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

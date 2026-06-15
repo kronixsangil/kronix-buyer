@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
+import { geocodeAddressOSMInCity } from "@/lib/geocode";
+import { useBuyerCity } from "@/components/buyer/CityContext";
 import BuyerTermsModal from "@/components/buyer/legal/BuyerTermsModal";
 import {
   acceptBuyerTermsBackend,
@@ -29,13 +31,38 @@ function passwordHint(value: string) {
   return "Contraseña válida.";
 }
 
+function formatPhone(value: string) {
+  return String(value ?? "").replace(/\D/g, "").slice(0, 15);
+}
+
+const inputClass =
+  "w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white";
+
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[84px_1fr] items-center gap-2">
+      <label className="text-xs font-extrabold text-slate-900">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 export default function BuyerRegisterPage() {
   const router = useRouter();
   const sp = useSearchParams();
+  const { citySlug, cityLabel, cityGeoLabel, cityReady } = useBuyerCity();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [primaryAddress, setPrimaryAddress] = useState("");
+  const [primaryReference, setPrimaryReference] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -60,14 +87,51 @@ export default function BuyerRegisterPage() {
     confirmPassword.trim().length > 0 &&
     password === confirmPassword;
 
+  const cleanPhone = phone.trim();
+  const cleanAddress = primaryAddress.trim();
+
   const canSubmit =
-    phone.trim().length >= 7 &&
+    cleanPhone.length >= 7 &&
+    cleanAddress.length >= 8 &&
     passwordOk &&
     passwordsMatch &&
     termsAccepted &&
+    cityReady &&
+    Boolean(citySlug) &&
     !loading;
 
+  async function createPrimaryAddress() {
+    if (!citySlug) throw new Error("No se encontró ciudad activa.");
+
+    const geo = await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
+
+    if (!geo) {
+      throw new Error(
+        `No pudimos ubicar tu dirección principal en ${cityLabel}. Revisa que esté bien escrita e intenta de nuevo.`
+      );
+    }
+
+    await apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, {
+      method: "POST",
+      suppressSessionExpiredEvent: true,
+      json: {
+        label: "Casa",
+        placeName: "Dirección principal",
+        address: cleanAddress,
+        reference: primaryReference.trim() || null,
+        contactName: name.trim() || null,
+        contactPhone: cleanPhone || null,
+        lat: geo.lat,
+        lng: geo.lng,
+        isDefault: true,
+        isFavorite: true,
+      },
+    } as any);
+  }
+
   const handleSubmit = async () => {
+    if (!canSubmit) return;
+
     setError(null);
     setLoading(true);
 
@@ -83,6 +147,12 @@ export default function BuyerRegisterPage() {
       return;
     }
 
+    if (cleanAddress.length < 8) {
+      setError("La dirección principal es obligatoria y debe estar más completa.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const termsVersion = await getCurrentBuyerTermsVersion();
 
@@ -90,7 +160,7 @@ export default function BuyerRegisterPage() {
         method: "POST",
         json: {
           name: name.trim() || "Usuario",
-          phone: phone.trim(),
+          phone: cleanPhone,
           email: email.trim() || null,
           password: password.trim(),
           termsAccepted: true,
@@ -99,8 +169,10 @@ export default function BuyerRegisterPage() {
       });
 
       await acceptBuyerTermsBackend(termsVersion);
+      await createPrimaryAddress();
 
       window.dispatchEvent(new Event("ct-auth-changed"));
+      window.dispatchEvent(new Event("auth:changed"));
 
       router.replace(next);
     } catch (e: any) {
@@ -116,6 +188,8 @@ export default function BuyerRegisterPage() {
         setError("Este email ya está registrado.");
       } else if (msg.includes("contraseña") || msg.includes("password")) {
         setError("La contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
+      } else if (raw.trim()) {
+        setError(raw.trim());
       } else {
         setError("No pudimos crear tu cuenta. Revisa tus datos e intenta de nuevo.");
       }
@@ -125,61 +199,68 @@ export default function BuyerRegisterPage() {
   };
 
   return (
-    <div className="px-4 pb-6 pt-6">
+    <div className="px-4 pb-6 pt-3">
       <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-        <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white p-4">
+        <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white px-4 py-3">
           <div className="text-[11px] font-extrabold text-gray-500">KroniX</div>
           <div className="mt-1 text-lg font-extrabold text-gray-900">Crear cuenta</div>
-          <div className="mt-1 text-xs text-gray-600">
+          <div className="mt-1 text-xs font-semibold text-gray-600">
             Regístrate para guardar pedidos, direcciones y tu historial.
           </div>
         </div>
 
-        <div className="space-y-4 p-4">
-          <div>
-            <div className="text-xs font-extrabold text-gray-800">Nombre</div>
+        <div className="space-y-2 p-3">
+          <FieldRow label="Nombre">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Blass"
-              className={cx(
-                "mt-2 w-full rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
-                "border-gray-200 focus:bg-white focus:border-gray-300"
-              )}
+              className={inputClass}
             />
-          </div>
+          </FieldRow>
 
-          <div>
-            <div className="text-xs font-extrabold text-gray-800">Teléfono (obligatorio)</div>
+          <FieldRow label="Teléfono">
             <input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="Ej: 3112461059"
               inputMode="tel"
-              className={cx(
-                "mt-2 w-full rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
-                "border-gray-200 focus:bg-white focus:border-gray-300"
-              )}
+              className={inputClass}
             />
-          </div>
+          </FieldRow>
 
-          <div>
-            <div className="text-xs font-extrabold text-gray-800">Email (opcional)</div>
+          <FieldRow label="Email">
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Ej: tu@email.com"
               autoComplete="email"
-              className={cx(
-                "mt-2 w-full rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50",
-                "border-gray-200 focus:bg-white focus:border-gray-300"
-              )}
+              className={inputClass}
             />
-          </div>
+          </FieldRow>
 
-          <div>
-            <div className="text-xs font-extrabold text-gray-800">Contraseña</div>
-            <div className="mt-2 flex items-center gap-2">
+          <FieldRow label="Dirección">
+            <textarea
+              value={primaryAddress}
+              onChange={(e) => setPrimaryAddress(e.target.value)}
+              placeholder={`Dirección principal en ${cityLabel || "tu ciudad"} *`}
+              rows={2}
+              className={`${inputClass} resize-none`}
+            />
+          </FieldRow>
+
+          <FieldRow label="Referencia">
+  <textarea
+    value={primaryReference}
+    onChange={(e) => setPrimaryReference(e.target.value)}
+    placeholder="Ej: Frente al parque, portón negro, apto 302..."
+    rows={2}
+    className={`${inputClass} resize-none`}
+  />
+</FieldRow>
+
+          <FieldRow label="Contraseña">
+            <div className="flex min-w-0 items-center gap-2">
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -187,42 +268,40 @@ export default function BuyerRegisterPage() {
                 autoComplete="new-password"
                 type={showPass ? "text" : "password"}
                 className={cx(
-                  "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50 transition",
+                  "min-w-0 flex-1 rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:bg-white",
                   password.length > 0 && !passwordOk
                     ? "border-amber-300 bg-amber-50 focus:border-amber-400"
-                    : "border-gray-200 focus:bg-white focus:border-gray-300"
+                    : "border-slate-200 focus:border-blue-300"
                 )}
               />
 
               <button
                 type="button"
                 onClick={() => setShowPass((v) => !v)}
-                className={cx(
-                  "shrink-0 rounded-2xl border px-3 py-3 text-xs font-extrabold",
-                  "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
-                )}
+                className="shrink-0 rounded-[18px] border border-gray-200 bg-white px-3 py-4 text-xs font-extrabold text-gray-800 hover:bg-gray-50"
               >
                 {showPass ? "Ocultar" : "Ver"}
               </button>
             </div>
+          </FieldRow>
 
-            <div className={cx("mt-2 text-xs font-bold", passwordOk ? "text-emerald-600" : "text-gray-500")}>
-              {passwordHint(password)}
-            </div>
+          <div className={cx("pl-[92px] text-[11px] font-bold", passwordOk ? "text-emerald-600" : "text-gray-500")}>
+            {passwordHint(password)}
+          </div>
 
-            <div className="mt-4 text-xs font-extrabold text-gray-800">Confirmar contraseña</div>
-            <div className="mt-2 flex items-center gap-2">
+          <FieldRow label="Confirmar">
+            <div className="flex min-w-0 items-center gap-2">
               <input
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Escribe nuevamente tu contraseña"
+                placeholder="Repite tu contraseña"
                 autoComplete="new-password"
                 type={showConfirmPass ? "text" : "password"}
                 className={cx(
-                  "flex-1 rounded-2xl border px-3 py-3 text-sm outline-none bg-gray-50 transition",
+                  "min-w-0 flex-1 rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:bg-white",
                   confirmPassword.length > 0 && !passwordsMatch
                     ? "border-red-300 bg-red-50 focus:border-red-400"
-                    : "border-gray-200 focus:bg-white focus:border-gray-300"
+                    : "border-slate-200 focus:border-blue-300"
                 )}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && canSubmit) handleSubmit();
@@ -232,21 +311,18 @@ export default function BuyerRegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPass((v) => !v)}
-                className={cx(
-                  "shrink-0 rounded-2xl border px-3 py-3 text-xs font-extrabold",
-                  "border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
-                )}
+                className="shrink-0 rounded-[18px] border border-gray-200 bg-white px-3 py-4 text-xs font-extrabold text-gray-800 hover:bg-gray-50"
               >
                 {showConfirmPass ? "Ocultar" : "Ver"}
               </button>
             </div>
+          </FieldRow>
 
-            {confirmPassword.length > 0 && !passwordsMatch ? (
-              <div className="mt-2 text-xs font-bold text-red-600">Las contraseñas no coinciden.</div>
-            ) : confirmPassword.length > 0 && passwordsMatch ? (
-              <div className="mt-2 text-xs font-bold text-emerald-600">Contraseñas coinciden correctamente.</div>
-            ) : null}
-          </div>
+          {confirmPassword.length > 0 && !passwordsMatch ? (
+            <div className="pl-[92px] text-[11px] font-bold text-red-600">Las contraseñas no coinciden.</div>
+          ) : confirmPassword.length > 0 && passwordsMatch ? (
+            <div className="pl-[92px] text-[11px] font-bold text-emerald-600">Contraseñas coinciden correctamente.</div>
+          ) : null}
 
           {error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe } from "@/lib/authClient";
 import { apiFetch } from "@/lib/api";
+import { geocodeAddressOSMInCity } from "@/lib/geocode";
+import { useBuyerCity } from "@/components/buyer/CityContext";
 
 function cx(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
@@ -60,8 +62,66 @@ type ApiMe = {
   store?: { id: string; storeCode: string; name: string } | null;
 };
 
+type SavedAddressItem = {
+  id: string;
+  label?: string | null;
+  placeName?: string | null;
+  address: string;
+  reference?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  isDefault: boolean;
+  isFavorite?: boolean;
+  updatedAt: string;
+};
+
+const inputClass =
+  "w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white";
+
+function HelpTip({ text }: { text: string }) {
+  return (
+    <button
+      type="button"
+      title={text}
+      onClick={() => window.alert(text)}
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-blue-100 bg-blue-50 text-[12px] font-black text-blue-700"
+      aria-label="Ayuda"
+    >
+      ?
+    </button>
+  );
+}
+
+function FieldRow({
+  label,
+  help,
+  children,
+  align = "center",
+}: {
+  label: string;
+  help?: string;
+  children: React.ReactNode;
+  align?: "center" | "start";
+}) {
+  return (
+    <div className={cx("grid grid-cols-[82px_1fr_28px] gap-2", align === "start" ? "items-start" : "items-center")}>
+      <label className={cx("text-xs font-extrabold text-slate-900", align === "start" ? "pt-3" : "")}>{label}</label>
+      {children}
+      {help ? <HelpTip text={help} /> : <span />}
+    </div>
+  );
+}
+
+function formatPhone(value: string) {
+  return String(value ?? "").replace(/\D/g, "").slice(0, 15);
+}
+
 export default function InfoPage() {
   const router = useRouter();
+  const { citySlug, cityLabel, cityGeoLabel, cityReady } = useBuyerCity();
+
   const [checking, setChecking] = useState(true);
   const [session, setSession] = useState<SessionMeShape | null>(null);
   const [profile, setProfile] = useState<ApiMe | null>(null);
@@ -69,6 +129,9 @@ export default function InfoPage() {
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [primaryAddress, setPrimaryAddress] = useState("");
+  const [primaryReference, setPrimaryReference] = useState("");
+  const [primaryAddressId, setPrimaryAddressId] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -104,6 +167,27 @@ export default function InfoPage() {
     }
   }
 
+  async function fetchPrimaryAddress() {
+    if (!citySlug) return null;
+
+    try {
+      const list = await apiFetch<SavedAddressItem[]>(
+        `/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`,
+        { method: "GET", cache: "no-store", suppressSessionExpiredEvent: true }
+      );
+
+      const rows = Array.isArray(list) ? list : [];
+      return (
+        rows.find((x) => x.isDefault) ??
+        rows.find((x) => x.isFavorite) ??
+        rows[0] ??
+        null
+      );
+    } catch {
+      return null;
+    }
+  }
+
   useEffect(() => {
     let alive = true;
     setChecking(true);
@@ -134,13 +218,26 @@ export default function InfoPage() {
           setName(String(out.user?.name ?? "").trim());
           setNickname(String(out.user?.nickname ?? "").trim());
           setProfileImageUrl(String((out.user as any)?.profileImageUrl ?? "").trim());
-          return;
+        } else {
+          setProfile(prof.data);
+          setName(String(prof.data?.name ?? "").trim());
+          setNickname(String(prof.data?.nickname ?? "").trim());
+          setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
         }
 
-        setProfile(prof.data);
-        setName(String(prof.data?.name ?? "").trim());
-        setNickname(String(prof.data?.nickname ?? "").trim());
-        setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
+        if (cityReady && citySlug) {
+          const primary = await fetchPrimaryAddress();
+          if (!alive) return;
+
+          if (primary) {
+            setPrimaryAddressId(primary.id);
+            setPrimaryAddress(String(primary.address ?? "").trim());
+            setPrimaryReference(String(primary.reference ?? "").trim());
+          } else {
+            setPrimaryAddressId(null);
+            setPrimaryAddress("");
+          }
+        }
       } finally {
         if (!alive) return;
         setChecking(false);
@@ -150,7 +247,8 @@ export default function InfoPage() {
     return () => {
       alive = false;
     };
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, cityReady, citySlug]);
 
   const canSave = !saving && !checking && !uploadingPhoto;
 
@@ -191,10 +289,8 @@ export default function InfoPage() {
       setProfileImageUrl(nextUrl);
       setProfile((prev) => (prev ? { ...prev, profileImageUrl: nextUrl } : prev));
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth:changed"));
-        window.dispatchEvent(new Event("ct-auth-changed"));
-      }
+      window.dispatchEvent(new Event("auth:changed"));
+      window.dispatchEvent(new Event("ct-auth-changed"));
 
       setMsg({ kind: "ok", text: "Foto actualizada correctamente." });
     } catch (e: any) {
@@ -234,10 +330,8 @@ export default function InfoPage() {
           : prev
       );
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth:changed"));
-        window.dispatchEvent(new Event("ct-auth-changed"));
-      }
+      window.dispatchEvent(new Event("auth:changed"));
+      window.dispatchEvent(new Event("ct-auth-changed"));
 
       setMsg({ kind: "ok", text: "Foto removida correctamente." });
     } catch (e: any) {
@@ -248,6 +342,53 @@ export default function InfoPage() {
     }
   }
 
+  async function upsertPrimaryAddress() {
+    if (!citySlug) throw new Error("No se encontró ciudad activa.");
+
+    const cleanAddress = primaryAddress.trim();
+    if (cleanAddress.length < 8) {
+      throw new Error("La dirección principal es obligatoria y debe estar más completa.");
+    }
+
+    const geo = await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
+
+    if (!geo) {
+      throw new Error(
+        `No pudimos ubicar tu dirección principal en ${cityLabel}. Revisa que esté bien escrita e intenta de nuevo.`
+      );
+    }
+
+    if (primaryAddressId) {
+      try {
+        await apiFetch(`/users/me/addresses/${primaryAddressId}`, {
+          method: "DELETE",
+          suppressSessionExpiredEvent: true,
+        });
+      } catch {}
+    }
+
+    await apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, {
+      method: "POST",
+      suppressSessionExpiredEvent: true,
+      json: {
+        label: "Casa",
+        placeName: "Dirección principal",
+        address: cleanAddress,
+        reference: primaryReference.trim() || null,
+        contactName: name.trim() || null,
+        contactPhone: formatPhone(String(phone ?? "")) || null,
+        lat: geo.lat,
+        lng: geo.lng,
+        isDefault: true,
+        isFavorite: true,
+      },
+    } as any);
+
+    const freshPrimary = await fetchPrimaryAddress();
+    setPrimaryAddressId(freshPrimary?.id ?? null);
+    setPrimaryAddress(String(freshPrimary?.address ?? cleanAddress).trim());
+  }
+
   async function handleSave() {
     if (!canSave) return;
 
@@ -255,6 +396,10 @@ export default function InfoPage() {
     setSaving(true);
 
     try {
+      if (!cityReady || !citySlug) {
+        throw new Error("La ciudad actual aún no está lista. Intenta de nuevo en un momento.");
+      }
+
       const updated = await apiFetch<Partial<ApiMe>>("/users/me", {
         method: "PATCH",
         cache: "no-store",
@@ -263,6 +408,8 @@ export default function InfoPage() {
           nickname: nickname.trim() || null,
         },
       });
+
+      await upsertPrimaryAddress();
 
       setProfile((prev) =>
         prev
@@ -289,10 +436,8 @@ export default function InfoPage() {
         setProfileImageUrl(String(prof.data?.profileImageUrl ?? "").trim());
       }
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth:changed"));
-        window.dispatchEvent(new Event("ct-auth-changed"));
-      }
+      window.dispatchEvent(new Event("auth:changed"));
+      window.dispatchEvent(new Event("ct-auth-changed"));
 
       setMsg({ kind: "ok", text: "Cambios guardados." });
       setSaving(false);
@@ -340,7 +485,7 @@ export default function InfoPage() {
         <div className="text-lg font-extrabold text-gray-900">Tu información</div>
 
         <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ">
             <div className="h-12 w-12 rounded-2xl bg-gray-100 ring-1 ring-gray-200 animate-pulse" />
             <div className="min-w-0 flex-1">
               <div className="h-4 w-40 rounded bg-gray-100 animate-pulse" />
@@ -348,7 +493,7 @@ export default function InfoPage() {
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-1.5">
             <div className="h-11 w-full rounded-2xl bg-gray-100 animate-pulse" />
             <div className="h-11 w-full rounded-2xl bg-gray-100 animate-pulse" />
             <div className="h-11 w-full rounded-2xl bg-gray-100 animate-pulse" />
@@ -362,11 +507,11 @@ export default function InfoPage() {
   }
 
   return (
-    <div className="px-4 pb-6 pt-4">
+    <div className="px-4 pb-6 pt-2">
       <div className="text-lg font-extrabold text-gray-900">Tu información</div>
       <div className="mt-1 text-xs text-gray-600">Datos personales y preferencias</div>
 
-      <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mt-3 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex items-center gap-3">
           <AvatarBox size={48} />
 
@@ -383,10 +528,10 @@ export default function InfoPage() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mt-2 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="text-xs font-extrabold text-gray-800">Foto de perfil</div>
 
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mt-2 flex items-center gap-3">
           <AvatarBox size={64} />
 
           <div className="min-w-0 flex-1">
@@ -446,7 +591,7 @@ export default function InfoPage() {
       {msg ? (
         <div
           className={cx(
-            "mt-3 rounded-2xl border p-3 text-xs font-bold",
+            "mt-2 rounded-2xl border p-3 text-xs font-bold",
             msg.kind === "ok"
               ? "border-emerald-200 bg-emerald-50 text-emerald-800"
               : "border-red-200 bg-red-50 text-red-700"
@@ -456,63 +601,86 @@ export default function InfoPage() {
         </div>
       ) : null}
 
-      <div className="mt-4 space-y-3">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-extrabold text-gray-800">Nombre</div>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Blass Murillo"
-            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-          />
-          <div className="mt-1 text-[11px] text-gray-500">Este nombre se mostrará en tu perfil.</div>
-        </div>
+      <div className="mt-2 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="space-y-2">
+          <FieldRow label="Nombre" help="Este nombre se mostrará en tu perfil.">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Blass Murillo"
+              className={inputClass}
+            />
+          </FieldRow>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-extrabold text-gray-800">Apodo (opcional)</div>
-          <input
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="Ej: Chucho"
-            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-          />
-          <div className="mt-1 text-[11px] text-gray-500">Útil para que te identifiquen más rápido.</div>
-        </div>
+          <FieldRow label="Apodo" help="Útil para que te identifiquen más rápido.">
+            <input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Opcional"
+              className={inputClass}
+            />
+          </FieldRow>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-extrabold text-gray-800">Email</div>
-          <input
-            value={email ?? ""}
-            readOnly
-            placeholder="—"
-            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-          />
-          <div className="mt-1 text-[11px] text-gray-500">Por ahora este dato se cambia desde Soporte.</div>
-        </div>
+          <FieldRow label="Email" help="Por ahora este dato se cambia desde Soporte.">
+            <input
+              value={email ?? ""}
+              readOnly
+              placeholder="—"
+              className={inputClass}
+            />
+          </FieldRow>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-extrabold text-gray-800">Teléfono</div>
-          <input
-            value={phone ?? ""}
-            readOnly
-            placeholder="—"
-            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
-          />
-          <div className="mt-1 text-[11px] text-gray-500">Se usa para seguridad y confirmaciones.</div>
-        </div>
+          <FieldRow label="Teléfono" help="Se usa para seguridad y confirmaciones.">
+            <input
+              value={phone ?? ""}
+              readOnly
+              placeholder="—"
+              className={inputClass}
+            />
+          </FieldRow>
 
-        <button
-          type="button"
-          disabled={!canSave}
-          onClick={handleSave}
-          className={cx(
-            "w-full rounded-2xl py-3 text-sm font-extrabold text-white",
-            "bg-green-600 hover:bg-green-700 disabled:opacity-50"
-          )}
-        >
-          {saving ? "Guardando…" : "Guardar cambios"}
-        </button>
+          <FieldRow
+            label="Dirección"
+            help="Esta dirección quedará como predeterminada y favorita en tus direcciones guardadas."
+            align="start"
+          >
+            <textarea
+              value={primaryAddress}
+              onChange={(e) => setPrimaryAddress(e.target.value)}
+              placeholder={`Dirección principal en ${cityLabel || "tu ciudad"} *`}
+              rows={2}
+              className={`${inputClass} resize-none`}
+            />
+          </FieldRow>
+
+          <FieldRow
+  label="Referencia"
+  help="Ayuda al repartidor a encontrarte más fácilmente."
+  align="start"
+>
+  <textarea
+    value={primaryReference}
+    onChange={(e) => setPrimaryReference(e.target.value)}
+    placeholder="Ej: Frente al parque, portón negro, apto 302..."
+    rows={2}
+    className={`${inputClass} resize-none`}
+  />
+</FieldRow>
+
+        </div>
       </div>
+
+      <button
+        type="button"
+        disabled={!canSave}
+        onClick={handleSave}
+        className={cx(
+          "mt-2 w-full rounded-2xl py-3 text-sm font-extrabold text-white",
+          "bg-green-600 hover:bg-green-700 disabled:opacity-50"
+        )}
+      >
+        {saving ? "Guardando…" : "Guardar cambios"}
+      </button>
     </div>
   );
 }
