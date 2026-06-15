@@ -1,5 +1,4 @@
 // app/(buyer)/cart/page.tsx
-// app/(buyer)/cart/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -1347,41 +1346,78 @@ export default function CartPage() {
           grouped.map((g, idx) => {
             const groupKey = `${g.groupKey || "no-store"}:${idx}`;
             const isOpen = expandedStoreGroups.has(groupKey);
+            const storeName = g.store?.name ?? "Establecimiento";
 
             return (
               <div
                 key={groupKey}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+                className={[
+                  "overflow-hidden rounded-2xl shadow-sm transition-all",
+                  isOpen
+                    ? "border border-gray-200 bg-white"
+                    : "border border-black bg-[linear-gradient(135deg,#050505_0%,#101010_55%,#000000_100%)] shadow-[0_10px_24px_rgba(2,8,23,0.22)]",
+                ].join(" ")}
               >
                 <button
                   type="button"
                   onClick={() => toggleStoreGroup(groupKey)}
                   className={[
-                    "flex w-full items-center gap-3 p-3 text-left transition hover:bg-gray-50",
-                    isOpen ? "border-b border-gray-100" : "",
+                    "flex w-full items-center gap-3 text-left transition",
+                    isOpen
+                      ? "border-b border-gray-100 p-3 hover:bg-gray-50"
+                      : "px-3 pb-1.5 pt-3 text-white hover:bg-white/5",
                   ].join(" ")}
                   aria-expanded={isOpen}
                 >
-                  <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+                  <div
+                    className={[
+                      "relative shrink-0 overflow-hidden rounded-xl bg-gray-100 ring-1",
+                      isOpen ? "h-10 w-10 ring-gray-200" : "h-11 w-11 ring-white/20",
+                    ].join(" ")}
+                  >
                     {g.store?.image ? (
-                      <Image src={g.store.image} alt="" fill className="object-cover" sizes="40px" />
+                      <Image src={g.store.image} alt="" fill className="object-cover" sizes="44px" />
                     ) : null}
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-extrabold text-gray-900">
-                      Pedido: {g.store?.name ?? "Establecimiento"}
+                    <div
+                      className={[
+                        "truncate font-extrabold",
+                        isOpen ? "text-sm text-gray-900" : "text-[15px] leading-tight text-white",
+                      ].join(" ")}
+                    >
+                      Pedido: {storeName}
                     </div>
-                    <div className="mt-0.5 text-xs text-gray-600">
-                      Subtotal de este pedido:{" "}
-                      <span className="font-semibold">{safeFormatCOP(g.subtotal, mounted)}</span>
+                    <div
+                      className={[
+                        "mt-0.5 truncate text-[11px]",
+                        isOpen ? "text-gray-600" : "text-white/75",
+                      ].join(" ")}
+                    >
+                      Subtotal de este pedido: {safeFormatCOP(g.subtotal, mounted)}
                     </div>
                   </div>
 
-                  <span className="shrink-0 rounded-xl border border-emerald-500 bg-white px-3 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm">
+                  <span
+                    className={[
+                      "shrink-0 rounded-xl px-3 py-1.5 text-[11px] font-black shadow-sm",
+                      isOpen
+                        ? "border border-emerald-500 bg-white text-emerald-700"
+                        : "border border-emerald-400 bg-white text-emerald-700 shadow-[0_0_0_2px_rgba(16,185,129,0.18)]",
+                    ].join(" ")}
+                  >
                     {isOpen ? "Ver menos" : "Ver más"}
                   </span>
                 </button>
+
+                {!isOpen ? (
+                  <div className="px-3 pb-2">
+                    <div className="ml-[56px] border-t border-white/20 pt-1.5 text-right text-[15px] font-black leading-none text-red-500 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]">
+                      Total = {safeFormatCOP(g.subtotal, mounted)}
+                    </div>
+                  </div>
+                ) : null}
 
                 {isOpen ? (
                   <div className="space-y-2 p-3">
@@ -1446,7 +1482,6 @@ export default function CartPage() {
           })
         )}
       </div>
-
       <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="text-sm font-extrabold text-gray-900">Dirección</div>
 
