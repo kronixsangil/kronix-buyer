@@ -1,4 +1,5 @@
 // app/(buyer)/cart/page.tsx
+// app/(buyer)/cart/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -309,6 +310,7 @@ export default function CartPage() {
   const [tmpNote, setTmpNote] = useState("");
 
   const [storesByGroupKey, setStoresByGroupKey] = useState<Map<string, ApiStorePublic>>(new Map());
+  const [expandedStoreGroups, setExpandedStoreGroups] = useState<Set<string>>(() => new Set());
 
   const restoredCheckoutForCityRef = useRef<string | null>(null);
   const hydratedServerAddressRef = useRef<string | null>(null);
@@ -317,6 +319,15 @@ export default function CartPage() {
     () => sortSavedAddresses(savedAddresses),
     [savedAddresses]
   );
+
+  function toggleStoreGroup(groupKey: string) {
+    setExpandedStoreGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
+  }
 
   function clearDeliveryGeo() {
     setDeliveryLat(null);
@@ -1172,7 +1183,7 @@ export default function CartPage() {
   };
 
   return (
-    <div className="px-4 pb-6 pt-4">
+    <div className="px-4 pb-6 pt-2">
       <div className="text-lg font-extrabold text-gray-900">Carrito de Compras</div>
 
       {showAddressModal ? (
@@ -1333,87 +1344,106 @@ export default function CartPage() {
         {items.length === 0 ? (
           <EmptyCart onGoHome={() => router.push("/")} />
         ) : (
-          grouped.map((g, idx) => (
-            <div
-              key={`${g.groupKey || "no-store"}:${idx}`}
-              className="rounded-2xl border border-gray-200 bg-white shadow-sm"
-            >
-              <div className="flex items-center gap-3 border-b border-gray-100 p-4">
-                <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
-                  {g.store?.image ? (
-                    <Image src={g.store.image} alt="" fill className="object-cover" sizes="40px" />
-                  ) : null}
-                </div>
+          grouped.map((g, idx) => {
+            const groupKey = `${g.groupKey || "no-store"}:${idx}`;
+            const isOpen = expandedStoreGroups.has(groupKey);
 
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-extrabold text-gray-900">
-                    Pedido: {g.store?.name ?? "Establecimiento"}
+            return (
+              <div
+                key={groupKey}
+                className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleStoreGroup(groupKey)}
+                  className={[
+                    "flex w-full items-center gap-3 p-3 text-left transition hover:bg-gray-50",
+                    isOpen ? "border-b border-gray-100" : "",
+                  ].join(" ")}
+                  aria-expanded={isOpen}
+                >
+                  <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+                    {g.store?.image ? (
+                      <Image src={g.store.image} alt="" fill className="object-cover" sizes="40px" />
+                    ) : null}
                   </div>
-                  <div className="mt-0.5 text-xs text-gray-600">
-                    Subtotal de este pedido:{" "}
-                    <span className="font-semibold">{safeFormatCOP(g.subtotal, mounted)}</span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="space-y-3 p-3">
-                {g.items.map((it) => (
-                  <div
-                    key={`${g.groupKey}:${it.id}`}
-                    className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3"
-                  >
-                    <div className="relative h-12 w-12 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
-                      {it.image ? (
-                        <Image
-                          src={String(it.image)}
-                          alt={it.name}
-                          fill
-                          className="object-cover"
-                          sizes="48px"
-                        />
-                      ) : null}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-extrabold text-gray-900">
+                      Pedido: {g.store?.name ?? "Establecimiento"}
                     </div>
+                    <div className="mt-0.5 text-xs text-gray-600">
+                      Subtotal de este pedido:{" "}
+                      <span className="font-semibold">{safeFormatCOP(g.subtotal, mounted)}</span>
+                    </div>
+                  </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-bold text-gray-900">{it.name}</div>
-                      <div className="mt-1 text-xs text-gray-600">{safeFormatCOP(it.price, mounted)}</div>
+                  <span className="shrink-0 rounded-xl border border-emerald-500 bg-white px-3 py-1.5 text-[11px] font-black text-emerald-700 shadow-sm">
+                    {isOpen ? "Ver menos" : "Ver más"}
+                  </span>
+                </button>
 
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          className="h-8 w-8 rounded-lg border bg-white font-bold hover:bg-gray-50"
-                          onClick={() => setQty(it.id, it.storeId, it.qty - 1)}
-                          aria-label="Disminuir"
-                        >
-                          −
-                        </button>
+                {isOpen ? (
+                  <div className="space-y-2 p-3">
+                    {g.items.map((it) => (
+                      <div
+                        key={`${g.groupKey}:${it.id}`}
+                        className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3"
+                      >
+                        <div className="relative h-12 w-12 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200">
+                          {it.image ? (
+                            <Image
+                              src={String(it.image)}
+                              alt={it.name}
+                              fill
+                              className="object-cover"
+                              sizes="48px"
+                            />
+                          ) : null}
+                        </div>
 
-                        <div className="w-10 text-center text-sm font-semibold">{it.qty}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-bold text-gray-900">{it.name}</div>
+                          <div className="mt-1 text-xs text-gray-600">{safeFormatCOP(it.price, mounted)}</div>
 
-                        <button
-                          className="h-8 w-8 rounded-lg border bg-white font-bold hover:bg-gray-50"
-                          onClick={() => setQty(it.id, it.storeId, it.qty + 1)}
-                          aria-label="Aumentar"
-                        >
-                          +
-                        </button>
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              className="h-8 w-8 rounded-lg border bg-white font-bold hover:bg-gray-50"
+                              onClick={() => setQty(it.id, it.storeId, it.qty - 1)}
+                              aria-label="Disminuir"
+                            >
+                              −
+                            </button>
 
-                        <button
-                          className="ml-auto text-xs font-semibold text-red-600 hover:underline"
-                          onClick={() => removeItem(it.id, it.storeId)}
-                        >
-                          Quitar
-                        </button>
+                            <div className="w-10 text-center text-sm font-semibold">{it.qty}</div>
+
+                            <button
+                              className="h-8 w-8 rounded-lg border bg-white font-bold hover:bg-gray-50"
+                              onClick={() => setQty(it.id, it.storeId, it.qty + 1)}
+                              aria-label="Aumentar"
+                            >
+                              +
+                            </button>
+
+                            <button
+                              className="ml-auto text-xs font-semibold text-red-600 hover:underline"
+                              onClick={() => removeItem(it.id, it.storeId)}
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="text-right text-xs font-extrabold text-gray-900">
+                          {safeFormatCOP(it.price * it.qty, mounted)}
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="text-right text-xs font-extrabold text-gray-900">
-                      {safeFormatCOP(it.price * it.qty, mounted)}
-                    </div>
+                    ))}
                   </div>
-                ))}
+                ) : null}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
