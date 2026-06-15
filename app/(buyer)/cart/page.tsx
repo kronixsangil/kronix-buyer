@@ -1350,23 +1350,23 @@ export default function CartPage() {
 
             return (
               <div
-                key={groupKey}
-                className={[
-                  "overflow-hidden rounded-2xl shadow-sm transition-all",
-                  isOpen
-                    ? "border border-gray-200 bg-white"
-                    : "border border-black bg-[linear-gradient(135deg,#050505_0%,#101010_55%,#000000_100%)] shadow-[0_10px_24px_rgba(2,8,23,0.22)]",
-                ].join(" ")}
-              >
+  key={groupKey}
+  className={[
+    "overflow-hidden rounded-2xl transition-all",
+    isOpen
+      ? "border border-gray-200 bg-white shadow-sm"
+      : "border border-[#9DC4F8] bg-white shadow-[0_10px_28px_rgba(8,43,92,0.22),0_2px_0_rgba(11,79,159,0.10)]",
+  ].join(" ")}
+>
                 <button
                   type="button"
                   onClick={() => toggleStoreGroup(groupKey)}
                   className={[
-                    "flex w-full items-center gap-3 text-left transition",
-                    isOpen
-                      ? "border-b border-gray-100 p-3 hover:bg-gray-50"
-                      : "px-3 pb-1.5 pt-3 text-white hover:bg-white/5",
-                  ].join(" ")}
+  "flex w-full items-center gap-3 text-left transition",
+  isOpen
+    ? "border-b border-gray-100 p-3 hover:bg-gray-50"
+    : "px-3 pb-1.5 pt-3 text-slate-900 hover:bg-blue-50/40",
+].join(" ")}
                   aria-expanded={isOpen}
                 >
                   <div
@@ -1384,7 +1384,7 @@ export default function CartPage() {
                     <div
                       className={[
                         "truncate font-extrabold",
-                        isOpen ? "text-sm text-gray-900" : "text-[15px] leading-tight text-white",
+                        isOpen ? "text-sm text-gray-900" : "text-[15px] leading-tight text-slate-900",
                       ].join(" ")}
                     >
                       Pedido: {storeName}
@@ -1392,7 +1392,7 @@ export default function CartPage() {
                     <div
                       className={[
                         "mt-0.5 truncate text-[11px]",
-                        isOpen ? "text-gray-600" : "text-white/75",
+                        isOpen ? "text-gray-600" : "text-slate-600",
                       ].join(" ")}
                     >
                       Subtotal de este pedido: {safeFormatCOP(g.subtotal, mounted)}
@@ -1413,10 +1413,10 @@ export default function CartPage() {
 
                 {!isOpen ? (
                   <div className="px-3 pb-2">
-                    <div className="ml-[56px] border-t border-white/20 pt-1.5 text-right text-[15px] font-black leading-none text-red-500 drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]">
-                      Total = {safeFormatCOP(g.subtotal, mounted)}
-                    </div>
-                  </div>
+  <div className="ml-[56px] border-t border-slate-200 pt-2 text-right text-[15px] font-black leading-none text-red-500">
+    Total = {safeFormatCOP(g.subtotal, mounted)}
+  </div>
+</div>
                 ) : null}
 
                 {isOpen ? (
