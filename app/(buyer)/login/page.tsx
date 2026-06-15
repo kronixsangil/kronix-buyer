@@ -280,8 +280,8 @@ export default function BuyerLoginPage() {
                   value={emailOrPhone}
                   onChange={(e) => setEmailOrPhone(e.target.value)}
                   placeholder="Ingresa tu email o número"
-                  autoComplete="username"
-                  className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                  autoComplete="username"                  
+                  className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
                 />
               </div>
 
@@ -297,7 +297,7 @@ export default function BuyerLoginPage() {
                     type={showPass ? "text" : "password"}
                     placeholder="Ingresa tu contraseña"
                     autoComplete="current-password"
-                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+                    className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && canSubmit) handleSubmit();
                     }}

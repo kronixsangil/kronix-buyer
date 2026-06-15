@@ -463,7 +463,7 @@ export default function InfoPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ej: Blass Murillo"
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm outline-none focus:bg-white focus:border-gray-300"
+            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
           />
           <div className="mt-1 text-[11px] text-gray-500">Este nombre se mostrará en tu perfil.</div>
         </div>
@@ -474,7 +474,7 @@ export default function InfoPage() {
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Ej: Chucho"
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm outline-none focus:bg-white focus:border-gray-300"
+            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
           />
           <div className="mt-1 text-[11px] text-gray-500">Útil para que te identifiquen más rápido.</div>
         </div>
@@ -485,7 +485,7 @@ export default function InfoPage() {
             value={email ?? ""}
             readOnly
             placeholder="—"
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700 outline-none"
+            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
           />
           <div className="mt-1 text-[11px] text-gray-500">Por ahora este dato se cambia desde Soporte.</div>
         </div>
@@ -496,7 +496,7 @@ export default function InfoPage() {
             value={phone ?? ""}
             readOnly
             placeholder="—"
-            className="mt-2 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700 outline-none"
+            className="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
           />
           <div className="mt-1 text-[11px] text-gray-500">Se usa para seguridad y confirmaciones.</div>
         </div>
