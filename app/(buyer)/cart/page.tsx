@@ -2,7 +2,6 @@
 "use client";
 
 import Image from "next/image";
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/buyer/CartContext";
@@ -13,11 +12,6 @@ import { apiFetch } from "@/lib/api";
 import AuthRequiredModal from "@/components/buyer/AuthRequiredModal";
 import { useAuth } from "@/components/buyer/useAuth";
 import { useBuyerCity } from "@/components/buyer/CityContext";
-
-const LocationPickerMap = dynamic(
-  () => import("@/components/buyer/maps/LocationPickerMap"),
-  { ssr: false }
-);
 
 const DEFAULT_CUSTOMER_PHONE = "3113868898";
 
@@ -288,7 +282,6 @@ export default function CartPage() {
   const [savedAddressesLoading, setSavedAddressesLoading] = useState(false);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
 
-  const [showMapPicker, setShowMapPicker] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
@@ -344,8 +337,6 @@ export default function CartPage() {
     setGeoError(null);
     setError(null);
     setZoneError(null);
-    setShowMapPicker(false);
-
     if (
       typeof item.lat === "number" &&
       typeof item.lng === "number" &&
@@ -1338,7 +1329,7 @@ export default function CartPage() {
         </div>
       ) : null}
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 space-y-2">
         {items.length === 0 ? (
           <EmptyCart onGoHome={() => router.push("/")} />
         ) : (
@@ -1426,122 +1417,76 @@ export default function CartPage() {
         )}
       </div>
 
-      <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="text-sm font-extrabold text-gray-900">Dirección</div>
 
-        {isAuthed ? (
-          <div className="mt-3 rounded-[20px] border border-blue-100 bg-blue-50 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="text-xs font-black text-blue-900">
-                  Direcciones guardadas
-                </div>
-                <div className="mt-0.5 text-[11px] font-semibold text-blue-700">
-                  Selecciona una dirección para llenar automáticamente el pedido.
-                </div>
+        <div className="mt-3 rounded-[20px] border border-blue-100 bg-blue-50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-900">
+                Usar dirección guardada
               </div>
+            </div>
 
-              {savedAddressesLoading ? (
+            {isAuthed ? (
+              savedAddressesLoading ? (
                 <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
-                  Cargando...
+                  ...
                 </span>
               ) : (
                 <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-blue-700 ring-1 ring-blue-100">
                   {sortedSavedAddresses.length}
                 </span>
-              )}
-            </div>
-
-            {sortedSavedAddresses.length > 0 ? (
-              <>
-                <select
-                  value={selectedSavedAddressId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    const found = sortedSavedAddresses.find((x) => x.id === id);
-                    if (found) applySavedAddress(found);
-                    else setSelectedSavedAddressId("");
-                  }}
-                  className="mt-3 w-full rounded-2xl border border-blue-100 bg-white px-3 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                >
-                  <option value="">Seleccionar dirección guardada</option>
-                  {sortedSavedAddresses.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {getSavedAddressBadge(item)} — {getSavedAddressLabel(item)} — {item.address}
-                    </option>
-                  ))}
-                </select>
-
-                {selectedSavedAddressId ? (
-                  <div className="mt-3 space-y-2">
-                    {sortedSavedAddresses
-                      .filter((item) => item.id === selectedSavedAddressId)
-                      .map((item) => (
-                        <div
-                          key={item.id}
-                          className="rounded-2xl border border-emerald-100 bg-white px-3 py-3 ring-1 ring-emerald-100"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100">
-                              Usando esta dirección
-                            </span>
-                            <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] font-black text-slate-600 ring-1 ring-slate-200">
-                              {getSavedAddressBadge(item)}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 text-xs font-black text-slate-900">
-                            {getSavedAddressLabel(item)}
-                          </div>
-
-                          <div className="mt-1 text-xs font-semibold leading-5 text-slate-600">
-                            {item.address}
-                          </div>
-
-                          {item.reference ? (
-                            <div className="mt-1 text-xs font-semibold text-slate-500">
-                              Ref: {item.reference}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="mt-3 rounded-2xl border border-blue-100 bg-white px-3 py-3 text-xs font-semibold text-slate-600">
-                Aún no tienes direcciones guardadas en esta ciudad. Puedes escribirla, usar ubicación o seleccionar mapa.
-              </div>
-            )}
+              )
+            ) : null}
           </div>
-        ) : null}
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={useCurrentLocation}
-            disabled={geoLoading}
-            className={[
-              "rounded-2xl px-3 py-3 text-xs font-extrabold text-white shadow-sm transition",
-              geoLoading ? "cursor-not-allowed bg-slate-300" : "bg-emerald-600 hover:bg-emerald-700",
-            ].join(" ")}
-          >
-            {geoLoading ? "Ubicando..." : "📍 Mi ubicación"}
-          </button>
+          {isAuthed && sortedSavedAddresses.length > 0 ? (
+            <select
+              value={selectedSavedAddressId}
+              onChange={(e) => {
+                const id = e.target.value;
+                const found = sortedSavedAddresses.find((x) => x.id === id);
+                if (found) applySavedAddress(found);
+                else setSelectedSavedAddressId("");
+              }}
+              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-3 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Seleccionar dirección</option>
+              {sortedSavedAddresses.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {getSavedAddressBadge(item)} — {getSavedAddressLabel(item)} — {item.address}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value=""
+              disabled
+              className="mt-2 w-full rounded-2xl border border-blue-100 bg-white px-3 py-3 text-sm font-bold text-slate-900 outline-none disabled:opacity-100"
+            >
+              <option>Seleccionar dirección</option>
+            </select>
+          )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setGeoError(null);
-              setError(null);
-              setSelectedSavedAddressId("");
-              setShowMapPicker((prev) => !prev);
-            }}
-            className="rounded-2xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs font-extrabold text-blue-800 shadow-sm transition hover:bg-blue-100"
-          >
-            🗺️ {showMapPicker ? "Cerrar mapa" : "Seleccionar mapa"}
-          </button>
+          {isAuthed && !savedAddressesLoading && sortedSavedAddresses.length === 0 ? (
+            <div className="mt-2 rounded-2xl border border-blue-100 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600">
+              Aún no tienes direcciones guardadas en esta ciudad.
+            </div>
+          ) : null}
         </div>
+
+        <button
+          type="button"
+          onClick={useCurrentLocation}
+          disabled={geoLoading}
+          className={[
+            "mt-3 w-full rounded-2xl px-3 py-3 text-xs font-extrabold text-white shadow-sm transition",
+            geoLoading ? "cursor-not-allowed bg-slate-300" : "bg-emerald-600 hover:bg-emerald-700",
+          ].join(" ")}
+        >
+          {geoLoading ? "Ubicando..." : "📍 Usar mi ubicación actual"}
+        </button>
 
         {geoError ? (
           <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
@@ -1549,49 +1494,31 @@ export default function CartPage() {
           </div>
         ) : null}
 
-        {showMapPicker ? (
-          <LocationPickerMap
-            initialLat={typeof deliveryLat === "number" ? deliveryLat : undefined}
-            initialLng={typeof deliveryLng === "number" ? deliveryLng : undefined}
-            onSelect={({ lat, lng, address: selectedAddress }) => {
-              const nextAddress = selectedAddress || "Ubicación seleccionada desde mapa";
-              const nextExtra = "";
-              const nextDropoff = buildDropoffAddress(nextAddress, nextExtra);
+        <div className="mt-3 space-y-2">
+          <div className="grid grid-cols-[84px_1fr] items-center gap-2">
+            <label className="text-xs font-extrabold text-slate-900">Dirección</label>
+            <input
+              value={address}
+              onChange={(e) => updateDeliveryAddress(e.target.value)}
+              placeholder="Dirección o ubicación de inicio *"
+              className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none placeholder:font-semibold placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
+            />
+          </div>
 
-              setSelectedSavedAddressId("");
-              setAddress(nextAddress);
-              setAddressExtra(nextExtra);
-              setDeliveryLat(lat);
-              setDeliveryLng(lng);
-              setLastGeocodeKey(buildGeocodeKey(nextDropoff, cityGeoLabel));
-              setShowMapPicker(false);
-              setGeoError(null);
-              setError(null);
-            }}
-          />
-        ) : null}
-
-        <input
-          value={address}
-          onChange={(e) => updateDeliveryAddress(e.target.value)}
-          placeholder={`Ej: Cra 18 #12-35, ${cityLabel}`}
-          className="mt-3 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm outline-none"
-        />
-
-        <input
-          value={addressExtra}
-          onChange={(e) => updateDeliveryExtra(e.target.value)}
-          placeholder="Conjunto, torre, bloque, apto, referencia, etc. (opcional)"
-          className="mt-3 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm outline-none"
-        />
-
-        <div className="mt-2 text-xs text-gray-500">
-          Esta dirección se guardará para esta ciudad y se georreferenciará usando{" "}
-          <span className="font-bold">{cityLabel}</span>.
+          <div className="grid grid-cols-[84px_1fr] items-start gap-2">
+            <label className="pt-3 text-xs font-extrabold text-slate-900">Referencia</label>
+            <textarea
+              value={addressExtra}
+              onChange={(e) => updateDeliveryExtra(e.target.value)}
+              placeholder="Referencia"
+              rows={2}
+              className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-slate-900 outline-none placeholder:font-semibold placeholder:text-slate-400 focus:border-blue-300 focus:bg-white"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="text-sm font-extrabold text-gray-900">Propina</div>
           <div className="flex items-center gap-2">
@@ -1694,7 +1621,7 @@ export default function CartPage() {
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="space-y-2 text-sm">
           <div className="flex justify-between text-gray-700">
             <span>Subtotal</span>
