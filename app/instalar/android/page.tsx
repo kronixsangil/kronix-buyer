@@ -36,14 +36,13 @@ export default function AndroidInstallPage() {
 
   const installLabel = useMemo(() => {
     if (busy) return "Abriendo instalación…";
-    if (state === "installed") return "Abrir KroniX";
     return "Instalar KroniX";
-  }, [busy, state]);
+  }, [busy]);
 
   useEffect(() => {
     if (isStandaloneMode()) {
       setState("installed");
-      setMessage("✅ KroniX ya está instalada. Toca Abrir KroniX para iniciar.");
+      setMessage("KroniX ya está instalada y lista para usarse.");
       return;
     }
 
@@ -72,14 +71,14 @@ export default function AndroidInstallPage() {
     const onAppInstalled = () => {
       setDeferredPrompt(null);
       setState("installed");
-      setMessage("✅ KroniX quedó instalada correctamente. Toca Abrir KroniX para iniciar.");
+      setMessage("KroniX quedó instalada correctamente.");
     };
 
     const onDisplayModeChange = () => {
       if (isStandaloneMode()) {
         setDeferredPrompt(null);
         setState("installed");
-        setMessage("✅ KroniX ya está instalada. Toca Abrir KroniX para iniciar.");
+        setMessage("KroniX ya está instalada y lista para usarse.");
       }
     };
 
@@ -97,11 +96,6 @@ export default function AndroidInstallPage() {
   }, []);
 
   async function handleInstall() {
-    if (state === "installed") {
-      window.location.href = "/";
-      return;
-    }
-
     if (!deferredPrompt || busy) return;
 
     setBusy(true);
@@ -113,7 +107,7 @@ export default function AndroidInstallPage() {
 
       if (choice.outcome === "accepted") {
         setState("installed");
-        setMessage("✅ Instalación aceptada. Toca Abrir KroniX para iniciar.");
+        setMessage("KroniX quedó instalada correctamente.");
       } else {
         setState("browser-not-ready");
         setMessage("Instalación cancelada. Puedes tocar Instalar KroniX nuevamente cuando aparezca disponible.");
@@ -128,8 +122,8 @@ export default function AndroidInstallPage() {
     }
   }
 
-  const canInstall = Boolean(deferredPrompt) && !busy && state !== "ios";
-  const canOpen = state === "installed";
+  const canInstall = Boolean(deferredPrompt) && !busy && state !== "ios" && state !== "installed";
+  const installed = state === "installed";
 
   return (
     <main className="min-h-dvh bg-[#f3f6fb] px-4 py-5 text-slate-950">
@@ -163,47 +157,70 @@ export default function AndroidInstallPage() {
         </div>
 
         <div className="space-y-3 px-5 pb-5">
-          <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">
-              {canOpen ? "✅" : "📱"}
+          {installed ? (
+            <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-center shadow-sm">
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white text-2xl shadow-sm ring-1 ring-emerald-100">
+                ✅
+              </div>
+
+              <img
+                src="/icons/kronix-icon.png"
+                alt="Ícono KroniX"
+                className="mx-auto mt-4 h-24 w-24 rounded-[24px] object-contain shadow-[0_14px_30px_rgba(15,23,42,0.20)] ring-1 ring-white"
+              />
+
+              <h1 className="mt-4 text-xl font-black text-slate-950">KroniX ya está instalada</h1>
+
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                ¡Perfecto! La app quedó agregada a tu teléfono.
+              </p>
+
+              <div className="mt-4 rounded-2xl border border-white bg-white/90 p-4 text-left shadow-sm">
+                <div className="text-sm font-black text-slate-900">Para comenzar:</div>
+                <ol className="mt-2 space-y-2 text-sm font-semibold leading-5 text-slate-700">
+                  <li>1. Cierra esta pantalla del navegador.</li>
+                  <li>2. Busca el ícono de KroniX junto a tus otras aplicaciones.</li>
+                  <li>3. Tócalo para abrir la app y usar KroniX con mejor experiencia.</li>
+                </ol>
+              </div>
             </div>
-            <h1 className="mt-3 text-xl font-black text-slate-950">
-              {canOpen ? "KroniX instalada" : "KroniX en tu pantalla"}
-            </h1>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              {canOpen
-                ? "Ya puedes iniciar la app desde aquí o desde el ícono de KroniX en tu pantalla."
-                : "Toca instalar y confirma. No tienes que buscar opciones ocultas en el navegador."}
-            </p>
-          </div>
+          ) : (
+            <>
+              <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">📱</div>
+                <h1 className="mt-3 text-xl font-black text-slate-950">KroniX en tu pantalla</h1>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                  Toca instalar y confirma. No tienes que buscar opciones ocultas en el navegador.
+                </p>
+              </div>
 
-          <button
-            type="button"
-            onClick={handleInstall}
-            disabled={!canInstall && !canOpen}
-            className={[
-              "w-full rounded-2xl px-4 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)] transition active:scale-[0.99]",
-              canOpen ? "bg-blue-700 hover:bg-blue-800" : "bg-emerald-600 hover:bg-emerald-700",
-              !canInstall && !canOpen ? "disabled:bg-emerald-300 disabled:shadow-none" : "",
-            ].join(" ")}
-          >
-            {installLabel}
-          </button>
+              <button
+                type="button"
+                onClick={handleInstall}
+                disabled={!canInstall}
+                className="w-full rounded-2xl bg-emerald-600 px-4 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)] transition active:scale-[0.99] hover:bg-emerald-700 disabled:bg-emerald-300 disabled:shadow-none"
+              >
+                {installLabel}
+              </button>
+            </>
+          )}
 
-          {message ? (
+          {message && !installed ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold leading-5 text-slate-700">
               {message}
             </div>
           ) : null}
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <div className="text-sm font-black text-slate-900">Si no aparece el instalador</div>
-            <ol className="mt-2 space-y-2 text-sm font-semibold leading-5 text-slate-600">
-              <li>1. Abre esta página en Google Chrome.</li>
-              <li>2. Toca el menú ⋮ arriba a la derecha.</li>
-              <li>3. Toca “Instalar app” o “Agregar a pantalla principal”.</li>
-            </ol>
-          </div>
+          {!installed ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="text-sm font-black text-slate-900">Si no aparece el instalador</div>
+              <ol className="mt-2 space-y-2 text-sm font-semibold leading-5 text-slate-600">
+                <li>1. Abre esta página en Google Chrome.</li>
+                <li>2. Toca el menú ⋮ arriba a la derecha.</li>
+                <li>3. Toca “Instalar app” o “Agregar a pantalla principal”.</li>
+              </ol>
+            </div>
+          ) : null}
 
           <Link
             href="/instalar/iphone"
