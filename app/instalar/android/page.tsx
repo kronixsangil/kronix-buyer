@@ -4,12 +4,24 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-type InstallState = "checking" | "ready" | "installed" | "browser-not-ready" | "ios" | "unsupported";
+type InstallState =
+  | "checking"
+  | "ready"
+  | "installed"
+  | "browser-not-ready"
+  | "wrong-browser"
+  | "ios"
+  | "unsupported";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
 };
+
+const BUYER_URL = "https://buyer.kronix.co";
+const ANDROID_INSTALL_URL = `${BUYER_URL}/instalar/android`;
+const CHROME_INTENT_URL =
+  "intent://buyer.kronix.co/instalar/android#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fbuyer.kronix.co%2Finstalar%2Fandroid;end";
 
 function isStandaloneMode() {
   if (typeof window === "undefined") return false;
@@ -28,11 +40,28 @@ function isAndroidDevice() {
   return /android/i.test(window.navigator.userAgent || "");
 }
 
+function isChromeAndroidBrowser() {
+  if (typeof window === "undefined") return false;
+  const ua = window.navigator.userAgent || "";
+
+  const hasChrome = /Chrome\//i.test(ua) || /CriOS\//i.test(ua);
+  const isSamsung = /SamsungBrowser/i.test(ua);
+  const isEdge = /EdgA\//i.test(ua) || /Edg\//i.test(ua);
+  const isOpera = /OPR\//i.test(ua) || /Opera/i.test(ua);
+  const isFirefox = /Firefox\//i.test(ua) || /FxiOS\//i.test(ua);
+  const isWebView = /; wv\)/i.test(ua) || /Version\/\d+\.\d+.*Chrome\//i.test(ua);
+
+  return hasChrome && !isSamsung && !isEdge && !isOpera && !isFirefox && !isWebView;
+}
+
 export default function AndroidInstallPage() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [state, setState] = useState<InstallState>("checking");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+
+  const installed = state === "installed";
+  const wrongBrowser = state === "wrong-browser";
 
   const installLabel = useMemo(() => {
     if (busy) return "Abriendo instalación…";
@@ -55,13 +84,24 @@ export default function AndroidInstallPage() {
     if (!isAndroidDevice()) {
       setState("unsupported");
       setMessage("Esta página está optimizada para Android. También puedes abrir KroniX desde el navegador.");
+    } else if (!isChromeAndroidBrowser()) {
+      setState("wrong-browser");
+      setMessage("Para evitar alertas de seguridad, instala KroniX únicamente desde Google Chrome. No descargues APK ni archivos externos.");
     } else {
       setState("browser-not-ready");
-      setMessage("Espera unos segundos. Si el botón no se activa, abre esta página en Google Chrome y usa la opción Instalar app.");
+      setMessage("Espera unos segundos. Si el botón no se activa, usa el menú ⋮ de Chrome y toca Instalar app.");
     }
 
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
+
+      if (!isChromeAndroidBrowser()) {
+        setDeferredPrompt(null);
+        setState("wrong-browser");
+        setMessage("Para evitar alertas de seguridad, abre esta página en Google Chrome y luego toca Instalar KroniX.");
+        return;
+      }
+
       const promptEvent = event as BeforeInstallPromptEvent;
       setDeferredPrompt(promptEvent);
       setState("ready");
@@ -96,10 +136,14 @@ export default function AndroidInstallPage() {
   }, []);
 
   async function handleInstall() {
-    if (!deferredPrompt || busy) return;
+    if (!deferredPrompt || busy || !isChromeAndroidBrowser()) {
+      setState("wrong-browser");
+      setMessage("Abre esta página en Google Chrome para instalar KroniX de forma segura.");
+      return;
+    }
 
     setBusy(true);
-    setMessage("Confirma la instalación segura cuando Android te lo pregunte.");
+    setMessage("Confirma la instalación cuando Android te lo pregunte.");
 
     try {
       await deferredPrompt.prompt();
@@ -122,8 +166,7 @@ export default function AndroidInstallPage() {
     }
   }
 
-  const canInstall = Boolean(deferredPrompt) && !busy && state !== "ios" && state !== "installed";
-  const installed = state === "installed";
+  const canInstall = Boolean(deferredPrompt) && !busy && state !== "ios" && state !== "installed" && !wrongBrowser;
 
   return (
     <main className="min-h-screen overflow-y-auto bg-[#f3f6fb] px-4 py-5 text-slate-950">
@@ -184,18 +227,47 @@ export default function AndroidInstallPage() {
                 </ol>
               </div>
             </div>
+          ) : wrongBrowser ? (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center shadow-sm">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-amber-100">🛡️</div>
+
+              <h1 className="mt-3 text-xl font-black text-slate-950">Instala desde Google Chrome</h1>
+
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">
+                Este navegador puede activar una alerta de Google Play Protect. Para una instalación segura, abre KroniX en Chrome.
+              </p>
+
+              <a
+                href={CHROME_INTENT_URL}
+                className="mt-4 block rounded-2xl bg-emerald-600 px-4 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)] transition active:scale-[0.99] hover:bg-emerald-700"
+              >
+                Abrir en Google Chrome
+              </a>
+
+              <a
+                href={ANDROID_INSTALL_URL}
+                className="mt-2 block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-800"
+              >
+                Copiar o compartir este enlace
+              </a>
+
+              <div className="mt-4 rounded-2xl border border-white bg-white/90 p-4 text-left shadow-sm">
+                <div className="text-sm font-black text-slate-900">Importante:</div>
+                <ol className="mt-2 space-y-2 text-sm font-semibold leading-5 text-slate-700">
+                  <li>1. No descargues APK ni archivos externos.</li>
+                  <li>2. Usa Google Chrome para instalar KroniX como app web segura.</li>
+                  <li>3. Luego toca “Instalar KroniX”.</li>
+                </ol>
+              </div>
+            </div>
           ) : (
             <>
               <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">📱</div>
                 <h1 className="mt-3 text-xl font-black text-slate-950">KroniX en tu pantalla</h1>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  Instala KroniX como app segura desde Google Chrome. No descargues APK ni archivos externos.
+                  Instala KroniX desde Google Chrome. No descargues APK ni archivos externos.
                 </p>
-              </div>
-
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-bold leading-5 text-emerald-800">
-                Instalación segura: este botón no descarga archivos. Solo agrega KroniX a tu pantalla principal desde el navegador.
               </div>
 
               <button
@@ -215,7 +287,7 @@ export default function AndroidInstallPage() {
             </div>
           ) : null}
 
-          {!installed ? (
+          {!installed && !wrongBrowser ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-4">
               <div className="text-sm font-black text-slate-900">Si no aparece el instalador</div>
               <ol className="mt-2 space-y-2 text-sm font-semibold leading-5 text-slate-600">
@@ -223,9 +295,6 @@ export default function AndroidInstallPage() {
                 <li>2. Toca el menú ⋮ arriba a la derecha.</li>
                 <li>3. Toca “Instalar app” o “Agregar a pantalla principal”.</li>
               </ol>
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-800">
-                Importante: KroniX no requiere instalar APK. Si tu teléfono muestra una advertencia por archivo externo, cancela y vuelve a esta página desde Chrome.
-              </div>
             </div>
           ) : null}
 
