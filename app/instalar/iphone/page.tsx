@@ -25,9 +25,9 @@ export default function IPhoneInstallPage() {
   }, []);
 
   return (
-    <main className="min-h-dvh bg-[#f3f6fb] px-4 py-5 text-slate-950">
-      <section className="mx-auto w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.16)]">
-        <div className="relative overflow-hidden px-5 pb-8 pt-5 text-white">
+    <main className="min-h-screen overflow-y-auto bg-[#f3f6fb] px-4 py-5 text-slate-950">
+      <section className="mx-auto w-full max-w-md rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.16)]">
+        <div className="relative overflow-hidden px-5 pb-3 pt-2 text-white">
           <div className="absolute inset-0 bg-[linear-gradient(180deg,#03102b_0%,#0b356d_48%,#4a79b7_78%,#ffffff_100%)]" />
           <div className="pointer-events-none absolute inset-0 opacity-90">
             <span className="absolute left-[12%] top-[22%] h-1 w-1 rounded-full bg-white" />
@@ -57,9 +57,21 @@ export default function IPhoneInstallPage() {
 
         <div className="space-y-3 px-5 pb-5">
           <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">
-              {installed ? "✅" : "🍎"}
-            </div>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-sm ring-1 ring-blue-100">
+  {installed ? (
+    <img
+      src="/icons/kronix-icon.png"
+      alt="KroniX"
+      className="h-12 w-12 object-contain"
+    />
+  ) : (
+    <img
+      src="/icons/Apple-icon.png"
+      alt="Apple"
+      className="h-12 w-12 object-contain"
+    />
+  )}
+</div>
             <h1 className="mt-3 text-xl font-black text-slate-950">
               {installed ? "KroniX instalada" : "Agregar KroniX al inicio"}
             </h1>
