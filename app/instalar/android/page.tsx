@@ -36,14 +36,14 @@ export default function AndroidInstallPage() {
 
   const installLabel = useMemo(() => {
     if (busy) return "Abriendo instalación…";
-    if (state === "installed") return "KroniX ya está instalada";
+    if (state === "installed") return "Abrir KroniX";
     return "Instalar KroniX";
   }, [busy, state]);
 
   useEffect(() => {
     if (isStandaloneMode()) {
       setState("installed");
-      setMessage("Ya estás usando KroniX como app instalada.");
+      setMessage("✅ KroniX ya está instalada. Toca Abrir KroniX para iniciar.");
       return;
     }
 
@@ -72,19 +72,36 @@ export default function AndroidInstallPage() {
     const onAppInstalled = () => {
       setDeferredPrompt(null);
       setState("installed");
-      setMessage("KroniX quedó instalada correctamente.");
+      setMessage("✅ KroniX quedó instalada correctamente. Toca Abrir KroniX para iniciar.");
     };
+
+    const onDisplayModeChange = () => {
+      if (isStandaloneMode()) {
+        setDeferredPrompt(null);
+        setState("installed");
+        setMessage("✅ KroniX ya está instalada. Toca Abrir KroniX para iniciar.");
+      }
+    };
+
+    const media = window.matchMedia?.("(display-mode: standalone)");
 
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onAppInstalled);
+    media?.addEventListener?.("change", onDisplayModeChange);
 
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       window.removeEventListener("appinstalled", onAppInstalled);
+      media?.removeEventListener?.("change", onDisplayModeChange);
     };
   }, []);
 
   async function handleInstall() {
+    if (state === "installed") {
+      window.location.href = "/";
+      return;
+    }
+
     if (!deferredPrompt || busy) return;
 
     setBusy(true);
@@ -96,7 +113,7 @@ export default function AndroidInstallPage() {
 
       if (choice.outcome === "accepted") {
         setState("installed");
-        setMessage("Instalación aceptada. Busca KroniX en tu pantalla de inicio.");
+        setMessage("✅ Instalación aceptada. Toca Abrir KroniX para iniciar.");
       } else {
         setState("browser-not-ready");
         setMessage("Instalación cancelada. Puedes tocar Instalar KroniX nuevamente cuando aparezca disponible.");
@@ -110,6 +127,9 @@ export default function AndroidInstallPage() {
       setBusy(false);
     }
   }
+
+  const canInstall = Boolean(deferredPrompt) && !busy && state !== "ios";
+  const canOpen = state === "installed";
 
   return (
     <main className="min-h-dvh bg-[#f3f6fb] px-4 py-5 text-slate-950">
@@ -144,18 +164,28 @@ export default function AndroidInstallPage() {
 
         <div className="space-y-3 px-5 pb-5">
           <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">📱</div>
-            <h1 className="mt-3 text-xl font-black text-slate-950">KroniX en tu pantalla</h1>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">
+              {canOpen ? "✅" : "📱"}
+            </div>
+            <h1 className="mt-3 text-xl font-black text-slate-950">
+              {canOpen ? "KroniX instalada" : "KroniX en tu pantalla"}
+            </h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              Toca instalar y confirma. No tienes que buscar opciones ocultas en el navegador.
+              {canOpen
+                ? "Ya puedes iniciar la app desde aquí o desde el ícono de KroniX en tu pantalla."
+                : "Toca instalar y confirma. No tienes que buscar opciones ocultas en el navegador."}
             </p>
           </div>
 
           <button
             type="button"
             onClick={handleInstall}
-            disabled={!deferredPrompt || busy || state === "installed" || state === "ios"}
-            className="w-full rounded-2xl bg-emerald-600 px-4 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)] transition active:scale-[0.99] disabled:bg-emerald-300 disabled:shadow-none"
+            disabled={!canInstall && !canOpen}
+            className={[
+              "w-full rounded-2xl px-4 py-4 text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)] transition active:scale-[0.99]",
+              canOpen ? "bg-blue-700 hover:bg-blue-800" : "bg-emerald-600 hover:bg-emerald-700",
+              !canInstall && !canOpen ? "disabled:bg-emerald-300 disabled:shadow-none" : "",
+            ].join(" ")}
           >
             {installLabel}
           </button>

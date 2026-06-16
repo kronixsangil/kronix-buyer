@@ -1,8 +1,29 @@
+//app\instalar\iphone\page.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
+function isStandaloneMode() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || (window.navigator as any).standalone === true;
+}
+
 export default function IPhoneInstallPage() {
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    const check = () => setInstalled(isStandaloneMode());
+    check();
+
+    const media = window.matchMedia?.("(display-mode: standalone)");
+    media?.addEventListener?.("change", check);
+
+    return () => {
+      media?.removeEventListener?.("change", check);
+    };
+  }, []);
+
   return (
     <main className="min-h-dvh bg-[#f3f6fb] px-4 py-5 text-slate-950">
       <section className="mx-auto w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.16)]">
@@ -36,50 +57,61 @@ export default function IPhoneInstallPage() {
 
         <div className="space-y-3 px-5 pb-5">
           <div className="rounded-3xl border border-blue-100 bg-blue-50 p-4 text-center">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">🍎</div>
-            <h1 className="mt-3 text-xl font-black text-slate-950">Agregar KroniX al inicio</h1>
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-white text-3xl shadow-sm ring-1 ring-blue-100">
+              {installed ? "✅" : "🍎"}
+            </div>
+            <h1 className="mt-3 text-xl font-black text-slate-950">
+              {installed ? "KroniX instalada" : "Agregar KroniX al inicio"}
+            </h1>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              En iPhone Apple no permite abrir un botón de instalación automático. Sigue estos pasos en Safari.
+              {installed
+                ? "Ya estás usando KroniX como app instalada. Toca Abrir KroniX para iniciar."
+                : "En iPhone Apple no permite abrir un botón de instalación automático. Sigue estos pasos en Safari."}
             </p>
           </div>
 
-          <div className="space-y-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-black text-white">1</div>
-                <div>
-                  <div className="text-sm font-black text-slate-900">Abrir en Safari</div>
-                  <div className="mt-1 text-sm font-semibold leading-5 text-slate-600">Si estás en WhatsApp, toca abrir en Safari.</div>
+          {!installed ? (
+            <div className="space-y-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-black text-white">1</div>
+                  <div>
+                    <div className="text-sm font-black text-slate-900">Abrir en Safari</div>
+                    <div className="mt-1 text-sm font-semibold leading-5 text-slate-600">Si estás en WhatsApp, toca abrir en Safari.</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-black text-white">2</div>
-                <div>
-                  <div className="text-sm font-black text-slate-900">Tocar Compartir</div>
-                  <div className="mt-1 text-sm font-semibold leading-5 text-slate-600">Es el botón cuadrado con flecha hacia arriba.</div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-black text-white">2</div>
+                  <div>
+                    <div className="text-sm font-black text-slate-900">Tocar Compartir</div>
+                    <div className="mt-1 text-sm font-semibold leading-5 text-slate-600">Es el botón cuadrado con flecha hacia arriba.</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start gap-3">
-                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-black text-white">3</div>
-                <div>
-                  <div className="text-sm font-black text-slate-900">Agregar a pantalla de inicio</div>
-                  <div className="mt-1 text-sm font-semibold leading-5 text-slate-600">Busca la opción, confirma “Agregar” y listo.</div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-sm font-black text-white">3</div>
+                  <div>
+                    <div className="text-sm font-black text-slate-900">Agregar a pantalla de inicio</div>
+                    <div className="mt-1 text-sm font-semibold leading-5 text-slate-600">Busca la opción, confirma “Agregar” y listo.</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : null}
 
           <a
             href="https://buyer.kronix.co"
-            className="block rounded-2xl bg-emerald-600 px-4 py-4 text-center text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)]"
+            className={[
+              "block rounded-2xl px-4 py-4 text-center text-base font-black text-white shadow-[0_12px_28px_rgba(5,150,105,0.25)]",
+              installed ? "bg-blue-700" : "bg-emerald-600",
+            ].join(" ")}
           >
-            Abrir KroniX
+            {installed ? "Abrir KroniX" : "Abrir KroniX"}
           </a>
 
           <Link
