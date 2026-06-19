@@ -6,12 +6,10 @@ import { usePathname } from "next/navigation";
 import { useCart } from "@/components/buyer/CartContext";
 
 /**
- * BottomNav con fondo estilo BuyerHeader invertido
- * Ajuste visual:
- * - Más azul visible en la parte media/alta
- * - Íconos y textos en blanco
- * - Activo en verde brillante
- * - Cuadros redondeados transparentes estilo Android
+ * BottomNav con fondo estilo BuyerHeader invertido.
+ * Corrección iPhone:
+ * - El degradado azul cubre también env(safe-area-inset-bottom).
+ * - La zona inferior del iPhone ya no queda blanca/transparente.
  */
 
 function IconHome({ active }: { active: boolean }) {
@@ -104,17 +102,16 @@ export default function BottomNav() {
     ].join(" ");
 
   return (
-    <nav className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden border-t border-white/20 pb-[env(safe-area-inset-bottom)]">
+    <nav className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden border-t border-white/20 bg-[#03102b]">
       <div
         className="relative"
         style={{
           background:
             "linear-gradient(180deg, #ffffff 0%, #cfe0f4 12%, #7aa0cf 28%, #2e5d98 52%, #0b356d 74%, #03102b 100%)",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         <div className="relative flex items-center justify-between px-1 py-3">
-
-          {/* Inicio */}
           <Link className={itemClass(isActive("/"))} href="/">
             <NavItemBox active={isActive("/")}>
               <IconHome active={isActive("/")} />
@@ -122,7 +119,6 @@ export default function BottomNav() {
             <span className={labelClass(isActive("/"))}>Inicio</span>
           </Link>
 
-          {/* Pedidos */}
           <Link className={itemClass(isActive("/orders"))} href="/orders">
             <NavItemBox active={isActive("/orders")}>
               <IconOrders />
@@ -130,7 +126,6 @@ export default function BottomNav() {
             <span className={labelClass(isActive("/orders"))}>Pedidos</span>
           </Link>
 
-          {/* Carrito */}
           <Link className={itemClass(isActive("/cart"))} href="/cart">
             <span className="relative">
               <NavItemBox active={isActive("/cart")}>
@@ -146,7 +141,6 @@ export default function BottomNav() {
             <span className={labelClass(isActive("/cart"))}>Carrito</span>
           </Link>
 
-          {/* NUEVO: SALDO */}
           <Link className={itemClass(isActive("/wallet"))} href="/wallet">
             <NavItemBox active={isActive("/wallet")}>
               <IconWallet />
@@ -154,14 +148,12 @@ export default function BottomNav() {
             <span className={labelClass(isActive("/wallet"))}>Saldo</span>
           </Link>
 
-          {/* Perfil */}
           <Link className={itemClass(isActive("/profile"))} href="/profile">
             <NavItemBox active={isActive("/profile")}>
               <IconProfile />
             </NavItemBox>
             <span className={labelClass(isActive("/profile"))}>Perfil</span>
           </Link>
-
         </div>
       </div>
     </nav>

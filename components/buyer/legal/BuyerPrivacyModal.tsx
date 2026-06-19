@@ -122,8 +122,16 @@ export default function BuyerPrivacyModal({
   const canAccept = reachedBottom && checked && !saving && !loadingDoc;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-2 py-3 backdrop-blur-[2px]">
-      <div className="relative flex max-h-[82dvh] w-[98%] max-w-[430px] flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl ring-1 ring-white/60">
+    <div
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/45 px-2 pt-3 backdrop-blur-[2px]"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
+    >
+      <div
+        className="relative flex w-[98%] max-w-[430px] flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl ring-1 ring-white/60"
+        style={{
+          maxHeight: "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 20px)",
+        }}
+      >
         <div className="relative border-b border-slate-100 bg-white px-5 pb-3 pt-4 text-center">
           <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-slate-200" />
 
@@ -185,7 +193,10 @@ export default function BuyerPrivacyModal({
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-white px-5 pb-4 pt-3">
+        <div
+          className="border-t border-slate-200 bg-white px-5 pt-3"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)" }}
+        >
           {!reachedBottom ? (
             <div className="mb-2 text-center text-[11px] font-bold text-slate-500">
               Lee el documento completo para habilitar la aceptación.

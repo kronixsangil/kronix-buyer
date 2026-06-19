@@ -2,8 +2,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #03102b;
   --foreground: #171717;
+  --kronix-bottom-nav-base: 88px;
 }
 
 @theme inline {
@@ -15,26 +16,40 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #03102b;
     --foreground: #ededed;
   }
 }
 
+/* --- KroniX UI polish + iPhone safe-area base --- */
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-/* --- KroniX UI polish --- */
-html, body {
   height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #03102b;
+}
+
+html {
+  background-color: #03102b;
 }
 
 body {
-  background: #f8fafc; /* similar a gray-50 */
+  margin: 0;
+  background: #03102b;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Evita que la zona segura inferior de iPhone quede blanca */
+#__next,
+body > div:first-child {
+  background: #03102b;
+}
+
 /* Oculta scrollbar pero mantiene scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -46,16 +61,10 @@ body {
 
 @import "leaflet/dist/leaflet.css";
 
-html,
-body {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
 .buyer-app-shell {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  background: #03102b;
 }
 
 #buyer-scroll-container {
