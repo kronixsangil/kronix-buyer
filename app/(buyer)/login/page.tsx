@@ -126,12 +126,12 @@ export default function BuyerLoginPage() {
             if (me?.user?.sub) {
         const role = String(me?.user?.role ?? "").toUpperCase();
 
-        if (role !== "BUYER") {
+        if (role !== "BUYER" && role !== "DRIVER") {
           const { logout } = await import("@/lib/authActions");
           await logout();
 
           setError(
-            "Esta cuenta pertenece a conductor, comercio o administrador. Usa la aplicación correspondiente."
+            "Esta cuenta pertenece a comercio o administrador. Usa la aplicación correspondiente."
           );
           setChecking(false);
           return;

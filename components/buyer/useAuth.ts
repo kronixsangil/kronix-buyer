@@ -44,7 +44,7 @@ export function useAuth() {
 });
             const role = String(me?.role ?? "").toUpperCase();
 
-      if (role !== "BUYER") {
+      if (role !== "BUYER" && role !== "DRIVER") {
         await logout();
         setUser(null);
         return;

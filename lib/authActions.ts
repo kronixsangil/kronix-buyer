@@ -5,7 +5,7 @@ import { apiFetch } from "./api";
 import { writeCachedMe } from "./authClient";
 
 const BUYER_ROLE_ERROR =
-  "Esta cuenta no pertenece a Buyer. Usa la aplicación correspondiente.";
+  "Esta cuenta no puede usar Buyer. Usa la aplicación correspondiente.";
 
 function notifyAuthChanged() {
   if (typeof window === "undefined") return;
@@ -47,7 +47,7 @@ export async function login(emailOrPhone: string, password: string) {
 
     const role = String(me?.user?.role ?? "").toUpperCase();
 
-    if (role !== "BUYER") {
+      if (role !== "BUYER" && role !== "DRIVER") {
       try {
         await apiFetch("/auth/logout", {
           method: "POST",
