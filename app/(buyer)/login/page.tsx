@@ -322,7 +322,7 @@ export default function BuyerLoginPage() {
                 </div>
               </div>
 
-              {reasonFromQuery === "session-expired" ? (
+              {reasonFromQuery === "session-expired" && !isAuthRoute(nextFromQuery || "/") ? (
                 <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800">
                   Tu sesión expiró por seguridad. Inicia sesión nuevamente para continuar.
                 </div>
