@@ -66,6 +66,13 @@ function canRetryAfterRefresh(path: string, opts: ApiFetchOptions) {
   return true;
 }
 
+async function emitRealSessionExpiredIfNeeded() {
+  try {
+    const { emitSessionExpiredOnce } = await import("./sessionExpired");
+    emitSessionExpiredOnce();
+  } catch {}
+}
+
 async function tryRefreshAccessToken() {
   const base = getApiBase();
   const refreshUrl = joinUrl(base, "/auth/refresh");
@@ -116,8 +123,7 @@ async function refreshActivityIfNeeded(path: string, opts: ApiFetchOptions) {
       }
 
       if (res.status === 401 || res.status === 403) {
-        const { emitSessionExpiredOnce } = await import("./sessionExpired");
-        emitSessionExpiredOnce();
+        await emitRealSessionExpiredIfNeeded();
       }
     })
     .catch(() => {})
@@ -170,10 +176,7 @@ export async function apiFetch<T = any>(
     }
 
     if (!opts.suppressSessionExpiredEvent && (res.status === 401 || res.status === 403)) {
-      try {
-        const { emitSessionExpiredOnce } = await import("./sessionExpired");
-        emitSessionExpiredOnce();
-      } catch {}
+      await emitRealSessionExpiredIfNeeded();
     }
 
     throw makeApiError(txt || `HTTP ${res.status}`, res.status, txt);
@@ -191,4 +194,3 @@ export async function apiFetch<T = any>(
 
   return (await res.json()) as T;
 }
-

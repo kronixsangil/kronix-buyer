@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { logout } from "@/lib/authActions";
+import { markSessionKnownActive } from "@/lib/sessionExpired";
 
 export type MeUser = {
   id: string;
@@ -39,10 +40,11 @@ export function useAuth() {
     setIsLoading(true);
     try {
       const me = await apiFetch<MeUser>("/users/me", {
-  method: "GET",
-  suppressSessionExpiredEvent: true,
-});
-            const role = String(me?.role ?? "").toUpperCase();
+        method: "GET",
+        suppressSessionExpiredEvent: true,
+      });
+
+      const role = String(me?.role ?? "").toUpperCase();
 
       if (role !== "BUYER" && role !== "DRIVER") {
         await logout();
@@ -50,6 +52,7 @@ export function useAuth() {
         return;
       }
 
+      if (me?.id) markSessionKnownActive();
       setUser(me);
     } catch {
       setUser(null);

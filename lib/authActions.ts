@@ -3,6 +3,11 @@
 
 import { apiFetch } from "./api";
 import { writeCachedMe } from "./authClient";
+import {
+  clearSessionExpiredShown,
+  markSessionKnownActive,
+  markVoluntaryLogout,
+} from "./sessionExpired";
 
 const BUYER_ROLE_ERROR =
   "Esta cuenta no puede usar Buyer. Usa la aplicación correspondiente.";
@@ -33,21 +38,29 @@ export async function login(emailOrPhone: string, password: string) {
     password: String(password ?? "").trim(),
   };
 
+  clearSessionExpiredShown();
+
   const res = await apiFetch<{
     accessToken?: string;
     user?: any;
   }>("/auth/login", {
     method: "POST",
     json: body,
+    suppressSessionExpiredEvent: true,
+    suppressActivityRefresh: true,
   });
 
   // Después de login, pedimos /auth/me para validar rol y cachear userId
   try {
-    const me = await apiFetch<any>("/auth/me", { method: "GET" });
+    const me = await apiFetch<any>("/auth/me", {
+      method: "GET",
+      suppressSessionExpiredEvent: true,
+      suppressActivityRefresh: true,
+    });
 
     const role = String(me?.user?.role ?? "").toUpperCase();
 
-      if (role !== "BUYER" && role !== "DRIVER") {
+    if (role !== "BUYER" && role !== "DRIVER") {
       try {
         await apiFetch("/auth/logout", {
           method: "POST",
@@ -56,12 +69,16 @@ export async function login(emailOrPhone: string, password: string) {
         });
       } catch {}
 
+      markVoluntaryLogout();
       clearBuyerAuthCache();
       notifyAuthChanged();
       throw new Error(BUYER_ROLE_ERROR);
     }
 
-    if (me?.user?.sub) writeCachedMe(me);
+    if (me?.user?.sub) {
+      writeCachedMe(me);
+      markSessionKnownActive();
+    }
   } catch (e: any) {
     if (String(e?.message ?? "") === BUYER_ROLE_ERROR) {
       throw e;
@@ -70,11 +87,14 @@ export async function login(emailOrPhone: string, password: string) {
     throw new Error("No pudimos validar tu cuenta Buyer.");
   }
 
+  clearSessionExpiredShown();
   notifyAuthChanged();
   return res;
 }
 
 export async function logout() {
+  markVoluntaryLogout();
+
   // Limpieza local primero: la UI deja de creer que hay sesión aunque el backend tarde.
   clearBuyerAuthCache();
   notifyAuthChanged();
@@ -101,6 +121,7 @@ export async function logout() {
     } catch {}
   }
 
+  markVoluntaryLogout();
   clearBuyerAuthCache();
   notifyAuthChanged();
 
@@ -112,11 +133,22 @@ export async function logout() {
 }
 
 export async function refresh() {
-  const res = await apiFetch("/auth/refresh", { method: "POST" });
+  const res = await apiFetch("/auth/refresh", {
+    method: "POST",
+    suppressSessionExpiredEvent: true,
+    suppressActivityRefresh: true,
+  });
 
   try {
-    const me = await apiFetch<any>("/auth/me", { method: "GET" });
-    if (me?.user?.sub) writeCachedMe(me);
+    const me = await apiFetch<any>("/auth/me", {
+      method: "GET",
+      suppressSessionExpiredEvent: true,
+      suppressActivityRefresh: true,
+    });
+    if (me?.user?.sub) {
+      writeCachedMe(me);
+      markSessionKnownActive();
+    }
   } catch {}
 
   notifyAuthChanged();

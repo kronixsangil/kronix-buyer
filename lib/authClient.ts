@@ -2,6 +2,7 @@
 "use client";
 
 import { apiFetch } from "./api";
+import { markSessionKnownActive } from "./sessionExpired";
 
 export type AuthMePayload = {
   user: {
@@ -52,12 +53,16 @@ export function writeCachedMe(me: AuthMePayload) {
     localStorage.setItem(LS_ME, JSON.stringify(me));
     const id = String(me?.user?.sub ?? "").trim();
     if (id) writeCachedUserId(id);
+    if (id) markSessionKnownActive();
   } catch {}
 }
 
 export async function getMe(): Promise<AuthMePayload | null> {
   try {
-    const me = await apiFetch<AuthMePayload>("/auth/me", { method: "GET" });
+    const me = await apiFetch<AuthMePayload>("/auth/me", {
+      method: "GET",
+      suppressSessionExpiredEvent: true,
+    });
     if (me?.user?.sub) writeCachedMe(me);
     return me;
   } catch {
