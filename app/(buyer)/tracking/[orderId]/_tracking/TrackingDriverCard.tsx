@@ -198,7 +198,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
           {vm.driverOpen ? (
             <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
               {rewards ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-white bg-white p-0">
                   <div className="relative h-16 w-16 shrink-0">
                     <img
                       src={tierBadgeSrc}
@@ -206,21 +206,14 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
                       className="h-full w-full object-contain drop-shadow-sm"
                     />
                   </div>
-
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                          Nivel KroniX
-                        </div>
+                        
                         <div className="mt-0.5 text-base font-black text-slate-950">
                           {tierName}
                         </div>
-                      </div>
-
-                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-200">
-                        {tierCode}
-                      </span>
+                      </div>                      
                     </div>
 
                     <div className="mt-2 grid grid-cols-3 gap-2">
