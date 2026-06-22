@@ -145,6 +145,18 @@ export type ApiTrackingSnapshot = {
       phone: string | null;
       profileImageUrl?: string | null;
       vehicle?: { brand: string | null; plate: string | null } | null;
+      rewards?: {
+        tierCode: string | null;
+        tierName: string | null;
+        badgeLabel: string | null;
+        badgeImageUrl: string | null;
+        currentPoints: number;
+        currentMonthPoints: number;
+        currentMonthDeliveries: number;
+        reliabilityPercent: number;
+        averageRating: number;
+        isPioneer: boolean;
+      } | null;
     } | null;
   };
 };
@@ -291,3 +303,6 @@ export type TrackingViewModel = {
 };
 
 export type { Order, PaymentMethod, StoreState };
+
+
+
