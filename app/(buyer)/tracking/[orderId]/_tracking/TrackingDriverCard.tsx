@@ -152,98 +152,96 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
           Aún no hay conductor asignado. Te notificaremos apenas se asigne uno.
         </div>
       ) : (
-        <>
-          <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
-            <div className="flex items-center gap-3">
-              <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm">
-                {profileImageUrl ? (
-                  <img
-                    src={profileImageUrl}
-                    alt="Foto oficial del conductor"
-                    className="block h-full w-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : null}
-                <div className="flex h-full w-full items-center justify-center">
-                  {initials}
-                </div>
+        <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="relative h-11 w-11 overflow-hidden rounded-2xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm">
+              {profileImageUrl ? (
+                <img
+                  src={profileImageUrl}
+                  alt="Foto oficial del conductor"
+                  className="block h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              ) : null}
+              <div className="flex h-full w-full items-center justify-center">
+                {initials}
               </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-extrabold text-slate-900">
-                  {name || "Conductor"}
-                </div>
-                <div className="mt-0.5 text-[11px] font-semibold text-slate-600">
-                  {brand || plate ? (
-                    <>
-                      {brand ? brand : "Vehículo"}{" "}
-                      {plate ? (
-                        <span className="rounded-lg bg-white px-2 py-0.5 font-extrabold text-slate-800 ring-1 ring-slate-200">
-                          {plate}
-                        </span>
-                      ) : null}
-                    </>
-                  ) : (
-                    "Vehículo no disponible"
-                  )}
-                </div>
-              </div>
-
-              <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-extrabold text-green-700 ring-1 ring-green-200">
-                En línea
-              </span>
             </div>
 
-            {rewards ? (
-              <div className="mt-3 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
-                <div className="relative h-16 w-16 shrink-0">
-                  <img
-                    src={tierBadgeSrc}
-                    alt={`Insignia ${tierName}`}
-                    className="h-full w-full object-contain drop-shadow-sm"
-                  />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
-                        Nivel KroniX
-                      </div>
-                      <div className="mt-0.5 text-base font-black text-slate-950">
-                        {tierName}
-                      </div>
-                    </div>
-
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-200">
-                      {tierCode}
-                    </span>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-3 gap-2">
-                    <DriverPublicStat
-                      label="Conf."
-                      value={formatPercent(rewards.reliabilityPercent)}
-                    />
-                    <DriverPublicStat
-                      label="Calif."
-                      value={formatRating(rewards.averageRating)}
-                    />
-                    <DriverPublicStat
-                      label="Puntos"
-                      value={formatPoints(rewards.currentMonthPoints)}
-                    />
-                  </div>
-                </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-extrabold text-slate-900">
+                {name || "Conductor"}
               </div>
-            ) : null}
+              <div className="mt-0.5 text-[11px] font-semibold text-slate-600">
+                {brand || plate ? (
+                  <>
+                    {brand ? brand : "Vehículo"}{" "}
+                    {plate ? (
+                      <span className="rounded-lg bg-white px-2 py-0.5 font-extrabold text-slate-800 ring-1 ring-slate-200">
+                        {plate}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  "Vehículo no disponible"
+                )}
+              </div>
+            </div>
+
+            <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-extrabold text-green-700 ring-1 ring-green-200">
+              En línea
+            </span>
           </div>
 
           {vm.driverOpen ? (
             <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-              <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
+              {rewards ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="relative h-16 w-16 shrink-0">
+                    <img
+                      src={tierBadgeSrc}
+                      alt={`Insignia ${tierName}`}
+                      className="h-full w-full object-contain drop-shadow-sm"
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                          Nivel KroniX
+                        </div>
+                        <div className="mt-0.5 text-base font-black text-slate-950">
+                          {tierName}
+                        </div>
+                      </div>
+
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-200">
+                        {tierCode}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      <DriverPublicStat
+                        label="Conf."
+                        value={formatPercent(rewards.reliabilityPercent)}
+                      />
+                      <DriverPublicStat
+                        label="Calif."
+                        value={formatRating(rewards.averageRating)}
+                      />
+                      <DriverPublicStat
+                        label="Puntos"
+                        value={formatPoints(rewards.currentMonthPoints)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className={rewards ? "mt-3 grid grid-cols-1 gap-2 text-sm text-slate-700" : "grid grid-cols-1 gap-2 text-sm text-slate-700"}>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-500">
                     Nombre
@@ -270,37 +268,6 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
                     {(brand || "—") + (plate ? ` · ${plate}` : "")}
                   </span>
                 </div>
-
-                {rewards ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">
-                        Nivel
-                      </span>
-                      <span className="font-extrabold text-slate-900">
-                        {tierName}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">
-                        Confiabilidad
-                      </span>
-                      <span className="font-extrabold text-slate-900">
-                        {formatPercent(rewards.reliabilityPercent)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">
-                        Calificación
-                      </span>
-                      <span className="font-extrabold text-slate-900">
-                        {formatRating(rewards.averageRating)}
-                      </span>
-                    </div>
-                  </>
-                ) : null}
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -334,7 +301,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
               </div>
             </div>
           ) : null}
-        </>
+        </div>
       )}
     </div>
   );
