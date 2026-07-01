@@ -119,7 +119,7 @@ function ProductGridCard({
         ) : null}
       </div>
 
-      <div className="mt-1.5 pr-7 text-[11px] font-black leading-[1.08] tracking-[-0.03em] text-slate-950 line-clamp-2">
+      <div className="mt-1.5 pr-7 text-[12px] font-black leading-[1.08] tracking-[-0.03em] text-slate-950 line-clamp-2">
         {product.name}
         {subtitle ? (
           <span className="ml-1 text-[9.5px] font-bold text-slate-500">
@@ -128,8 +128,8 @@ function ProductGridCard({
         ) : null}
       </div>
 
-      <div className="relative mt-1 flex min-h-[24px] items-start justify-between gap-1">
-        <div className="pt-0.5 text-[11px] font-black tracking-[-0.02em] text-rose-600">
+      <div className="relative mt-1 flex min-h-[16px] items-start justify-between gap-1">
+        <div className="pt-0.5 text-[12px] font-black tracking-[-0.02em] text-rose-600">
           {formatCOP(product.price)}
         </div>
 
@@ -151,7 +151,7 @@ function ProductGridCard({
 
 function SectionTitle({ emoji, title }: { emoji: string; title: string }) {
   return (
-    <div className="mb-2 flex items-center gap-1.5">
+    <div className="mb-1.5 flex items-center gap-1.5">
       <span className="text-[14px]">{emoji}</span>
       <h3 className="truncate text-[14px] font-black tracking-[-0.02em] text-slate-950">
         {title}
@@ -199,7 +199,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
 
   return (
     <>
-      <div className="space-y-5">
+      <div className="space-y-2">
         {grouped.recommended.length > 0 ? (
           <section>
             <SectionTitle emoji="🔥" title="Recomendados" />
