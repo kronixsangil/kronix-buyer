@@ -12,7 +12,7 @@ type UiProduct = {
   desc: string;
   info?: string | null;
   price: number;
-  image?: string;
+  image?: string | null;
   category?: string | null;
   categoryOrder?: number;
   displayOrder?: number;
@@ -37,10 +37,7 @@ function splitDescription(desc: string) {
     if (raw.includes(sep)) {
       const parts = raw.split(sep).map((x) => x.trim()).filter(Boolean);
       if (parts.length >= 2) {
-        return {
-          subtitle: parts[0],
-          detail: parts.slice(1).join(" · "),
-        };
+        return { subtitle: parts[0], detail: parts.slice(1).join(" · ") };
       }
     }
   }
@@ -79,13 +76,17 @@ function groupProducts(products: UiProduct[]) {
 
 function ProductGridCard({
   product,
+  qty,
   onInfo,
   onAdd,
 }: {
   product: UiProduct;
+  qty: number;
   onInfo: (p: UiProduct) => void;
   onAdd: (p: UiProduct) => void;
 }) {
+  const parts = splitDescription(product.desc);
+
   return (
     <div
       role="button"
@@ -97,26 +98,38 @@ function ProductGridCard({
           onInfo(product);
         }
       }}
-      className="w-[104px] flex-none cursor-pointer"
+      className="relative min-w-0 cursor-pointer"
     >
-      <div className="relative h-[88px] w-[104px] overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_7px_18px_rgba(15,23,42,0.08)] ring-1 ring-black/5">
+      <div className="relative aspect-[1.13/1] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_7px_18px_rgba(15,23,42,0.08)] ring-1 ring-black/5">
         {product.image ? (
           <Image
             src={product.image}
             alt={product.name}
             fill
             className="object-cover"
-            sizes="104px"
+            sizes="33vw"
           />
+        ) : null}
+
+        {qty > 0 ? (
+          <div className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white shadow">
+            {qty}
+          </div>
         ) : null}
       </div>
 
-      <div className="mt-1.5 min-h-[34px] text-[11px] font-black leading-[1.12] tracking-[-0.02em] text-slate-900 line-clamp-2">
+      <div className="mt-1.5 min-h-[31px] text-[11px] font-black leading-[1.08] tracking-[-0.03em] text-slate-950 line-clamp-2">
         {product.name}
       </div>
 
-      <div className="mt-0.5 flex items-end justify-between gap-1">
-        <div className="truncate text-[10.5px] font-extrabold text-rose-600">
+      {parts.subtitle ? (
+        <div className="mt-0.5 truncate text-[9.5px] font-bold text-slate-500">
+          {parts.subtitle}
+        </div>
+      ) : null}
+
+      <div className="relative mt-1 min-h-[28px]">
+        <div className="pr-8 text-[11px] font-black tracking-[-0.02em] text-rose-600">
           {formatCOP(product.price)}
         </div>
 
@@ -126,7 +139,7 @@ function ProductGridCard({
             e.stopPropagation();
             onAdd(product);
           }}
-          className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#08b256] text-[18px] font-black leading-none text-white shadow-[0_6px_14px_rgba(8,178,86,0.25)]"
+          className="absolute bottom-0 right-0 flex h-7 w-7 translate-y-0 scale-100 items-center justify-center rounded-[9px] bg-[#08b256] text-[20px] font-black leading-none text-white shadow-[0_7px_16px_rgba(8,178,86,0.28)] transition hover:scale-105 active:scale-95"
           aria-label={`Agregar ${product.name}`}
         >
           +
@@ -136,41 +149,40 @@ function ProductGridCard({
   );
 }
 
-function SectionTitle({
-  emoji,
-  title,
-  action,
-}: {
-  emoji: string;
-  title: string;
-  action?: string;
-}) {
+function SectionTitle({ emoji, title }: { emoji: string; title: string }) {
   return (
-    <div className="mb-2 flex items-center justify-between">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className="text-[15px]">{emoji}</span>
-        <h3 className="truncate text-[14px] font-black tracking-[-0.02em] text-slate-900">
-          {title}
-        </h3>
-      </div>
-
-      {action ? (
-        <button
-          type="button"
-          className="text-[10.5px] font-black text-[#08b256]"
-        >
-          {action}
-        </button>
-      ) : null}
+    <div className="mb-2 flex items-center gap-1.5">
+      <span className="text-[14px]">{emoji}</span>
+      <h3 className="truncate text-[14px] font-black tracking-[-0.02em] text-slate-950">
+        {title}
+      </h3>
     </div>
   );
 }
 
 export default function ProductList({ products }: { products: UiProduct[] }) {
-  const { addItem } = useCart();
-  const [infoProduct, setInfoProduct] = useState<UiProduct | null>(null);
+  const cart: any = useCart();
+  const addItem = cart.addItem;
+  const cartItems = Array.isArray(cart.items)
+    ? cart.items
+    : Array.isArray(cart.cartItems)
+      ? cart.cartItems
+      : [];
 
+  const [infoProduct, setInfoProduct] = useState<UiProduct | null>(null);
   const grouped = useMemo(() => groupProducts(products), [products]);
+
+  function getQty(p: UiProduct) {
+    return cartItems.reduce((sum: number, item: any) => {
+      const sameId = String(item?.id ?? item?.productId ?? "") === String(p.id);
+      const sameStore =
+        !item?.storeId || !p.storeId || String(item.storeId) === String(p.storeId);
+
+      if (!sameId || !sameStore) return sum;
+
+      return sum + Number(item?.qty ?? item?.quantity ?? 1);
+    }, 0);
+  }
 
   function addProductToCart(p: UiProduct) {
     addItem(
@@ -190,13 +202,14 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
       <div className="space-y-5">
         {grouped.recommended.length > 0 ? (
           <section>
-            <SectionTitle emoji="🔥" title="Recomendados" action="Ver todo" />
+            <SectionTitle emoji="🔥" title="Recomendados" />
 
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="grid grid-cols-3 gap-x-2.5 gap-y-4">
               {grouped.recommended.map((p) => (
                 <ProductGridCard
                   key={`recommended-${p.storeId}:${p.id}`}
                   product={p}
+                  qty={getQty(p)}
                   onInfo={setInfoProduct}
                   onAdd={addProductToCart}
                 />
@@ -210,14 +223,14 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
             <SectionTitle
               emoji={index % 3 === 0 ? "🌿" : index % 3 === 1 ? "✨" : "🛍️"}
               title={category.name}
-              action="Ver todo"
             />
 
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="grid grid-cols-3 gap-x-2.5 gap-y-4">
               {category.products.map((p) => (
                 <ProductGridCard
                   key={`${category.name}-${p.storeId}:${p.id}`}
                   product={p}
+                  qty={getQty(p)}
                   onInfo={setInfoProduct}
                   onAdd={addProductToCart}
                 />
