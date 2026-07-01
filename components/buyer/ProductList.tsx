@@ -13,6 +13,11 @@ type UiProduct = {
   info?: string | null;
   price: number;
   image?: string;
+
+  category?: string | null;
+  categoryOrder?: number;
+  displayOrder?: number;
+  isRecommended?: boolean;
 };
 
 function formatCOP(value: number) {
@@ -40,9 +45,42 @@ function splitDescription(desc: string) {
   return { subtitle: raw, detail: "" };
 }
 
+function groupProducts(products: UiProduct[]) {
+  const recommended = products.filter((p) => p.isRecommended);
+
+  const map = new Map<string, UiProduct[]>();
+
+  for (const p of products) {
+    const key = (p.category || "Otros").trim();
+
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+
+    map.get(key)!.push(p);
+  }
+
+  const categories = [...map.entries()].map(([name, items]) => ({
+    name,
+    order: Math.min(...items.map((i) => i.categoryOrder ?? 100)),
+    products: items.sort(
+      (a, b) =>
+        (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+    ),
+  }));
+
+  categories.sort((a, b) => a.order - b.order);
+
+  return {
+    recommended,
+    categories,
+  };
+}
+
 export default function ProductList({ products }: { products: UiProduct[] }) {
   const { addItem } = useCart();
   const [infoProduct, setInfoProduct] = useState<UiProduct | null>(null);
+  const grouped = groupProducts(products);
 
   return (
     <>

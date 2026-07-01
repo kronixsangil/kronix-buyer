@@ -43,6 +43,10 @@ export type ApiPublicProduct = {
   isActive?: boolean;
   isAvailable: boolean;
   sortOrder?: number;
+  category?: string | null;
+  categoryOrder?: number;
+  displayOrder?: number;
+  isRecommended?: boolean;
 };
 
 export type ApiBuyerCategory = {

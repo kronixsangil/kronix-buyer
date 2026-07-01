@@ -25,6 +25,11 @@ type UiProduct = {
   storeId: string;
   storeCode?: string;
   image?: string | null;
+
+  category?: string | null;
+  categoryOrder?: number;
+  displayOrder?: number;
+  isRecommended?: boolean;
 };
 
 type UiReview = {
@@ -178,6 +183,10 @@ export default function StoreDetailPage() {
       storeId: realStoreId,
       storeCode: realStoreCode,
       image: p.image,
+      category: p.category,
+      categoryOrder: p.categoryOrder,
+      displayOrder: p.displayOrder,
+      isRecommended: p.isRecommended,
     }));
   }, [products, store, storeCode]);
 
