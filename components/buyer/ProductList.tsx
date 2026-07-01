@@ -13,7 +13,6 @@ type UiProduct = {
   info?: string | null;
   price: number;
   image?: string;
-
   category?: string | null;
   categoryOrder?: number;
   displayOrder?: number;
@@ -27,17 +26,13 @@ function formatCOP(value: number) {
 function splitDescription(desc: string) {
   const raw = String(desc || "").trim();
   if (!raw) return { subtitle: "", detail: "" };
-
   const separators = [" | ", " — ", " – ", " - ", " • ", ", "];
 
   for (const sep of separators) {
     if (raw.includes(sep)) {
       const parts = raw.split(sep).map((x) => x.trim()).filter(Boolean);
       if (parts.length >= 2) {
-        return {
-          subtitle: parts[0],
-          detail: parts.slice(1).join(" · "),
-        };
+        return { subtitle: parts[0], detail: parts.slice(1).join(" · ") };
       }
     }
   }
@@ -46,7 +41,7 @@ function splitDescription(desc: string) {
 }
 
 function groupProducts(products: UiProduct[]) {
-  const recommended = products
+  const byRecommended = [...products]
     .filter((p) => p.isRecommended)
     .sort(
       (a, b) =>
@@ -63,21 +58,19 @@ function groupProducts(products: UiProduct[]) {
     map.get(key)!.push(p);
   }
 
-  const categories = [...map.entries()].map(([name, items]) => ({
-    name,
-    order: Math.min(...items.map((i) => i.categoryOrder ?? 100)),
-    products: items.sort(
-      (a, b) =>
-        (a.displayOrder ?? 100) - (b.displayOrder ?? 100) ||
-        a.name.localeCompare(b.name, "es")
-    ),
-  }));
+  const categories = [...map.entries()]
+    .map(([name, items]) => ({
+      name,
+      order: Math.min(...items.map((i) => i.categoryOrder ?? 100)),
+      products: [...items].sort(
+        (a, b) =>
+          (a.displayOrder ?? 100) - (b.displayOrder ?? 100) ||
+          a.name.localeCompare(b.name, "es")
+      ),
+    }))
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "es"));
 
-  categories.sort(
-    (a, b) => a.order - b.order || a.name.localeCompare(b.name, "es")
-  );
-
-  return { recommended, categories };
+  return { recommended: byRecommended, categories };
 }
 
 function ProductCard({
@@ -95,7 +88,6 @@ function ProductCard({
 
   return (
     <div
-      key={`${product.storeId}:${product.id}`}
       role="button"
       tabIndex={0}
       onClick={() => onInfo(product)}
@@ -109,13 +101,7 @@ function ProductCard({
     >
       <div className="relative h-[64px] w-[64px] flex-none overflow-hidden rounded-[18px] bg-slate-100 shadow-inner ring-1 ring-black/5">
         {product.image ? (
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            className="object-cover"
-            sizes="64px"
-          />
+          <Image src={product.image} alt={product.name} fill className="object-cover" sizes="64px" />
         ) : null}
 
         {recommended ? (
@@ -164,6 +150,7 @@ function ProductCard({
 export default function ProductList({ products }: { products: UiProduct[] }) {
   const { addItem } = useCart();
   const [infoProduct, setInfoProduct] = useState<UiProduct | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const grouped = groupProducts(products);
 
   function addProductToCart(p: UiProduct) {
@@ -191,7 +178,6 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
                   ⭐ Recomendados
                 </h3>
               </div>
-
               <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#08b256]">
                 Top
               </div>
@@ -211,34 +197,55 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
           </section>
         ) : null}
 
-        {grouped.categories.map((category) => (
-          <section key={category.name}>
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="h-[26px] w-[6px] flex-none rounded-full bg-slate-900" />
-                <h3 className="truncate text-[18px] font-black tracking-[-0.03em] text-slate-900">
-                  {category.name}
-                </h3>
+        {grouped.categories.map((category) => {
+          const expanded = Boolean(expandedCategories[category.name]);
+          const visibleProducts = expanded ? category.products : category.products.slice(0, 4);
+          const canExpand = category.products.length > 4;
+
+          return (
+            <section key={category.name}>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="h-[26px] w-[6px] flex-none rounded-full bg-slate-900" />
+                  <h3 className="truncate text-[18px] font-black tracking-[-0.03em] text-slate-900">
+                    {category.name}
+                  </h3>
+                </div>
+
+                {canExpand ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedCategories((prev) => ({
+                        ...prev,
+                        [category.name]: !prev[category.name],
+                      }))
+                    }
+                    className="flex-none text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#08b256]"
+                  >
+                    {expanded ? "Ver menos" : "Ver todo"}
+                  </button>
+                ) : (
+                  <div className="flex-none text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                    {category.products.length} {category.products.length === 1 ? "producto" : "productos"}
+                  </div>
+                )}
               </div>
 
-              <div className="flex-none text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
-                {category.products.length} items
+              <div className="space-y-1.5">
+                {visibleProducts.map((p) => (
+                  <ProductCard
+                    key={`${category.name}-${p.storeId}:${p.id}`}
+                    product={p}
+                    recommended={Boolean(p.isRecommended)}
+                    onInfo={setInfoProduct}
+                    onAdd={addProductToCart}
+                  />
+                ))}
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              {category.products.map((p) => (
-                <ProductCard
-                  key={`${category.name}-${p.storeId}:${p.id}`}
-                  product={p}
-                  recommended={Boolean(p.isRecommended)}
-                  onInfo={setInfoProduct}
-                  onAdd={addProductToCart}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+            </section>
+          );
+        })}
       </div>
 
       {infoProduct ? (
@@ -251,12 +258,6 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute inset-0 bg-[linear-gradient(180deg,#061f45_0%,#0a3566_18%,#f8fbff_43%,#ffffff_55%,#eef7ff_66%,#0a3566_86%,#031a3b_100%)]" />
-
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-x-0 top-0 h-[120px] bg-[radial-gradient(circle_at_30%_0%,rgba(14,165,233,0.42),transparent_55%)]" />
-              <div className="absolute inset-x-0 bottom-0 h-[110px] bg-[radial-gradient(circle_at_70%_100%,rgba(16,185,129,0.26),transparent_55%)]" />
-              <div className="absolute left-8 top-7 h-[3px] w-[3px] rounded-full bg-white/95 shadow-[48px_12px_0_rgba(255,255,255,0.75),128px_2px_0_rgba(255,255,255,0.7),238px_14px_0_rgba(255,255,255,0.8),302px_3px_0_rgba(255,255,255,0.65)]" />
-            </div>
 
             <div className="relative z-10 px-4 pb-4 pt-4">
               <div className="flex items-start justify-between gap-3">
