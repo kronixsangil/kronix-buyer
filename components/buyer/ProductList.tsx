@@ -149,13 +149,35 @@ function ProductGridCard({
   );
 }
 
-function SectionTitle({ emoji, title }: { emoji: string; title: string }) {
+function SectionTitle({
+  emoji,
+  title,
+  expanded,
+  onToggle,
+}: {
+  emoji: string;
+  title: string;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
   return (
-    <div className="mb-1.5 flex items-center gap-1.5">
-      <span className="text-[14px]">{emoji}</span>
-      <h3 className="truncate text-[14px] font-black tracking-[-0.02em] text-slate-950">
-        {title}
-      </h3>
+    <div className="mb-1.5 flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className="text-[14px]">{emoji}</span>
+        <h3 className="truncate text-[14px] font-black tracking-[-0.02em] text-slate-950">
+          {title}
+        </h3>
+      </div>
+
+      {onToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-none text-[11px] font-black text-[#08b256]"
+        >
+          {expanded ? "Ver menos" : "Ver más"}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -170,6 +192,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
       : [];
 
   const [infoProduct, setInfoProduct] = useState<UiProduct | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const grouped = useMemo(() => groupProducts(products), [products]);
 
   function getQty(p: UiProduct) {
@@ -201,43 +224,92 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
     <>
       <div className="space-y-2">
         {grouped.recommended.length > 0 ? (
-          <section>
-            <SectionTitle emoji="🔥" title="Recomendados" />
+  <section>
+    <SectionTitle
+      emoji="🔥"
+      title="Recomendados"
+      expanded={Boolean(expandedSections.__recommended)}
+      onToggle={() =>
+        setExpandedSections((prev) => ({
+          ...prev,
+          __recommended: !prev.__recommended,
+        }))
+      }
+    />
 
-            <div className="grid grid-cols-3 gap-x-2.5 gap-y-2">
-              {grouped.recommended.map((p) => (
-                <ProductGridCard
-                  key={`recommended-${p.storeId}:${p.id}`}
-                  product={p}
-                  qty={getQty(p)}
-                  onInfo={setInfoProduct}
-                  onAdd={addProductToCart}
-                />
-              ))}
-            </div>
-          </section>
-        ) : null}
+    <div
+      className={
+        expandedSections.__recommended
+          ? "grid grid-cols-3 gap-x-2.5 gap-y-2"
+          : "flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      }
+    >
+      {grouped.recommended.map((p) => (
+        <div
+          key={`recommended-${p.storeId}:${p.id}`}
+          className={
+            expandedSections.__recommended
+              ? "min-w-0"
+              : "w-[calc((100%-20px)/3)] min-w-[calc((100%-20px)/3)] flex-none"
+          }
+        >
+          <ProductGridCard
+            product={p}
+            qty={getQty(p)}
+            onInfo={setInfoProduct}
+            onAdd={addProductToCart}
+          />
+        </div>
+      ))}
+    </div>
+  </section>
+) : null}
 
-        {grouped.categories.map((category, index) => (
-          <section key={category.name}>
-            <SectionTitle
-              emoji={index % 3 === 0 ? "🌿" : index % 3 === 1 ? "✨" : "🛍️"}
-              title={category.name}
+        {grouped.categories.map((category, index) => {
+  const expanded = Boolean(expandedSections[category.name]);
+
+  return (
+    <section key={category.name}>
+      <SectionTitle
+        emoji={index % 3 === 0 ? "🌿" : index % 3 === 1 ? "✨" : "🛍️"}
+        title={category.name}
+        expanded={expanded}
+        onToggle={() =>
+          setExpandedSections((prev) => ({
+            ...prev,
+            [category.name]: !prev[category.name],
+          }))
+        }
+      />
+
+      <div
+        className={
+          expanded
+            ? "grid grid-cols-3 gap-x-2.5 gap-y-2"
+            : "flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        }
+      >
+        {category.products.map((p) => (
+          <div
+            key={`${category.name}-${p.storeId}:${p.id}`}
+            className={
+              expanded
+                ? "min-w-0"
+                : "w-[calc((100%-20px)/3)] min-w-[calc((100%-20px)/3)] flex-none"
+            }
+          >
+            <ProductGridCard
+              product={p}
+              qty={getQty(p)}
+              onInfo={setInfoProduct}
+              onAdd={addProductToCart}
             />
-
-            <div className="grid grid-cols-3 gap-x-2.5 gap-y-2">
-              {category.products.map((p) => (
-                <ProductGridCard
-                  key={`${category.name}-${p.storeId}:${p.id}`}
-                  product={p}
-                  qty={getQty(p)}
-                  onInfo={setInfoProduct}
-                  onAdd={addProductToCart}
-                />
-              ))}
-            </div>
-          </section>
+          </div>
         ))}
+      </div>
+    </section>
+  );
+})}
       </div>
 
       {infoProduct ? (
