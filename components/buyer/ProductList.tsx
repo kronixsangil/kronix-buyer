@@ -46,17 +46,20 @@ function splitDescription(desc: string) {
 }
 
 function groupProducts(products: UiProduct[]) {
-  const recommended = products.filter((p) => p.isRecommended);
+  const recommended = products
+    .filter((p) => p.isRecommended)
+    .sort(
+      (a, b) =>
+        (a.categoryOrder ?? 100) - (b.categoryOrder ?? 100) ||
+        (a.displayOrder ?? 100) - (b.displayOrder ?? 100) ||
+        a.name.localeCompare(b.name, "es")
+    );
 
   const map = new Map<string, UiProduct[]>();
 
   for (const p of products) {
-    const key = (p.category || "Otros").trim();
-
-    if (!map.has(key)) {
-      map.set(key, []);
-    }
-
+    const key = String(p.category || "Otros").trim() || "Otros";
+    if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(p);
   }
 
@@ -65,16 +68,97 @@ function groupProducts(products: UiProduct[]) {
     order: Math.min(...items.map((i) => i.categoryOrder ?? 100)),
     products: items.sort(
       (a, b) =>
-        (a.displayOrder ?? 100) - (b.displayOrder ?? 100)
+        (a.displayOrder ?? 100) - (b.displayOrder ?? 100) ||
+        a.name.localeCompare(b.name, "es")
     ),
   }));
 
-  categories.sort((a, b) => a.order - b.order);
+  categories.sort(
+    (a, b) => a.order - b.order || a.name.localeCompare(b.name, "es")
+  );
 
-  return {
-    recommended,
-    categories,
-  };
+  return { recommended, categories };
+}
+
+function ProductCard({
+  product,
+  onInfo,
+  onAdd,
+  recommended = false,
+}: {
+  product: UiProduct;
+  onInfo: (p: UiProduct) => void;
+  onAdd: (p: UiProduct) => void;
+  recommended?: boolean;
+}) {
+  const parts = splitDescription(product.desc);
+
+  return (
+    <div
+      key={`${product.storeId}:${product.id}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onInfo(product)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onInfo(product);
+        }
+      }}
+      className="flex w-full cursor-pointer items-center gap-3 rounded-[22px] bg-white p-2 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)] ring-1 ring-black/5 transition hover:scale-[1.005] hover:bg-slate-50 active:scale-[0.995]"
+    >
+      <div className="relative h-[64px] w-[64px] flex-none overflow-hidden rounded-[18px] bg-slate-100 shadow-inner ring-1 ring-black/5">
+        {product.image ? (
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            className="object-cover"
+            sizes="64px"
+          />
+        ) : null}
+
+        {recommended ? (
+          <div className="absolute left-1 top-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-[9px] font-black text-white shadow">
+            ⭐
+          </div>
+        ) : null}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-slate-800">
+          {product.name}
+        </div>
+
+        {parts.subtitle ? (
+          <div className="mt-0.5 truncate text-[12px] font-medium text-slate-500">
+            {parts.subtitle}
+          </div>
+        ) : null}
+
+        {parts.detail ? (
+          <div className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
+            {parts.detail}
+          </div>
+        ) : null}
+
+        <div className="mt-1.5 text-[16px] font-extrabold text-slate-900">
+          {formatCOP(product.price)}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd(product);
+        }}
+        className="rounded-full bg-[#08b256] px-4 py-2 text-[13px] font-extrabold text-white shadow-[0_8px_18px_rgba(8,178,86,0.2)] transition hover:scale-[1.02] hover:bg-[#07a14d]"
+      >
+        + Agregar
+      </button>
+    </div>
+  );
 }
 
 export default function ProductList({ products }: { products: UiProduct[] }) {
@@ -82,76 +166,79 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
   const [infoProduct, setInfoProduct] = useState<UiProduct | null>(null);
   const grouped = groupProducts(products);
 
+  function addProductToCart(p: UiProduct) {
+    addItem(
+      {
+        id: p.id,
+        storeId: p.storeId,
+        name: p.name,
+        price: p.price,
+        image: p.image,
+      },
+      1
+    );
+  }
+
   return (
     <>
-      <div className="space-y-1.5">
-        {products.map((p) => {
-          const parts = splitDescription(p.desc);
-
-          return (
-            <div
-  key={`${p.storeId}:${p.id}`}
-  role="button"
-  tabIndex={0}
-  onClick={() => setInfoProduct(p)}
-  onKeyDown={(e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setInfoProduct(p);
-    }
-  }}
-  className="flex w-full cursor-pointer items-center gap-3 rounded-[22px] bg-white p-2 text-left shadow-[0_8px_22px_rgba(15,23,42,0.05)] ring-1 ring-black/5 transition hover:scale-[1.005] hover:bg-slate-50 active:scale-[0.995]"
->
-              <div className="relative h-[64px] w-[64px] flex-none overflow-hidden rounded-[18px] bg-slate-100 shadow-inner ring-1 ring-black/5">
-                {p.image ? (
-                  <Image src={p.image} alt={p.name} fill className="object-cover" sizes="64px" />
-                ) : null}
+      <div className="space-y-6">
+        {grouped.recommended.length > 0 ? (
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-[26px] w-[6px] rounded-full bg-[#08b256]" />
+                <h3 className="text-[18px] font-black tracking-[-0.03em] text-slate-900">
+                  ⭐ Recomendados
+                </h3>
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[15px] font-extrabold tracking-[-0.02em] text-slate-800">
-                  {p.name}
-                </div>
-
-                {parts.subtitle ? (
-                  <div className="mt-0.5 truncate text-[12px] font-medium text-slate-500">
-                    {parts.subtitle}
-                  </div>
-                ) : null}
-
-                {parts.detail ? (
-                  <div className="mt-0.5 truncate text-[11px] font-medium text-slate-400">
-                    {parts.detail}
-                  </div>
-                ) : null}
-
-                <div className="mt-1.5 text-[16px] font-extrabold text-slate-900">
-                  {formatCOP(p.price)}
-                </div>
+              <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#08b256]">
+                Top
               </div>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addItem(
-                    {
-                      id: p.id,
-                      storeId: p.storeId,
-                      name: p.name,
-                      price: p.price,
-                      image: p.image,
-                    },
-                    1
-                  );
-                }}
-                className="rounded-full bg-[#08b256] px-4 py-2 text-[13px] font-extrabold text-white shadow-[0_8px_18px_rgba(8,178,86,0.2)] transition hover:scale-[1.02] hover:bg-[#07a14d]"
-              >
-                + Agregar
-              </button>
             </div>
-          );
-        })}
+
+            <div className="space-y-1.5">
+              {grouped.recommended.map((p) => (
+                <ProductCard
+                  key={`recommended-${p.storeId}:${p.id}`}
+                  product={p}
+                  recommended
+                  onInfo={setInfoProduct}
+                  onAdd={addProductToCart}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {grouped.categories.map((category) => (
+          <section key={category.name}>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="h-[26px] w-[6px] flex-none rounded-full bg-slate-900" />
+                <h3 className="truncate text-[18px] font-black tracking-[-0.03em] text-slate-900">
+                  {category.name}
+                </h3>
+              </div>
+
+              <div className="flex-none text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+                {category.products.length} items
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              {category.products.map((p) => (
+                <ProductCard
+                  key={`${category.name}-${p.storeId}:${p.id}`}
+                  product={p}
+                  recommended={Boolean(p.isRecommended)}
+                  onInfo={setInfoProduct}
+                  onAdd={addProductToCart}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
 
       {infoProduct ? (
@@ -218,7 +305,8 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
                 </div>
 
                 <div className="mt-2 max-h-[96px] overflow-y-auto pr-1 text-[13px] font-semibold leading-5 text-slate-700">
-                  {String(infoProduct.info ?? "").trim() || "Este producto no tiene información adicional por ahora."}
+                  {String(infoProduct.info ?? "").trim() ||
+                    "Este producto no tiene información adicional por ahora."}
                 </div>
               </div>
 
@@ -230,16 +318,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
                 <button
                   type="button"
                   onClick={() => {
-                    addItem(
-                      {
-                        id: infoProduct.id,
-                        storeId: infoProduct.storeId,
-                        name: infoProduct.name,
-                        price: infoProduct.price,
-                        image: infoProduct.image,
-                      },
-                      1
-                    );
+                    addProductToCart(infoProduct);
                     setInfoProduct(null);
                   }}
                   className="rounded-full bg-[#08b256] px-5 py-3 text-[14px] font-black text-white shadow-[0_12px_26px_rgba(8,178,86,0.34)] transition hover:scale-[1.03] hover:bg-[#07a14d]"
