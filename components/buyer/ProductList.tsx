@@ -86,6 +86,7 @@ function ProductGridCard({
   onAdd: (p: UiProduct) => void;
 }) {
   const parts = splitDescription(product.desc);
+  const subtitle = String(parts.subtitle || "").trim();
 
   return (
     <div
@@ -118,18 +119,17 @@ function ProductGridCard({
         ) : null}
       </div>
 
-      <div className="mt-1.5 min-h-[31px] text-[11px] font-black leading-[1.08] tracking-[-0.03em] text-slate-950 line-clamp-2">
+      <div className="mt-1.5 pr-7 text-[11px] font-black leading-[1.08] tracking-[-0.03em] text-slate-950 line-clamp-2">
         {product.name}
+        {subtitle ? (
+          <span className="ml-1 text-[9.5px] font-bold text-slate-500">
+            {subtitle}
+          </span>
+        ) : null}
       </div>
 
-      {parts.subtitle ? (
-        <div className="mt-0.5 truncate text-[9.5px] font-bold text-slate-500">
-          {parts.subtitle}
-        </div>
-      ) : null}
-
-      <div className="relative mt-1 min-h-[28px]">
-        <div className="pr-8 text-[11px] font-black tracking-[-0.02em] text-rose-600">
+      <div className="relative mt-1 flex min-h-[24px] items-start justify-between gap-1">
+        <div className="pt-0.5 text-[11px] font-black tracking-[-0.02em] text-rose-600">
           {formatCOP(product.price)}
         </div>
 
@@ -139,7 +139,7 @@ function ProductGridCard({
             e.stopPropagation();
             onAdd(product);
           }}
-          className="absolute bottom-0 right-0 flex h-7 w-7 translate-y-0 scale-100 items-center justify-center rounded-[9px] bg-[#08b256] text-[20px] font-black leading-none text-white shadow-[0_7px_16px_rgba(8,178,86,0.28)] transition hover:scale-105 active:scale-95"
+          className="flex h-7 w-7 flex-none translate-y-[-4px] scale-100 items-center justify-center rounded-[9px] bg-[#08b256] text-[20px] font-black leading-none text-white shadow-[0_7px_16px_rgba(8,178,86,0.28)] transition hover:scale-105 active:scale-95"
           aria-label={`Agregar ${product.name}`}
         >
           +
@@ -204,7 +204,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
           <section>
             <SectionTitle emoji="🔥" title="Recomendados" />
 
-            <div className="grid grid-cols-3 gap-x-2.5 gap-y-4">
+            <div className="grid grid-cols-3 gap-x-2.5 gap-y-2">
               {grouped.recommended.map((p) => (
                 <ProductGridCard
                   key={`recommended-${p.storeId}:${p.id}`}
@@ -225,7 +225,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
               title={category.name}
             />
 
-            <div className="grid grid-cols-3 gap-x-2.5 gap-y-4">
+            <div className="grid grid-cols-3 gap-x-2.5 gap-y-2">
               {category.products.map((p) => (
                 <ProductGridCard
                   key={`${category.name}-${p.storeId}:${p.id}`}
