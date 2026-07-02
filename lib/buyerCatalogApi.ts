@@ -3,6 +3,37 @@
 
 import { apiFetch } from "./api";
 
+export type ApiStoreTheme = {
+  id: string;
+  code: string;
+  name: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  pageBg: string;
+  textPrimary: string;
+  textSecondary: string;
+  headerBg: string;
+  headerTextColor: string;
+  headerLogoUrl?: string | null;
+  bottomNavBg: string;
+  bottomNavActiveColor: string;
+  bottomNavInactiveColor: string;
+  cardBg: string;
+  cardTextColor: string;
+  cardRadius: number;
+  buttonBg: string;
+  buttonTextColor: string;
+  badgeBg: string;
+  badgeTextColor: string;
+  inputBg: string;
+  inputBorder: string;
+  gradientFrom?: string | null;
+  gradientTo?: string | null;
+  splashLogoUrl?: string | null;
+  tokens?: any;
+};
+
 export type ApiPublicStore = {
   id: string;
   storeCode: string;
@@ -29,6 +60,11 @@ export type ApiPublicStore = {
   buyerCardImageOrder: string | null;
   rating?: number;
   ratingCount?: number;
+
+  themeId?: string | null;
+  useCustomTheme?: boolean;
+  customThemeJson?: any;
+  theme?: ApiStoreTheme | null;
 };
 
 export type ApiPublicProduct = {

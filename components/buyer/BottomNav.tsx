@@ -72,9 +72,14 @@ function NavItemBox({ children, active }: { children: React.ReactNode; active: b
       className={[
         "relative grid h-11 w-11 place-items-center rounded-2xl border backdrop-blur-sm transition-all duration-200",
         active
-          ? "border-green-300/80 text-green-300 shadow-[0_6px_18px_rgba(34,197,94,0.22)]"
-          : "border-white/30 text-white",
+          ? "border-white/50 shadow-[0_6px_18px_rgba(34,197,94,0.22)]"
+          : "border-white/30",
       ].join(" ")}
+      style={{
+        color: active
+          ? "var(--kx-bottom-nav-active, #86efac)"
+          : "var(--kx-bottom-nav-inactive, #ffffff)",
+      }}
     >
       {children}
     </div>
@@ -89,17 +94,20 @@ export default function BottomNav() {
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
-  const itemClass = (active: boolean) =>
-    [
-      "relative flex flex-1 flex-col items-center justify-center gap-1.5 py-1",
-      active ? "text-green-300" : "text-white",
-    ].join(" ");
+  const itemClass = (_active: boolean) =>
+    "relative flex flex-1 flex-col items-center justify-center gap-1.5 py-1";
 
   const labelClass = (active: boolean) =>
     [
       "text-[11px] leading-none",
-      active ? "font-extrabold text-green-300" : "font-semibold text-white",
+      active ? "font-extrabold" : "font-semibold",
     ].join(" ");
+
+  const labelStyle = (active: boolean) => ({
+    color: active
+      ? "var(--kx-bottom-nav-active, #86efac)"
+      : "var(--kx-bottom-nav-inactive, #ffffff)",
+  });
 
   return (
     <nav className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden">
@@ -107,7 +115,7 @@ export default function BottomNav() {
         className="relative"
         style={{
           background:
-            "linear-gradient(180deg, #ffffff 0%, #cfe0f4 12%, #7aa0cf 28%, #2e5d98 52%, #0b356d 74%, #03102b 100%)",
+            "linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--kx-bottom-nav-bg, #0a3566) 22%, #ffffff) 18%, var(--kx-bottom-nav-bg, #0a3566) 78%, #03102b 100%)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
@@ -116,14 +124,14 @@ export default function BottomNav() {
             <NavItemBox active={isActive("/")}>
               <IconHome active={isActive("/")} />
             </NavItemBox>
-            <span className={labelClass(isActive("/"))}>Inicio</span>
+            <span className={labelClass(isActive("/"))} style={labelStyle(isActive("/"))}>Inicio</span>
           </Link>
 
           <Link className={itemClass(isActive("/orders"))} href="/orders">
             <NavItemBox active={isActive("/orders")}>
               <IconOrders />
             </NavItemBox>
-            <span className={labelClass(isActive("/orders"))}>Pedidos</span>
+            <span className={labelClass(isActive("/orders"))} style={labelStyle(isActive("/orders"))}>Pedidos</span>
           </Link>
 
           <Link className={itemClass(isActive("/cart"))} href="/cart">
@@ -133,26 +141,27 @@ export default function BottomNav() {
               </NavItemBox>
 
               {cartCount > 0 && (
-                <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-green-600 px-1 text-[10px] font-extrabold text-white">
+                <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-extrabold"
+                  style={{ background: "var(--kx-primary, #16a34a)", color: "var(--kx-button-text, #ffffff)" }}>
                   {cartCount}
                 </span>
               )}
             </span>
-            <span className={labelClass(isActive("/cart"))}>Carrito</span>
+            <span className={labelClass(isActive("/cart"))} style={labelStyle(isActive("/cart"))}>Carrito</span>
           </Link>
 
           <Link className={itemClass(isActive("/wallet"))} href="/wallet">
             <NavItemBox active={isActive("/wallet")}>
               <IconWallet />
             </NavItemBox>
-            <span className={labelClass(isActive("/wallet"))}>Saldo</span>
+            <span className={labelClass(isActive("/wallet"))} style={labelStyle(isActive("/wallet"))}>Saldo</span>
           </Link>
 
           <Link className={itemClass(isActive("/profile"))} href="/profile">
             <NavItemBox active={isActive("/profile")}>
               <IconProfile />
             </NavItemBox>
-            <span className={labelClass(isActive("/profile"))}>Perfil</span>
+            <span className={labelClass(isActive("/profile"))} style={labelStyle(isActive("/profile"))}>Perfil</span>
           </Link>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
   publicListProductsByStoreCode,
   type ApiPublicStore,
   type ApiPublicProduct,
+  type ApiStoreTheme,
 } from "@/lib/buyerCatalogApi";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 
@@ -67,6 +68,36 @@ function getGallery(store: ApiPublicStore | null) {
 function formatRating(value: number) {
   return Number(value || 5.0).toFixed(1);
 }
+
+function normalizeStoreTheme(store: ApiPublicStore | null): ApiStoreTheme | null {
+  if (!store) return null;
+
+  const base = store.theme ?? null;
+  const custom = store.useCustomTheme && store.customThemeJson && typeof store.customThemeJson === "object"
+    ? store.customThemeJson
+    : null;
+
+  if (!base && !custom) return null;
+
+  return {
+    ...(base ?? {}),
+    ...(custom ?? {}),
+  } as ApiStoreTheme;
+}
+
+function themeValue(value: string | null | undefined, fallback: string) {
+  const raw = String(value ?? "").trim();
+  return raw || fallback;
+}
+
+function themeGradient(theme: ApiStoreTheme | null) {
+  const from = themeValue(theme?.gradientFrom || theme?.headerBg || theme?.secondaryColor, "#03102b");
+  const mid = themeValue(theme?.secondaryColor || theme?.headerBg, "#0b356d");
+  const to = themeValue(theme?.gradientTo || theme?.primaryColor, "#08b256");
+
+  return `linear-gradient(180deg, ${from} 0%, ${mid} 45%, ${to} 100%)`;
+}
+
 
 export default function StoreDetailPage() {
   const params = useParams<{ id: string }>();
@@ -169,6 +200,7 @@ export default function StoreDetailPage() {
   const logoImage = useMemo(() => getLogoImage(store), [store]);
   const bannerImage = useMemo(() => getBannerImage(store), [store]);
   const gallery = useMemo(() => getGallery(store), [store]);
+  const theme = useMemo(() => normalizeStoreTheme(store), [store]);
 
   const uiProducts = useMemo<UiProduct[]>(() => {
     const realStoreId = String(store?.id ?? "").trim();
@@ -201,6 +233,44 @@ export default function StoreDetailPage() {
       return name.includes(q) || desc.includes(q) || info.includes(q);
     });
   }, [query, uiProducts]);
+
+
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    if (!theme) {
+      root.style.removeProperty("--kx-header-gradient");
+      root.style.removeProperty("--kx-header-logo");
+      root.style.removeProperty("--kx-bottom-nav-bg");
+      root.style.removeProperty("--kx-bottom-nav-active");
+      root.style.removeProperty("--kx-bottom-nav-inactive");
+      root.style.removeProperty("--kx-primary");
+      root.style.removeProperty("--kx-button-bg");
+      root.style.removeProperty("--kx-button-text");
+      return;
+    }
+
+    root.style.setProperty("--kx-header-gradient", themeGradient(theme));
+    root.style.setProperty("--kx-header-logo", `url("${themeValue(theme.headerLogoUrl, "/branding/kronix/header-logo.png")}")`);
+    root.style.setProperty("--kx-bottom-nav-bg", themeValue(theme.bottomNavBg, "#0a3566"));
+    root.style.setProperty("--kx-bottom-nav-active", themeValue(theme.bottomNavActiveColor || theme.primaryColor, "#86efac"));
+    root.style.setProperty("--kx-bottom-nav-inactive", themeValue(theme.bottomNavInactiveColor, "#ffffff"));
+    root.style.setProperty("--kx-primary", themeValue(theme.primaryColor, "#08b256"));
+    root.style.setProperty("--kx-button-bg", themeValue(theme.buttonBg || theme.primaryColor, "#08b256"));
+    root.style.setProperty("--kx-button-text", themeValue(theme.buttonTextColor, "#ffffff"));
+
+    return () => {
+      root.style.removeProperty("--kx-header-gradient");
+      root.style.removeProperty("--kx-header-logo");
+      root.style.removeProperty("--kx-bottom-nav-bg");
+      root.style.removeProperty("--kx-bottom-nav-active");
+      root.style.removeProperty("--kx-bottom-nav-inactive");
+      root.style.removeProperty("--kx-primary");
+      root.style.removeProperty("--kx-button-bg");
+      root.style.removeProperty("--kx-button-text");
+    };
+  }, [theme]);
 
   const galleryContent = (
     <div className="space-y-2">
@@ -240,7 +310,10 @@ export default function StoreDetailPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[white] px-3 pb-28 pt-2">
+    <div
+      className="relative min-h-screen px-3 pb-28 pt-2"
+      style={{ background: themeValue(theme?.pageBg, "#ffffff"), color: themeValue(theme?.textPrimary, "#020617") }}
+    >
       
       <div className="relative overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.07)] ring-1 ring-black/5">
         <div className="relative h-[170px] w-full bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200">
@@ -279,7 +352,8 @@ export default function StoreDetailPage() {
                   <h1 className="truncate text-[18px] font-extrabold tracking-[-0.02em] text-white">
                     {store.name}
                   </h1>
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a] text-[12px] text-white shadow-sm">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] shadow-sm"
+                    style={{ background: themeValue(theme?.primaryColor, "#16a34a"), color: themeValue(theme?.buttonTextColor, "#ffffff") }}>
                     ✓
                   </span>
                 </div>
@@ -314,7 +388,8 @@ export default function StoreDetailPage() {
           menu={
             <div className="space-y-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-11 flex-1 items-center rounded-full bg-white px-4 shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5">
+                <div className="flex h-11 flex-1 items-center rounded-full px-4 shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
+                  style={{ background: themeValue(theme?.inputBg, "#ffffff"), borderColor: themeValue(theme?.inputBorder, "rgba(0,0,0,0.05)") }}>
                   <span className="mr-2.5 text-[18px] leading-none text-slate-500">⌕</span>
                   <input
                     value={query}
@@ -326,14 +401,15 @@ export default function StoreDetailPage() {
 
                 <button
                   type="button"
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-700 shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
+                  className="flex h-11 w-11 items-center justify-center rounded-full shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
+                  style={{ background: themeValue(theme?.buttonBg || theme?.primaryColor, "#ffffff"), color: themeValue(theme?.buttonTextColor, "#334155") }}
                   aria-label="Filtros"
                 >
                   <span className="text-[18px] leading-none">☰</span>
                 </button>
               </div>
 
-              <ProductList products={filteredProducts as any} />
+              <ProductList products={filteredProducts as any} theme={theme} />
             </div>
           }
           images={galleryContent}

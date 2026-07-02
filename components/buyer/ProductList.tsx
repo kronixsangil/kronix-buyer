@@ -5,6 +5,31 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useCart } from "@/components/buyer/CartContext";
 
+type ProductTheme = {
+  primaryColor?: string | null;
+  secondaryColor?: string | null;
+  accentColor?: string | null;
+  pageBg?: string | null;
+  textPrimary?: string | null;
+  textSecondary?: string | null;
+  cardBg?: string | null;
+  cardTextColor?: string | null;
+  cardRadius?: number | null;
+  buttonBg?: string | null;
+  buttonTextColor?: string | null;
+  badgeBg?: string | null;
+  badgeTextColor?: string | null;
+  inputBg?: string | null;
+  inputBorder?: string | null;
+  gradientFrom?: string | null;
+  gradientTo?: string | null;
+};
+
+function themeValue(value: string | null | undefined, fallback: string) {
+  const raw = String(value ?? "").trim();
+  return raw || fallback;
+}
+
 type UiProduct = {
   id: string;
   storeId: string;
@@ -79,14 +104,27 @@ function ProductGridCard({
   qty,
   onInfo,
   onAdd,
+  theme,
 }: {
   product: UiProduct;
   qty: number;
   onInfo: (p: UiProduct) => void;
   onAdd: (p: UiProduct) => void;
+  theme?: ProductTheme | null;
 }) {
   const parts = splitDescription(product.desc);
   const subtitle = String(parts.subtitle || "").trim();
+
+  const cardBg = themeValue(theme?.cardBg, "#ffffff");
+  const cardTextColor = themeValue(theme?.cardTextColor || theme?.textPrimary, "#020617");
+  const textSecondary = themeValue(theme?.textSecondary, "#64748b");
+  const buttonBg = themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256");
+  const buttonTextColor = themeValue(theme?.buttonTextColor, "#ffffff");
+  const badgeBg = themeValue(theme?.badgeBg, "#ef4444");
+  const badgeTextColor = themeValue(theme?.badgeTextColor, "#ffffff");
+  const accentColor = themeValue(theme?.accentColor, "#e11d48");
+  const inputBorder = themeValue(theme?.inputBorder, "rgba(15,23,42,0.08)");
+  const radius = Math.max(10, Number(theme?.cardRadius ?? 14));
 
   return (
     <div
@@ -101,7 +139,8 @@ function ProductGridCard({
       }}
       className="relative min-w-0 cursor-pointer"
     >
-      <div className="relative aspect-[1.13/1] w-full overflow-hidden rounded-[14px] bg-slate-100 shadow-[0_7px_18px_rgba(15,23,42,0.08)] ring-1 ring-black/5">
+      <div className="relative aspect-[1.13/1] w-full overflow-hidden bg-slate-100 shadow-[0_7px_18px_rgba(15,23,42,0.08)] ring-1 ring-black/5"
+        style={{ borderRadius: radius, background: cardBg, borderColor: inputBorder }}>
         {product.image ? (
           <Image
             src={product.image}
@@ -113,23 +152,27 @@ function ProductGridCard({
         ) : null}
 
         {qty > 0 ? (
-          <div className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white shadow">
+          <div className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-black shadow"
+            style={{ background: badgeBg, color: badgeTextColor }}>
             {qty}
           </div>
         ) : null}
       </div>
 
-      <div className="mt-1.5 pr-7 text-[12px] font-black leading-[1.08] tracking-[-0.03em] text-slate-950 line-clamp-2">
+      <div className="mt-1.5 pr-7 text-[12px] font-black leading-[1.08] tracking-[-0.03em] line-clamp-2"
+        style={{ color: cardTextColor }}>
         {product.name}
         {subtitle ? (
-          <span className="ml-1 text-[9.5px] font-bold text-slate-500">
+          <span className="ml-1 text-[9.5px] font-bold"
+            style={{ color: textSecondary }}>
             {subtitle}
           </span>
         ) : null}
       </div>
 
       <div className="relative mt-1 flex min-h-[16px] items-start justify-between gap-1">
-        <div className="pt-0.5 text-[12px] font-black tracking-[-0.02em] text-rose-600">
+        <div className="pt-0.5 text-[12px] font-black tracking-[-0.02em]"
+          style={{ color: accentColor }}>
           {formatCOP(product.price)}
         </div>
 
@@ -139,7 +182,8 @@ function ProductGridCard({
             e.stopPropagation();
             onAdd(product);
           }}
-          className="flex h-7 w-7 flex-none translate-y-[-4px] scale-100 items-center justify-center rounded-[9px] bg-[#08b256] text-[20px] font-black leading-none text-white shadow-[0_7px_16px_rgba(8,178,86,0.28)] transition hover:scale-105 active:scale-95"
+          className="flex h-7 w-7 flex-none translate-y-[-4px] scale-100 items-center justify-center rounded-[9px] text-[20px] font-black leading-none shadow-[0_7px_16px_rgba(8,178,86,0.28)] transition hover:scale-105 active:scale-95"
+          style={{ background: buttonBg, color: buttonTextColor }}
           aria-label={`Agregar ${product.name}`}
         >
           +
@@ -154,17 +198,23 @@ function SectionTitle({
   title,
   expanded,
   onToggle,
+  theme,
 }: {
   emoji: string;
   title: string;
   expanded?: boolean;
   onToggle?: () => void;
+  theme?: ProductTheme | null;
 }) {
+  const titleColor = themeValue(theme?.textPrimary, "#020617");
+  const actionColor = themeValue(theme?.primaryColor, "#08b256");
+
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="text-[14px]">{emoji}</span>
-        <h3 className="truncate text-[14px] font-black tracking-[-0.02em] text-slate-950">
+        <h3 className="truncate text-[14px] font-black tracking-[-0.02em]"
+          style={{ color: titleColor }}>
           {title}
         </h3>
       </div>
@@ -173,7 +223,8 @@ function SectionTitle({
         <button
           type="button"
           onClick={onToggle}
-          className="flex-none text-[11px] font-black text-[#08b256]"
+          className="flex-none text-[11px] font-black"
+          style={{ color: actionColor }}
         >
           {expanded ? "Ver menos" : "Ver más"}
         </button>
@@ -182,7 +233,7 @@ function SectionTitle({
   );
 }
 
-export default function ProductList({ products }: { products: UiProduct[] }) {
+export default function ProductList({ products, theme }: { products: UiProduct[]; theme?: ProductTheme | null }) {
   const cart: any = useCart();
   const addItem = cart.addItem;
   const cartItems = Array.isArray(cart.items)
@@ -222,7 +273,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
 
   return (
     <>
-      <div className="space-y-2">
+      <div className="space-y-2" style={{ color: themeValue(theme?.textPrimary, "#020617") }}>
         {grouped.recommended.length > 0 ? (
   <section>
     <SectionTitle
@@ -235,6 +286,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
           __recommended: !prev.__recommended,
         }))
       }
+      theme={theme}
     />
 
     <div
@@ -258,6 +310,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
             qty={getQty(p)}
             onInfo={setInfoProduct}
             onAdd={addProductToCart}
+            theme={theme}
           />
         </div>
       ))}
@@ -280,6 +333,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
             [category.name]: !prev[category.name],
           }))
         }
+        theme={theme}
       />
 
       <div
@@ -303,6 +357,7 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
               qty={getQty(p)}
               onInfo={setInfoProduct}
               onAdd={addProductToCart}
+              theme={theme}
             />
           </div>
         ))}
@@ -321,7 +376,10 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
             className="relative w-full max-w-[410px] overflow-hidden rounded-[30px] shadow-[0_35px_90px_rgba(2,8,23,0.62)] ring-1 ring-white/30"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,#061f45_0%,#0a3566_18%,#f8fbff_43%,#ffffff_55%,#eef7ff_66%,#0a3566_86%,#031a3b_100%)]" />
+            <div className="absolute inset-0"
+            style={{
+              background: `linear-gradient(180deg, ${themeValue(theme?.gradientFrom || theme?.secondaryColor, "#061f45")} 0%, ${themeValue(theme?.secondaryColor, "#0a3566")} 18%, ${themeValue(theme?.pageBg, "#f8fbff")} 43%, #ffffff 55%, ${themeValue(theme?.pageBg, "#eef7ff")} 66%, ${themeValue(theme?.secondaryColor, "#0a3566")} 86%, ${themeValue(theme?.gradientFrom || theme?.secondaryColor, "#031a3b")} 100%)`,
+            }} />
 
             <div className="relative z-10 px-4 pb-4 pt-4">
               <div className="flex items-start justify-between gap-3">
@@ -386,7 +444,8 @@ export default function ProductList({ products }: { products: UiProduct[] }) {
                     addProductToCart(infoProduct);
                     setInfoProduct(null);
                   }}
-                  className="rounded-full bg-[#08b256] px-5 py-3 text-[14px] font-black text-white shadow-[0_12px_26px_rgba(8,178,86,0.34)] transition hover:scale-[1.03] hover:bg-[#07a14d]"
+                  className="rounded-full px-5 py-3 text-[14px] font-black shadow-[0_12px_26px_rgba(8,178,86,0.34)] transition hover:scale-[1.03]"
+                  style={{ background: themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256"), color: themeValue(theme?.buttonTextColor, "#ffffff") }}
                 >
                   + Agregar
                 </button>

@@ -1,5 +1,4 @@
 // components/buyer/BuyerHeader.tsx
-// components/buyer/BuyerHeader.tsx
 "use client";
 
 import Link from "next/link";
@@ -339,7 +338,7 @@ export default function BuyerHeader() {
           "
           style={{
             background:
-              "linear-gradient(180deg, #03102b 0%, #0b356d 42%, #4a79b7 70%, #ffffff 100%)",
+              "var(--kx-header-gradient, linear-gradient(180deg, #03102b 0%, #0b356d 42%, #4a79b7 70%, #ffffff 100%))",
           }}
         >
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_32%,transparent)]" />
@@ -406,13 +405,14 @@ export default function BuyerHeader() {
             >
               <div className="relative h-[56px] w-[170px] sm:w-[180px]">
                 {hasLogo ? (
-                  <Image
-                    src="/branding/kronix/header-logo.png"
-                    alt="KroniX"
-                    fill
-                    className="object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)] scale-130 -translate-x-3 translate-y-1"
-                    onError={() => setHasLogo(false)}
-                    priority
+                  <div
+                    role="img"
+                    aria-label="KroniX"
+                    className="h-full w-full bg-contain bg-center bg-no-repeat drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)] scale-130 -translate-x-3 translate-y-1"
+                    style={{
+                      backgroundImage:
+                        "var(--kx-header-logo, url('/branding/kronix/header-logo.png'))",
+                    }}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center rounded-2xl bg-white/10 text-[24px] font-black text-white backdrop-blur">
