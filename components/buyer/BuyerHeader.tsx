@@ -333,8 +333,8 @@ export default function BuyerHeader() {
         <div
           className="
             relative overflow-hidden
-            border-b border-white
-            px-3 pt-2 pb-2
+border-b-0
+px-3 pt-2 pb-2
           "
           style={{
             background:

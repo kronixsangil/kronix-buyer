@@ -91,11 +91,12 @@ function themeValue(value: string | null | undefined, fallback: string) {
 }
 
 function themeGradient(theme: ApiStoreTheme | null) {
+  const pageBg = themeValue(theme?.pageBg, "#ffffff");
   const from = themeValue(theme?.gradientFrom || theme?.headerBg || theme?.secondaryColor, "#03102b");
   const mid = themeValue(theme?.secondaryColor || theme?.headerBg, "#0b356d");
   const to = themeValue(theme?.gradientTo || theme?.primaryColor, "#08b256");
 
-  return `linear-gradient(180deg, ${from} 0%, ${mid} 45%, ${to} 100%)`;
+  return `linear-gradient(180deg, ${from} 0%, ${mid} 42%, ${to} 72%, ${pageBg} 100%)`;
 }
 
 
@@ -319,13 +320,11 @@ export default function StoreDetailPage() {
       style={{ background: themeValue(theme?.pageBg, "#ffffff"), color: themeValue(theme?.textPrimary, "#020617") }}
     >
       
-      <div className="relative overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.07)] ring-1 ring-black/5">
-        <div
-  className="pointer-events-none absolute left-0 right-0 top-0 h-10"
-  style={{
-    background: `linear-gradient(180deg, ${themeValue(theme?.headerBg, "#03102b")} 0%, ${themeValue(theme?.pageBg, "#ffffff")} 100%)`,
-  }}
-/>
+      <div
+  className="relative -mt-[1px] overflow-hidden rounded-[24px] shadow-[0_10px_30px_rgba(15,23,42,0.07)] ring-1 ring-black/5"
+  style={{ background: themeValue(theme?.pageBg, "#ffffff") }}
+>
+       
         <div className="relative h-[170px] w-full bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200">
           {bannerImage ? (
             <Image src={bannerImage} alt={store.name} fill className="object-cover" sizes="100vw" />
