@@ -311,11 +311,17 @@ export default function StoreDetailPage() {
 
   return (
     <div
-      className="relative min-h-screen px-3 pb-28 pt-2"
+      className="relative min-h-screen px-3 pb-20 pt-0"
       style={{ background: themeValue(theme?.pageBg, "#ffffff"), color: themeValue(theme?.textPrimary, "#020617") }}
     >
       
       <div className="relative overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.07)] ring-1 ring-black/5">
+        <div
+  className="pointer-events-none absolute left-0 right-0 top-0 h-10"
+  style={{
+    background: `linear-gradient(180deg, ${themeValue(theme?.headerBg, "#03102b")} 0%, ${themeValue(theme?.pageBg, "#ffffff")} 100%)`,
+  }}
+/>
         <div className="relative h-[170px] w-full bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200">
           {bannerImage ? (
             <Image src={bannerImage} alt={store.name} fill className="object-cover" sizes="100vw" />
@@ -395,7 +401,8 @@ export default function StoreDetailPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Buscar productos..."
-                    className="w-full bg-transparent text-[14px] font-medium text-slate-800 outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent text-[14px] font-medium outline-none placeholder:text-slate-400"
+style={{ color: themeValue(theme?.textPrimary, "#020617") }}
                   />
                 </div>
 
@@ -419,6 +426,7 @@ export default function StoreDetailPage() {
             notes: `Datos desde BD (CTCC) · Ciudad activa: ${cityLabel}.`,
           }}
           reviews={reviews}
+          theme={theme ?? undefined}
         />
       </div>
 

@@ -25,11 +25,16 @@ export default function StoreTabs({
   images,
   storeInfo,
   reviews,
+  theme,
 }: {
   menu: React.ReactNode;
   images: React.ReactNode;
   storeInfo: Info;
   reviews: Review[];
+  theme?: {
+    buttonBg?: string;
+    buttonTextColor?: string;
+  };
 }) {
   const [tab, setTab] = useState<TabKey>("menu");
 
@@ -43,9 +48,17 @@ export default function StoreTabs({
         className={[
           "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-extrabold transition-all",
           active
-            ? "bg-[#08b256] text-white shadow-[0_8px_18px_rgba(8,178,86,0.22)]"
+            ? ""
             : "bg-transparent text-slate-700 hover:bg-white hover:shadow-[0_8px_18px_rgba(15,23,42,0.04)]",
         ].join(" ")}
+        style={
+  active
+    ? {
+        backgroundColor: theme?.buttonBg ?? "#08b256",
+        color: theme?.buttonTextColor ?? "#ffffff",
+      }
+    : undefined
+}
       >
         <span className="text-[14px] leading-none">{icon}</span>
         <span className="truncate">{label}</span>
