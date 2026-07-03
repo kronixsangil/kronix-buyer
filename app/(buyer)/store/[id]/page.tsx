@@ -399,12 +399,12 @@ export default function StoreDetailPage() {
               <div className="flex items-center gap-2.5">
                 <div className="flex h-11 flex-1 items-center rounded-full px-4 shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
                   style={{ background: themeValue(theme?.inputBg, "#ffffff"), borderColor: themeValue(theme?.inputBorder, "rgba(0,0,0,0.05)") }}>
-                  <span className="mr-2.5 text-[18px] leading-none text-slate-500">⌕</span>
+                  <span className="mr-2.5 text-[18px] leading-none text-gray-600">⌕</span>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Buscar productos..."
-                    className="w-full bg-transparent text-[14px] font-medium outline-none placeholder:text-gray-600"
+                    className="w-full bg-transparent text-[14px] font-medium outline-none placeholder:text-gray-400"
 style={{ color: themeValue(theme?.textPrimary, "#020617") }}
                   />
                 </div>
