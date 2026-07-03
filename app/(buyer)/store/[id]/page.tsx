@@ -1,7 +1,7 @@
 // app/(buyer)/store/[id]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import StoreTabs from "@/components/buyer/StoreTabs";
@@ -26,7 +26,6 @@ type UiProduct = {
   storeId: string;
   storeCode?: string;
   image?: string | null;
-
   category?: string | null;
   categoryOrder?: number;
   displayOrder?: number;
@@ -47,6 +46,8 @@ type StoreReviewsResponse = {
   ratingCount: number;
   reviews: UiReview[];
 };
+
+type FilterMode = "ALL" | "RECOMMENDED" | "AVAILABLE";
 
 const FAVORITE_STORES_KEY = "ct_favorite_stores";
 
@@ -73,9 +74,10 @@ function normalizeStoreTheme(store: ApiPublicStore | null): ApiStoreTheme | null
   if (!store) return null;
 
   const base = store.theme ?? null;
-  const custom = store.useCustomTheme && store.customThemeJson && typeof store.customThemeJson === "object"
-    ? store.customThemeJson
-    : null;
+  const custom =
+    store.useCustomTheme && store.customThemeJson && typeof store.customThemeJson === "object"
+      ? store.customThemeJson
+      : null;
 
   if (!base && !custom) return null;
 
@@ -90,6 +92,28 @@ function themeValue(value: string | null | undefined, fallback: string) {
   return raw || fallback;
 }
 
+function smartTextColor(
+  bg: string | null | undefined,
+  light = "#ffffff",
+  dark = "#020617",
+) {
+  const hex = String(bg ?? "")
+    .trim()
+    .replace("#", "");
+
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return dark;
+  }
+
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+  return brightness > 150 ? dark : light;
+}
+
 function themeGradient(theme: ApiStoreTheme | null) {
   const pageBg = themeValue(theme?.pageBg, "#ffffff");
   const from = themeValue(theme?.gradientFrom || theme?.headerBg || theme?.secondaryColor, "#03102b");
@@ -99,6 +123,14 @@ function themeGradient(theme: ApiStoreTheme | null) {
   return `linear-gradient(180deg, ${from} 0%, ${mid} 42%, ${to} 72%, ${pageBg} 100%)`;
 }
 
+function getCategories(products: UiProduct[]) {
+  const set = new Set<string>();
+  for (const p of products) {
+    const c = String(p.category ?? "").trim();
+    if (c) set.add(c);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+}
 
 export default function StoreDetailPage() {
   const params = useParams<{ id: string }>();
@@ -113,6 +145,11 @@ export default function StoreDetailPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [isFavorite, setIsFavorite] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filterMode, setFilterMode] = useState<FilterMode>("ALL");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!storeCode || !cityReady) {
@@ -174,6 +211,11 @@ export default function StoreDetailPage() {
     }
   }, [storeCode]);
 
+  useEffect(() => {
+    if (!searchOpen) return;
+    window.setTimeout(() => searchInputRef.current?.focus(), 80);
+  }, [searchOpen]);
+
   const toggleFavorite = () => {
     if (!storeCode) return;
 
@@ -223,19 +265,33 @@ export default function StoreDetailPage() {
     }));
   }, [products, store, storeCode]);
 
+  const categories = useMemo(() => getCategories(uiProducts), [uiProducts]);
+
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return uiProducts;
 
     return uiProducts.filter((p) => {
+      if (filterMode === "RECOMMENDED" && !p.isRecommended) return false;
+      if (selectedCategory && String(p.category ?? "") !== selectedCategory) return false;
+
+      if (!q) return true;
+
       const name = p.name.toLowerCase();
       const desc = (p.desc || "").toLowerCase();
       const info = (p.info || "").toLowerCase();
-      return name.includes(q) || desc.includes(q) || info.includes(q);
+      const category = String(p.category ?? "").toLowerCase();
+      return name.includes(q) || desc.includes(q) || info.includes(q) || category.includes(q);
     });
-  }, [query, uiProducts]);
+  }, [filterMode, query, selectedCategory, uiProducts]);
 
+  const hasActiveFilters = Boolean(query.trim() || selectedCategory || filterMode !== "ALL");
 
+  function clearSearchAndFilters() {
+    setQuery("");
+    setSelectedCategory("");
+    setFilterMode("ALL");
+    setFiltersOpen(false);
+  }
 
   useEffect(() => {
     const root = document.documentElement;
@@ -249,6 +305,8 @@ export default function StoreDetailPage() {
       root.style.removeProperty("--kx-primary");
       root.style.removeProperty("--kx-button-bg");
       root.style.removeProperty("--kx-button-text");
+      root.style.removeProperty("--kx-page-bg");
+      root.style.removeProperty("--kx-header-bg");
       return;
     }
 
@@ -284,7 +342,8 @@ export default function StoreDetailPage() {
           {gallery.map((img, idx) => (
             <div
               key={`${store?.storeCode ?? "store"}-gallery-${idx}`}
-              className="relative aspect-[1/1] overflow-hidden rounded-[18px] bg-white shadow-[0_6px_18px_rgba(15,23,42,0.07)] ring-1 ring-black/5"
+              className="relative aspect-[1/1] overflow-hidden rounded-[18px] shadow-[0_6px_18px_rgba(15,23,42,0.07)] ring-1 ring-black/5"
+              style={{ background: themeValue(theme?.cardBg, "#ffffff") }}
             >
               <Image
                 src={img}
@@ -297,7 +356,13 @@ export default function StoreDetailPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-[18px] bg-white p-4 text-sm text-gray-500 shadow-[0_6px_18px_rgba(15,23,42,0.05)] ring-1 ring-black/5">
+        <div
+          className="rounded-[18px] p-4 text-sm shadow-[0_6px_18px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
+          style={{
+            background: themeValue(theme?.cardBg, "#ffffff"),
+            color: themeValue(theme?.textSecondary, "#6b7280"),
+          }}
+        >
           Esta tienda todavía no tiene imágenes adicionales.
         </div>
       )}
@@ -317,14 +382,15 @@ export default function StoreDetailPage() {
   return (
     <div
       className="relative min-h-screen px-3 pb-20 pt-0"
-      style={{ background: themeValue(theme?.pageBg, "#ffffff"), color: themeValue(theme?.textPrimary, "#020617") }}
+      style={{
+        background: themeValue(theme?.pageBg, "#ffffff"),
+        color: themeValue(theme?.textPrimary, "#020617"),
+      }}
     >
-      
       <div
-  className="relative -mt-[1px] overflow-hidden rounded-[24px] shadow-[0_10px_30px_rgba(15,23,42,0.07)] ring-1 ring-black/5"
-  style={{ background: themeValue(theme?.pageBg, "#ffffff") }}
->
-       
+        className="relative -mt-[1px] overflow-hidden rounded-[24px] shadow-[0_10px_30px_rgba(15,23,42,0.07)] ring-1 ring-black/5"
+        style={{ background: themeValue(theme?.pageBg, "#ffffff") }}
+      >
         <div className="relative h-[170px] w-full bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200">
           {bannerImage ? (
             <Image src={bannerImage} alt={store.name} fill className="object-cover" sizes="100vw" />
@@ -348,6 +414,60 @@ export default function StoreDetailPage() {
             </span>
           </button>
 
+          <div className="absolute bottom-4 right-3 z-30 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchOpen((prev) => {
+                  const next = !prev;
+                  if (next) setFiltersOpen(false);
+                  return next;
+                });
+              }}
+              className="flex h-11 w-11 items-center justify-center rounded-full transition hover:scale-[1.05] active:scale-[0.96]"
+              aria-label={searchOpen ? "Ocultar buscador" : "Buscar productos"}
+            >
+              <Image
+                src="/branding/kronix/lupa.png"
+                alt="Buscar"
+                width={46}
+                height={46}
+                className="h-11 w-11 object-contain drop-shadow-[0_8px_14px_rgba(0,0,0,0.40)]"
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setFiltersOpen((prev) => {
+                  const next = !prev;
+                  if (next) setSearchOpen(false);
+                  return next;
+                });
+              }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/20 backdrop-blur-md transition hover:scale-[1.03] active:scale-[0.96]"
+              style={{
+                background: themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256"),
+                color: smartTextColor(themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256")),
+              }}
+              aria-label="Filtros"
+            >
+              <span className="text-[18px] leading-none">☰</span>
+              {hasActiveFilters ? (
+                <span
+                  className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-black shadow ring-2"
+                  style={{
+                    background: themeValue(theme?.badgeBg, "#ef4444"),
+                    color: smartTextColor(themeValue(theme?.badgeBg, "#ef4444")),
+                    borderColor: themeValue(theme?.pageBg, "#ffffff"),
+                  }}
+                >
+                  !
+                </span>
+              ) : null}
+            </button>
+          </div>
+
           <div className="absolute bottom-0 left-0 right-0 p-3">
             <div className="flex items-end gap-3">
               <div className="relative h-[70px] w-[70px] flex-none overflow-hidden rounded-full border-[3px] border-white bg-white shadow-[0_10px_24px_rgba(0,0,0,0.15)]">
@@ -361,8 +481,13 @@ export default function StoreDetailPage() {
                   <h1 className="truncate text-[18px] font-extrabold tracking-[-0.02em] text-white">
                     {store.name}
                   </h1>
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] shadow-sm"
-                    style={{ background: themeValue(theme?.primaryColor, "#16a34a"), color: themeValue(theme?.buttonTextColor, "#ffffff") }}>
+                  <span
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[12px] shadow-sm"
+                    style={{
+                      background: themeValue(theme?.primaryColor, "#16a34a"),
+                      color: themeValue(theme?.buttonTextColor, "#ffffff"),
+                    }}
+                  >
                     ✓
                   </span>
                 </div>
@@ -392,31 +517,158 @@ export default function StoreDetailPage() {
         </div>
       </div>
 
-      <div className="mt-2.5">
+      <div className="mt-2">
         <StoreTabs
           menu={
             <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-11 flex-1 items-center rounded-full px-4 shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
-                  style={{ background: themeValue(theme?.inputBg, "#ffffff"), borderColor: themeValue(theme?.inputBorder, "rgba(0,0,0,0.05)") }}>
-                  <span className="mr-2.5 text-[18px] leading-none text-gray-600">⌕</span>
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Buscar productos..."
-                    className="w-full bg-transparent text-[14px] font-medium outline-none placeholder:text-gray-400"
-style={{ color: themeValue(theme?.textPrimary, "#020617") }}
-                  />
-                </div>
+              <div className="relative">
+                {searchOpen ? (
+                  <div
+                    className="mb-2 rounded-[22px] p-2.5 shadow-[0_18px_45px_rgba(2,8,23,0.24)] ring-1 ring-black/10 backdrop-blur-xl"
+                    style={{
+                      background: `color-mix(in srgb, ${themeValue(theme?.cardBg || theme?.pageBg, "#ffffff")} 86%, ${themeValue(theme?.pageBg, "#ffffff")} 14%)`,
+                      color: themeValue(theme?.cardTextColor || theme?.textPrimary, "#020617"),
+                    }}
+                  >
+                    <div
+                      className="flex h-8 items-center rounded-full px-3 shadow-inner ring-1 ring-black/5"
+                      style={{
+                        background: themeValue(theme?.inputBg, "#ffffff"),
+                        borderColor: themeValue(theme?.inputBorder, "rgba(0,0,0,0.08)"),
+                      }}
+                    >
+                      <span
+                        className="mr-2 text-[14px] leading-none"
+                        style={{ color: smartTextColor(themeValue(theme?.inputBg, "#ffffff"), "#ffffff", "#64748b") }}
+                      >
+                        🔎
+                      </span>
 
-                <button
-                  type="button"
-                  className="flex h-11 w-11 items-center justify-center rounded-full shadow-[0_8px_20px_rgba(15,23,42,0.05)] ring-1 ring-black/5"
-                  style={{ background: themeValue(theme?.buttonBg || theme?.primaryColor, "#ffffff"), color: themeValue(theme?.buttonTextColor, "#334155") }}
-                  aria-label="Filtros"
-                >
-                  <span className="text-[18px] leading-none">☰</span>
-                </button>
+                      <input
+                        ref={searchInputRef}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Buscar productos..."
+                        className="w-full bg-transparent text-[13px] font-bold outline-none placeholder:text-slate-400"
+                        style={{ color: smartTextColor(themeValue(theme?.inputBg, "#ffffff")) }}
+                      />
+
+                      {query ? (
+                        <button
+                          type="button"
+                          onClick={() => setQuery("")}
+                          className="ml-2 text-[16px] font-black leading-none"
+                          style={{ color: smartTextColor(themeValue(theme?.inputBg, "#ffffff"), "#ffffff", "#64748b") }}
+                          aria-label="Limpiar búsqueda"
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {filtersOpen ? (
+                  <div
+                    className="mb-2 rounded-[22px] p-3 shadow-[0_18px_45px_rgba(2,8,23,0.28)] ring-1 ring-black/10 backdrop-blur-xl"
+                    style={{
+                      background: `color-mix(in srgb, ${themeValue(theme?.cardBg || theme?.pageBg, "#ffffff")} 88%, ${themeValue(theme?.pageBg, "#ffffff")} 12%)`,
+                      color: smartTextColor(themeValue(theme?.cardBg || theme?.pageBg, "#ffffff")),
+                    }}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div
+                        className="text-[13px] font-black"
+                        style={{ color: smartTextColor(themeValue(theme?.cardBg || theme?.pageBg, "#ffffff")) }}
+                      >
+                        Filtros
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={clearSearchAndFilters}
+                        className="rounded-full px-2 py-1 text-[11px] font-black"
+                        style={{ color: themeValue(theme?.primaryColor, "#08b256") }}
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setFilterMode("ALL")}
+                        className="rounded-full px-3 py-2 text-[12px] font-black shadow-sm ring-1 ring-black/5 transition active:scale-[0.98]"
+                        style={{
+                          background: filterMode === "ALL" ? themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256") : themeValue(theme?.inputBg, "#ffffff"),
+                          color: filterMode === "ALL"
+                            ? smartTextColor(themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256"))
+                            : smartTextColor(themeValue(theme?.inputBg, "#ffffff")),
+                        }}
+                      >
+                        Todos
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilterMode("RECOMMENDED")}
+                        className="rounded-full px-3 py-2 text-[12px] font-black shadow-sm ring-1 ring-black/5 transition active:scale-[0.98]"
+                        style={{
+                          background: filterMode === "RECOMMENDED" ? themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256") : themeValue(theme?.inputBg, "#ffffff"),
+                          color: filterMode === "RECOMMENDED"
+                            ? smartTextColor(themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256"))
+                            : smartTextColor(themeValue(theme?.inputBg, "#ffffff")),
+                        }}
+                      >
+                        Recomendados
+                      </button>
+                    </div>
+
+                    {categories.length ? (
+                      <div className="mt-3">
+                        <div
+                          className="mb-1.5 text-[10px] font-black uppercase tracking-[0.14em]"
+                          style={{ color: themeValue(theme?.textSecondary, "#64748b") }}
+                        >
+                          Categoría
+                        </div>
+
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCategory("")}
+                            className="flex-none rounded-full px-3 py-2 text-[12px] font-black shadow-sm ring-1 ring-black/5 transition active:scale-[0.98]"
+                            style={{
+                              background: !selectedCategory ? themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256") : themeValue(theme?.inputBg, "#ffffff"),
+                              color: !selectedCategory
+                                ? smartTextColor(themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256"))
+                                : smartTextColor(themeValue(theme?.inputBg, "#ffffff")),
+                            }}
+                          >
+                            Todas
+                          </button>
+
+                          {categories.map((category) => (
+                            <button
+                              key={category}
+                              type="button"
+                              onClick={() => setSelectedCategory(category)}
+                              className="flex-none rounded-full px-3 py-2 text-[12px] font-black shadow-sm ring-1 ring-black/5 transition active:scale-[0.98]"
+                              style={{
+                                background: selectedCategory === category ? themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256") : themeValue(theme?.inputBg, "#ffffff"),
+                                color: selectedCategory === category
+                                  ? smartTextColor(themeValue(theme?.buttonBg || theme?.primaryColor, "#08b256"))
+                                  : smartTextColor(themeValue(theme?.inputBg, "#ffffff")),
+                              }}
+                            >
+                              {category}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <ProductList products={filteredProducts as any} theme={theme} />
