@@ -115,7 +115,7 @@ export default function BottomNav() {
         className="relative"
         style={{
           background:
-            "linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--kx-bottom-nav-bg, #0a3566) 22%, #ffffff) 18%, var(--kx-bottom-nav-bg, #0a3566) 78%, #03102b 100%)",
+            "linear-gradient(180deg, var(--kx-page-bg, #ffffff) 0%, color-mix(in srgb, var(--kx-bottom-nav-bg, #0a3566) 28%, var(--kx-page-bg, #ffffff)) 18%, var(--kx-bottom-nav-bg, #0a3566) 78%, #03102b 100%)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >

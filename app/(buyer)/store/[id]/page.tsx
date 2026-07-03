@@ -259,6 +259,8 @@ export default function StoreDetailPage() {
     root.style.setProperty("--kx-primary", themeValue(theme.primaryColor, "#08b256"));
     root.style.setProperty("--kx-button-bg", themeValue(theme.buttonBg || theme.primaryColor, "#08b256"));
     root.style.setProperty("--kx-button-text", themeValue(theme.buttonTextColor, "#ffffff"));
+    root.style.setProperty("--kx-page-bg", themeValue(theme.pageBg, "#ffffff"));
+    root.style.setProperty("--kx-header-bg", themeValue(theme.headerBg, "#03102b"));
 
     return () => {
       root.style.removeProperty("--kx-header-gradient");
@@ -269,6 +271,8 @@ export default function StoreDetailPage() {
       root.style.removeProperty("--kx-primary");
       root.style.removeProperty("--kx-button-bg");
       root.style.removeProperty("--kx-button-text");
+      root.style.removeProperty("--kx-page-bg");
+      root.style.removeProperty("--kx-header-bg");
     };
   }, [theme]);
 

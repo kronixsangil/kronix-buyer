@@ -328,7 +328,7 @@ export default function BuyerHeader() {
 
   return (
   <>
-    <header className="sticky top-0 z-40 border-b border-white bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b-0 bg-transparent backdrop-blur">
       <div className="relative w-full">
         <div
           className="
@@ -338,7 +338,7 @@ export default function BuyerHeader() {
           "
           style={{
             background:
-              "var(--kx-header-gradient, linear-gradient(180deg, #03102b 0%, #0b356d 42%, #4a79b7 70%, #ffffff 100%))",
+              "var(--kx-header-gradient, linear-gradient(180deg, #03102b 0%, #0b356d 42%, #4a79b7 70%, var(--kx-page-bg, #ffffff) 100%))",
           }}
         >
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_32%,transparent)]" />
