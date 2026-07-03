@@ -267,7 +267,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
     ? "top-0"
     : pathname === "/comprar"
       ? "top-[138px]"
-      : "top-[104px]";
+      : "top-[96px]";
 
   return (
     <CartProvider>
@@ -275,7 +275,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
         <BuyerCityProvider>
           <div className="fixed inset-0 overflow-hidden bg-[#03102b] buyer-app-shell">
             <div className="mx-auto h-[100dvh] w-full max-w-md overflow-hidden bg-[#03102b] shadow-lg md:my-4 md:h-[calc(100dvh-2rem)] md:rounded-[28px] md:ring-1 md:ring-black/10">
-              <div className="relative h-full w-full overflow-hidden bg-gray-50">
+              <div className="relative h-full w-full overflow-hidden" style={{ background: "var(--kx-page-bg, #f8fafc)" }}>
                 <SessionExpiredModal />
 
                 {!hideGlobalHeader ? (
@@ -291,7 +291,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
                     "touch-pan-y scroll-smooth bg-gray-50",
                     hideBottomNav
                       ? `${hideGlobalHeader ? "top-0" : topClass} bottom-0 pb-[calc(96px+env(safe-area-inset-bottom))]`
-                      : `${topClass} bottom-[calc(88px+env(safe-area-inset-bottom))] pb-4`,
+                      : `${topClass} bottom-[calc(76px+env(safe-area-inset-bottom))] pb-2`,
                   ].join(" ")}
                 >
                   <Suspense fallback={<AuthGateFallback />}>
