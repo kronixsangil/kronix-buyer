@@ -404,7 +404,7 @@ export default function StoreDetailPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Buscar productos..."
-                    className="w-full bg-transparent text-[14px] font-medium outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent text-[14px] font-medium outline-none placeholder:text-gray-600"
 style={{ color: themeValue(theme?.textPrimary, "#020617") }}
                   />
                 </div>
