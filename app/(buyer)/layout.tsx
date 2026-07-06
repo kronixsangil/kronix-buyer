@@ -266,7 +266,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
   const topClass = hideGlobalHeader
     ? "top-0"
     : pathname === "/comprar"
-      ? "top-[138px]"
+      ? "top-[96px]"
       : "top-[96px]";
 
   return (

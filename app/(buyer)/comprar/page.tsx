@@ -238,16 +238,46 @@ function getStoreRatingText(store: ApiPublicStore) {
 function CategoryRow({
   items,
   active,
+  query,
+  searchOpen,
   onChange,
+  onToggleSearch,
+  onQueryChange,
 }: {
   items: Array<{ id: string; name: string; emoji: string }>;
   active: string;
+  query: string;
+  searchOpen: boolean;
   onChange: (id: string) => void;
+  onToggleSearch: () => void;
+  onQueryChange: (value: string) => void;
 }) {
   return (
-    <div className="mt-1">
-      <div className="no-scrollbar -mx-4 overflow-x-auto px-4">
-        <div className="flex w-max items-center gap-3">
+    <div className="mt-1 space-y-1.5">
+      <div className="no-scrollbar -mx-3 overflow-x-auto px-3">
+        <div className="flex w-max items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleSearch}
+            className="relative flex h-10 w-10 flex-none items-center justify-center overflow-visible rounded-full transition active:scale-95"
+            aria-label={searchOpen ? "Cerrar búsqueda" : "Abrir búsqueda"}
+          >
+            {searchOpen ? (
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-950/85 text-[18px] font-black text-white shadow-sm ring-1 ring-white/60">
+                ×
+              </span>
+            ) : (
+              <Image
+                src="/branding/kronix/lupa.png"
+                alt="Buscar"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-contain drop-shadow-sm"
+                priority={false}
+              />
+            )}
+          </button>
+
           {items.map((c) => {
             const selected = c.id === active;
 
@@ -257,10 +287,10 @@ function CategoryRow({
                 type="button"
                 onClick={() => onChange(c.id)}
                 className={[
-                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[13px] transition-all shadow-sm",
+                  "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-[13px] transition-all shadow-sm",
                   selected
                     ? "border-slate-300 bg-white font-extrabold text-slate-900 ring-1 ring-slate-200"
-                    : "border-gray-200 bg-white font-medium text-gray-600 hover:bg-gray-50",
+                    : "border-gray-200 bg-white font-bold text-gray-600 hover:bg-gray-50",
                 ].join(" ")}
               >
                 <span aria-hidden="true">{c.emoji}</span>
@@ -270,6 +300,28 @@ function CategoryRow({
           })}
         </div>
       </div>
+
+      {searchOpen ? (
+        <div className="flex h-10 items-center rounded-full bg-white px-4 shadow-sm ring-1 ring-black/10">
+          <span className="mr-2 text-[15px] leading-none text-slate-400">⌕</span>
+          <input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="¿Qué estás buscando?"
+            className="w-full bg-transparent text-[13px] font-semibold text-slate-900 outline-none placeholder:text-slate-400"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => onQueryChange("")}
+              className="ml-2 text-[13px] font-black text-slate-400"
+              aria-label="Limpiar búsqueda"
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <style jsx>{`
         .no-scrollbar {
@@ -380,24 +432,6 @@ function StoreCard({
               sizes={`${imageWidth}px`}
             />
           ) : null}
-
-          {config.storeCardShowSticker ? (
-            <div
-              className={[
-                "absolute left-3 top-3 grid place-items-center shadow-sm ring-1",
-                sticker.bg,
-                sticker.ring,
-              ].join(" ")}
-              style={{
-                width: featured ? "48px" : "42px",
-                height: featured ? "48px" : "42px",
-                borderRadius: featured ? "16px" : "14px",
-                fontSize: featured ? "24px" : "20px",
-              }}
-            >
-              {sticker.emoji}
-            </div>
-          ) : null}
         </div>
 
         <div className="p-2">
@@ -412,7 +446,7 @@ function StoreCard({
 
           {config.storeCardShowDescription ? (
             <div
-              className="mt-1 line-clamp-2 text-slate-500"
+              className="font-extrabold text-blue-900"
               style={{ fontSize: `${subtitleSize}px` }}
             >
               {subtitle}
@@ -445,28 +479,17 @@ function StoreCard({
             </div>
           ) : null}
 
-          {config.storeCardShowEta ? (
-            <div
-              className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5"
-              style={{ fontSize: `${metaSize}px` }}
-            >
-              <span className="font-extrabold text-green-700">Domicilio:</span>
-              <span className="font-extrabold text-green-700">$4.500</span>
-              <span className="font-semibold text-slate-500">
-                {store.etaMin}–{store.etaMax} min
-              </span>
-            </div>
-          ) : null}
+          
 
           {config.storeCardShowExtraImages && extras.length ? (
-            <div className="mt-1 flex gap-2">
+            <div className="mt-0 flex gap-1">
               {extras.map((img, idx) => (
                 <div
                   key={`${store.storeCode}-extra-${idx}`}
                   className="relative overflow-hidden rounded-xl bg-slate-100"
                   style={{
-                    width: featured ? "64px" : "64px",
-                    height: "48px",
+                    width: featured ? "85px" : "85px",
+                    height: featured ? "58px" : "58px",
                   }}
                 >
                   <Image
@@ -479,14 +502,7 @@ function StoreCard({
                 </div>
               ))}
             </div>
-          ) : null}
-
-          {config.storeCardShowBadge ? (
-            <div className="mt-1 inline-flex max-w-full items-center gap-2 rounded-2xl bg-slate-100 px-3 py-1 text-sm font-bold text-slate-600">
-              <span>🏪</span>
-              <span className="truncate">{badgeText}</span>
-            </div>
-          ) : null}
+          ) : null}          
         </div>
       </div>
     </Link>
@@ -498,6 +514,7 @@ export default function HomePage() {
   const { citySlug, cityReady } = useBuyerCity();
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [stores, setStores] = useState<ApiPublicStore[]>([]);
   const [categories, setCategories] = useState<CategoryTab[]>([]);
@@ -659,7 +676,11 @@ export default function HomePage() {
           emoji: c.emoji || "✨",
         }))}
         active={activeCategory}
+        query={query}
+        searchOpen={searchOpen}
         onChange={setActiveCategory}
+        onToggleSearch={() => setSearchOpen((prev) => !prev)}
+        onQueryChange={setQuery}
       />
 
       {activeCategory === "all" && !q ? <KronixBannerSlider /> : null}

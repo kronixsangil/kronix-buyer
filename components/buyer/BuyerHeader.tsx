@@ -499,43 +499,7 @@ px-3 pt-2 pb-2
               </div>
             </div>
           </div>
-        </div>
-
-        {isShoppingHome ? (
-          <div className="px-4 pt-0.5 pb-2">
-            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
-              <span className="text-base text-gray-400" aria-hidden="true">
-                🔎
-              </span>
-
-              <input
-                suppressHydrationWarning
-                type="text"
-                placeholder="¿Qué estás buscando?"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-transparent text-[14px] outline-none placeholder:text-gray-400"
-              />
-
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                className="rounded-lg bg-green-600 px-3 py-1.5 text-[13px] font-extrabold text-white hover:bg-green-700"
-              >
-                Buscar
-              </button>
-            </div>
-          </div>
-        ) : null}
+        </div>       
 
         {isShoppingHome ? (
           <div
