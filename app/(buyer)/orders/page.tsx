@@ -57,6 +57,7 @@ function flowChipFromFlowStatus(
 
   if (f === "DELIVERED") return { text: "FINALIZADO", tone: "bg-green-50 text-green-700 ring-green-200" };
   if (f === "EN_ROUTE") return { text: "EN CAMINO", tone: "bg-blue-50 text-blue-800 ring-blue-200" };
+  if (f === "ASSIGNED") return { text: "ASIGNADO", tone: "bg-blue-50 text-blue-600 ring-blue-200" };
   if (f === "PREPARING") return { text: "BUSCANDO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
   if (f === "CANCELLED") return { text: "CANCELADO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
 
