@@ -44,12 +44,51 @@ export function getCourierServiceTypeFromSources(order: any, tracking: any): str
     .toUpperCase();
 }
 
+export function getServiceKeyFromSources(order: any, tracking: any): string {
+  const raw = String(
+    tracking?.serviceType ??
+      order?.serviceType ??
+      tracking?.courierServiceType ??
+      order?.courierServiceType ??
+      order?.courier?.courierServiceType ??
+      ""
+  )
+    .trim()
+    .toUpperCase();
+
+  if (raw === "MOTORCARGO" || raw === "MOTOCARGA") return "MOTORCARGO";
+  if (raw === "TAXI") return "TAXI";
+  if (raw === "PACKAGE" || raw === "SEND_PACKAGE") return "SEND_PACKAGE";
+  if (raw === "DELIVERY" || raw === "PICKUP_AND_DELIVERY") return "PICKUP_AND_DELIVERY";
+
+  const text = String(
+    order?.packageType ??
+      order?.courier?.packageType ??
+      tracking?.courier?.packageType ??
+      order?.packageDescription ??
+      order?.courier?.packageDescription ??
+      tracking?.courier?.packageDescription ??
+      order?.customerNote ??
+      ""
+  )
+    .trim()
+    .toUpperCase();
+
+  if (text.includes("MOTOCARGA") || text.includes("MOTORCARGO")) return "MOTORCARGO";
+  if (text.includes("TAXI")) return "TAXI";
+  if (text.includes("KRONIX ENVÍOS") || text.includes("KRONIX ENVIOS") || text.includes("SEND_PACKAGE")) return "SEND_PACKAGE";
+  if (text.includes("DOMICILIO EXPRESS") || text.includes("PICKUP_AND_DELIVERY")) return "PICKUP_AND_DELIVERY";
+
+  return raw;
+}
+
 export function getCourierServiceLabel(serviceType?: CourierServiceType) {
   const t = String(serviceType ?? "").trim().toUpperCase();
 
-  if (t === "SEND_PACKAGE") return "KroniX Envíos";
-  if (t === "ERRAND") return "Domicilios y Diligencias";
-  if (t === "PICKUP_AND_DELIVERY") return "Domicilio Express";
+  if (t === "TAXI") return "Taxi";
+  if (t === "MOTORCARGO" || t === "MOTOCARGA") return "Motocarga";
+  if (t === "SEND_PACKAGE" || t === "PACKAGE") return "KroniX Envíos";
+  if (t === "PICKUP_AND_DELIVERY" || t === "DELIVERY") return "Domicilio Express";
 
   return "Servicio KroniX";
 }
@@ -61,38 +100,26 @@ export function getContextualFlowSteps(args: {
   if (!args.isCourier) return FLOW_STEPS;
 
   const t = String(args.courierServiceType ?? "").trim().toUpperCase();
+  const serviceLabel = getCourierServiceLabel(t);
+  const workerLabel = t === "TAXI" ? "taxista" : t === "MOTORCARGO" ? "motocarguero" : "worker";
 
   if (t === "SEND_PACKAGE") {
     return [
-      { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos preparando tu envío" },
-      { key: "STORE_CONFIRMED", label: "Envío confirmado", hint: "Ya puedes realizar el pago" },
-      { key: "PAYMENT_PENDING", label: "Procesando pago", hint: "Estamos validando tu pago" },
-      { key: "PAID", label: "Pago aprobado", hint: "Buscaremos conductor para tu envío" },
-      { key: "PREPARING", label: "Recogiendo paquete", hint: "El conductor se dirige al punto de recogida" },
+      { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos registrando tu envío" },
+      { key: "STORE_CONFIRMED", label: "Envío confirmado", hint: "Buscaremos un motorizado disponible" },
+      { key: "PAID", label: "Buscando motorizado", hint: "Tu solicitud ya está disponible para los workers autorizados" },
+      { key: "PREPARING", label: "Recogiendo paquete", hint: "El motorizado se dirige al punto de recogida" },
       { key: "EN_ROUTE", label: "En camino", hint: "Tu paquete va hacia el destino" },
       { key: "DELIVERED", label: "Entregado", hint: "Tu envío fue completado" },
     ];
   }
 
-  if (t === "ERRAND") {
-    return [
-      { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos revisando tu diligencia" },
-      { key: "STORE_CONFIRMED", label: "Diligencia confirmada", hint: "Ya puedes realizar el pago" },
-      { key: "PAYMENT_PENDING", label: "Procesando pago", hint: "Estamos validando tu pago" },
-      { key: "PAID", label: "Pago aprobado", hint: "Buscaremos conductor para ayudarte" },
-      { key: "PREPARING", label: "Realizando diligencia", hint: "El conductor está gestionando tu solicitud" },
-      { key: "EN_ROUTE", label: "Servicio en curso", hint: "Tu diligencia sigue en proceso" },
-      { key: "DELIVERED", label: "Finalizado", hint: "Tu diligencia fue completada" },
-    ];
-  }
-
   return [
-    { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos revisando tu servicio" },
-    { key: "STORE_CONFIRMED", label: "Servicio confirmado", hint: "Ya puedes realizar el pago" },
-    { key: "PAYMENT_PENDING", label: "Procesando pago", hint: "Estamos validando tu pago" },
-    { key: "PAID", label: "Pago aprobado", hint: "Buscaremos conductor para tu servicio" },
-    { key: "PREPARING", label: "Coordinando recogida", hint: "El conductor se dirige al punto de recogida" },
-    { key: "EN_ROUTE", label: "En camino", hint: "Tu servicio va hacia el destino" },
+    { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: `Estamos registrando tu servicio ${serviceLabel}` },
+    { key: "STORE_CONFIRMED", label: "Servicio confirmado", hint: `Buscaremos un ${workerLabel} disponible` },
+    { key: "PAID", label: `Buscando ${workerLabel}`, hint: "Tu solicitud ya está disponible para los workers autorizados" },
+    { key: "PREPARING", label: "Worker asignado", hint: `El ${workerLabel} se dirige al punto indicado` },
+    { key: "EN_ROUTE", label: "Servicio en curso", hint: "El servicio ya está en proceso" },
     { key: "DELIVERED", label: "Finalizado", hint: "Tu servicio fue completado" },
   ];
 }

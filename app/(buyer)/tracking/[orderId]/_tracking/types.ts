@@ -253,6 +253,8 @@ export type TrackingViewModel = {
 
   orderType: ApiOrderType;
   isCourier: boolean;
+  courierServiceType: string;
+  isServiceOrder: boolean;
   courierData: {
     pickupAddress: string | null;
     pickupLat: number | null;
@@ -303,6 +305,3 @@ export type TrackingViewModel = {
 };
 
 export type { Order, PaymentMethod, StoreState };
-
-
-

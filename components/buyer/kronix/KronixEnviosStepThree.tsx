@@ -59,58 +59,8 @@ type CreateCourierOrderResponse = {
   totalCOP: number;
   createdAt: string;
   orderType: "COURIER" | "STORE";
+  serviceType?: string | null;
 };
-
-type CourierZoneCalculateResponse = {
-  serviceType: "PICKUP_AND_DELIVERY" | "SEND_PACKAGE" | "ERRAND";
-  zone: {
-    id: string;
-    zoneNumber: number;
-    name: string;
-    isNegotiable: boolean;
-    isInsideCoverage: boolean;
-  };
-  pricing: {
-    baseServiceCOP: number;
-    zoneFeeCOP: number;
-    serviceFeeCOP: number;
-    packageLargeFeeCOP: number;
-    additionalPointsFeeCOP: number;
-    returnFeeCOP: number;
-    complexityFeeCOP: number;
-    tipCOP: number;
-    totalCOP: number;
-  };
-  message: string;
-};
-type WalletResponse = {
-  ok?: boolean;
-  wallet?: {
-    id: string;
-    userId: string;
-    cityId: string;
-    cashBalanceCOP: number;
-    bonusBalanceCOP: number;
-    totalAvailableCOP: number;
-    isActive: boolean;
-    createdAt?: string;
-    updatedAt?: string;
-  } | null;
-};
-
-
-function formatCOP(value: number) {
-  return Number(value || 0).toLocaleString("es-CO", {
-    style: "currency",
-    currency: "COP",
-    maximumFractionDigits: 0,
-  });
-}
-
-function getSafeMoney(value: unknown) {
-  const n = Math.round(Number(value ?? 0));
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
 
 function cleanPhone(value: unknown) {
   return String(value ?? "").replace(/\D/g, "").slice(0, 15);
@@ -141,7 +91,8 @@ function buildPickupDraftFromAddress(
   const addressAddress = String(address?.address ?? "").trim();
   const addressReference = String(address?.reference ?? "").trim();
 
-  const pickupPlaceName = appPlaceName || addressPlaceName || "Punto de recogida KroniX Plus";
+  const pickupPlaceName =
+    appPlaceName || addressPlaceName || "Punto de recogida KroniX Plus";
   const pickupAddress = appAddress || addressAddress;
   const pickupReference = appReference || addressReference;
 
@@ -162,7 +113,8 @@ function buildPickupDraftFromAddress(
 
     dropoffPlaceName: "Destino definido en sitio",
     dropoffAddress: pickupAddress,
-    dropoffReference: "El motorizado recibirá la información del envío en el punto de recogida.",
+    dropoffReference:
+      "El motorizado recibirá la información del envío en el punto de recogida.",
     dropoffLat:
       address?.lat != null && Number.isFinite(Number(address.lat))
         ? Number(address.lat)
@@ -173,18 +125,16 @@ function buildPickupDraftFromAddress(
         : null,
     dropoffUseCurrentLocation: false,
 
-    packageType: "KroniX Plus autorizado",
+    packageType: "KroniX Envíos",
     packageDescription:
-      "Servicio KroniX Envíos Plus de un toque. Paquete/destino final definidos en sitio según condiciones aprobadas para el cliente.",
+      "Servicio KroniX Envíos Plus de un toque. Paquete/destino final definidos en sitio.",
     senderName:
       String(app?.contactName ?? "").trim() ||
       String(address?.contactName ?? "").trim() ||
       profileName ||
       "Contacto KroniX Plus",
     senderPhone:
-      cleanPhone(app?.phone) ||
-      cleanPhone(address?.contactPhone) ||
-      profilePhone,
+      cleanPhone(app?.phone) || cleanPhone(address?.contactPhone) || profilePhone,
     receiverName: "Motorizado confirma en sitio",
     receiverPhone: "",
     notes: "",
@@ -208,7 +158,6 @@ function InfoLine({
       <div className="text-[13px] font-medium leading-tight text-slate-500">
         {label}
       </div>
-
       <div
         className={[
           "break-words text-right text-[14px] leading-tight",
@@ -221,130 +170,15 @@ function InfoLine({
   );
 }
 
-function PriceLine({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-[5px] last:border-b-0">
-      <div
-        className={
-          highlight
-            ? "text-[14px] font-black text-slate-950"
-            : "text-[14px] font-semibold text-slate-600"
-        }
-      >
-        {label}
-      </div>
-      <div
-        className={
-          highlight
-            ? "text-[17px] font-black text-slate-950"
-            : "text-[14px] font-black text-slate-900"
-        }
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ConfirmationModal({
-  open,
-  submitting,
-  totalCOP,
-  walletAvailableCOP,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  submitting: boolean;
-  totalCOP: number;
-  walletAvailableCOP: number;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-[390px] overflow-hidden rounded-[28px] bg-white shadow-2xl ring-1 ring-black/10">
-        <div className="relative px-5 pb-5 pt-5 text-white">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.28),transparent_34%),linear-gradient(135deg,#03102b_0%,#082b63_55%,#0f172a_100%)]" />
-          <div className="relative z-10">
-            <div className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-100">
-              Confirmación KroniX
-            </div>
-            <div className="mt-2 text-[22px] font-black leading-tight">
-              Confirmar y pagar con Wallet
-            </div>
-            <div className="mt-2 text-[13px] font-semibold leading-5 text-white/85">
-              KroniX descontará el valor estimado de tu Wallet y creará el envío de inmediato.
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3 p-5">
-          <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3">
-            <div className="flex items-center justify-between gap-3 text-[13px] font-black text-emerald-950">
-              <span>Saldo Wallet</span>
-              <span>{formatCOP(walletAvailableCOP)}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between gap-3 border-t border-emerald-100 pt-2 text-[13px] font-black text-emerald-950">
-              <span>Valor a descontar</span>
-              <span>{formatCOP(totalCOP)}</span>
-            </div>
-          </div>
-
-          <div className="rounded-[22px] border border-blue-200 bg-blue-50 px-4 py-3 text-[13px] font-bold leading-5 text-blue-900">
-            El valor mostrado es una estimación inicial y puede variar por lluvias,
-            tráfico, tiempos de espera, distancias superiores a las previstas,
-            paquetes grandes, pesados, voluminosos o cualquier condición especial
-            detectada durante la prestación del servicio.
-            El motorizado podrá realizar cobro extra en efectivo en caso de que 
-            se presenten estas condiciones.
-          </div>         
-
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={submitting}
-              className="rounded-[22px] border border-slate-200 bg-white px-4 py-3 text-[14px] font-black text-slate-800 shadow-sm disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={submitting}
-              className="rounded-[22px] bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] px-4 py-3 text-[14px] font-black text-white shadow-[0_12px_22px_rgba(5,150,105,0.24)] disabled:opacity-60"
-            >
-              {submitting ? "Pagando..." : "Aceptar y pagar"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function KronixEnviosStepThree() {
   const router = useRouter();
   const { isAuthed, isLoading: authLoading, user } = useAuth();
-  const { city, citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
+  const { citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
 
   const [draft, setDraft] = useState<KronixEnviarDraft>(() =>
     loadKronixEnviarDraft()
   );
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -355,15 +189,6 @@ export default function KronixEnviosStepThree() {
   const [pickupLoading, setPickupLoading] = useState(true);
   const [pickupError, setPickupError] = useState<string | null>(null);
 
-  const [pricingLoading, setPricingLoading] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
-  const [zoneCalculation, setZoneCalculation] =
-    useState<CourierZoneCalculateResponse | null>(null);
-
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [walletError, setWalletError] = useState<string | null>(null);
-  const [wallet, setWallet] = useState<WalletResponse["wallet"] | null>(null);
-
   const ready = useMemo(() => {
     return (
       draft.pickupAddress.trim().length >= 8 &&
@@ -371,29 +196,6 @@ export default function KronixEnviosStepThree() {
       !!citySlug
     );
   }, [citySlug, draft.pickupAddress, draft.senderName]);
-
-  const pricing = useMemo(() => {
-    const apiPricing = zoneCalculation?.pricing;
-    return {
-      baseFee: getSafeMoney(apiPricing?.baseServiceCOP),
-      zoneFee: getSafeMoney(apiPricing?.zoneFeeCOP),
-      serviceFee: getSafeMoney(apiPricing?.serviceFeeCOP),
-      total: getSafeMoney(apiPricing?.totalCOP),
-      zoneNumber: zoneCalculation?.zone?.zoneNumber ?? null,
-      isNegotiable: Boolean(zoneCalculation?.zone?.isNegotiable),
-      deliveryFee:
-        getSafeMoney(apiPricing?.baseServiceCOP) +
-        getSafeMoney(apiPricing?.zoneFeeCOP),
-    };
-  }, [zoneCalculation]);
-
-  const walletAvailableCOP = useMemo(() => {
-    return Number(wallet?.totalAvailableCOP ?? 0);
-  }, [wallet?.totalAvailableCOP]);
-
-  const hasEnoughWalletBalance = useMemo(() => {
-    return walletAvailableCOP >= pricing.total && pricing.total > 0;
-  }, [pricing.total, walletAvailableCOP]);
 
   const isKronixPlusApproved = useMemo(() => {
     const userStatus = String(user?.kronixPlusStatus ?? "").toUpperCase();
@@ -439,8 +241,6 @@ export default function KronixEnviosStepThree() {
         return;
       }
 
-      // La decisión inicial sale del usuario global (/users/me).
-      // Esta consulta solo refresca datos de la solicitud en segundo plano.
       setStatusLoading(true);
 
       try {
@@ -530,124 +330,14 @@ export default function KronixEnviosStepThree() {
     return () => {
       alive = false;
     };
-  }, [cityReady, citySlug, isAuthed, user?.id, isKronixPlusApproved, kronixPlusStatus?.application]);
-
-  useEffect(() => {
-    let alive = true;
-
-    async function loadWallet() {
-      if (!isAuthed || !user?.id || !city?.id || !isKronixPlusApproved) {
-        if (!alive) return;
-        setWallet(null);
-        setWalletLoading(false);
-        return;
-      }
-
-      setWalletLoading(true);
-      setWalletError(null);
-
-      try {
-        const response = await apiFetch<WalletResponse>(
-          `/wallet/me?cityId=${encodeURIComponent(city.id)}`,
-          {
-            method: "GET",
-            suppressSessionExpiredEvent: true,
-          } as any
-        );
-
-        if (!alive) return;
-        setWallet(response?.wallet ?? null);
-      } catch (e: any) {
-        if (!alive) return;
-        setWallet(null);
-        setWalletError(
-          String(e?.message ?? "").trim() ||
-            "No pudimos consultar tu saldo KroniX Wallet."
-        );
-      } finally {
-        if (alive) setWalletLoading(false);
-      }
-    }
-
-    loadWallet();
-
-    return () => {
-      alive = false;
-    };
-  }, [isAuthed, user?.id, city?.id, isKronixPlusApproved]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function calculatePricing() {
-      setPricingError(null);
-      setZoneCalculation(null);
-
-      if (!ready || !citySlug) return;
-
-      setPricingLoading(true);
-
-      try {
-        const pickupGeo = await getPickupGeo();
-
-        if (!pickupGeo) {
-          if (!cancelled) {
-            setPricingError(
-              `No pudimos ubicar con precisión el punto de recogida en ${cityLabel}. Revisa la dirección.`
-            );
-          }
-          return;
-        }
-
-        const response = await apiFetch<CourierZoneCalculateResponse>(
-          "/courier/zones/calculate",
-          {
-            method: "POST",
-            json: {
-              citySlug,
-              serviceType: "SEND_PACKAGE",
-              points: [
-                {
-                  lat: pickupGeo.lat,
-                  lng: pickupGeo.lng,
-                  label: "Punto de recogida KroniX Envíos Plus",
-                  address: draft.pickupAddress.trim(),
-                },
-                {
-                  lat: pickupGeo.lat,
-                  lng: pickupGeo.lng,
-                  label: "Confirmación en sitio KroniX Envíos Plus",
-                  address: draft.pickupAddress.trim(),
-                },
-              ],
-              tipCOP: 0,
-              isLargePackage: false,
-            },
-          }
-        );
-
-        if (!cancelled) {
-          setZoneCalculation(response);
-        }
-      } catch (e: any) {
-        const err = e as ApiError;
-        if (!cancelled) {
-          setPricingError(
-            String(err?.message ?? "").trim() ||
-              "No pudimos calcular la tarifa automática en este momento."
-          );
-        }
-      } finally {
-        if (!cancelled) setPricingLoading(false);
-      }
-    }
-
-    calculatePricing();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [ready, citySlug, cityLabel, cityGeoLabel, draft.pickupAddress, draft.pickupLat, draft.pickupLng]);
+  }, [
+    cityReady,
+    citySlug,
+    isAuthed,
+    user?.id,
+    isKronixPlusApproved,
+    kronixPlusStatus?.application,
+  ]);
 
   function requestConfirm() {
     setCreateError(null);
@@ -662,40 +352,14 @@ export default function KronixEnviosStepThree() {
       return;
     }
 
-    if (!zoneCalculation) {
-      setCreateError(
-        "Aún no tenemos la tarifa automática lista. Espera unos segundos e inténtalo de nuevo."
-      );
-      return;
-    }
-
-    if (walletLoading) {
-      setCreateError("Estamos consultando tu saldo KroniX Wallet. Espera unos segundos.");
-      return;
-    }
-
-    if (walletError) {
-      setCreateError(walletError);
-      return;
-    }
-
-    if (!wallet?.isActive) {
-      setCreateError("Debes tener una KroniX Wallet activa para confirmar este envío.");
-      return;
-    }
-
-    if (!hasEnoughWalletBalance) {
-      setCreateError("Saldo insuficiente en tu KroniX Wallet. Recarga saldo antes de confirmar.");
-      return;
-    }
-
-    setShowConfirmModal(true);
+    void handleSubmit();
   }
 
   async function handleSubmit() {
+    if (submitting) return;
     setCreateError(null);
 
-    if (!ready || !zoneCalculation) return;
+    if (!ready) return;
 
     if (!user?.id) {
       setCreateError("No pudimos identificar tu sesión. Vuelve a iniciar sesión.");
@@ -719,13 +383,10 @@ export default function KronixEnviosStepThree() {
 
       const packageDescription = [
         "SERVICIO: KroniX Envíos Plus de un toque",
-        "TIPO DE PAQUETE: Definido por condiciones KroniX Plus aprobadas",
-        `ZONA CALCULADA: Zona ${pricing.zoneNumber ?? "pendiente"}`,
-        `VALOR ZONA: ${formatCOP(pricing.zoneFee)}`,
-        `COSTO SERVICIO: ${formatCOP(pricing.serviceFee)}`,
-        pricing.isNegotiable
-          ? "NOTA OPERATIVA: Zona fuera de cobertura estándar o sujeta a negociación. El motorizado podrá proponer ajuste por la aplicación y el cliente deberá aprobarlo."
-          : "NOTA OPERATIVA: Valor estimado sujeto a ajustes autorizados por cliente en caso de lluvia, distancia, sobredimensión, peso o condiciones especiales.",
+        "TIPO WORKER: MOTORCYCLE",
+        "PAGO CLIENTE: El cliente paga directamente al motorizado según acuerdo/tarifa personal.",
+        "PAGO KRONIX: El cliente no paga a KroniX en esta etapa piloto.",
+        "COMISIÓN KRONIX: Se descontará al worker al finalizar exitosamente el servicio.",
         "",
         "DESTINO/PAQUETE: El cliente entregará información y paquete al motorizado en el punto de recogida.",
       ]
@@ -735,11 +396,10 @@ export default function KronixEnviosStepThree() {
       const payload = {
         orderType: "COURIER" as const,
         courierServiceType: "SEND_PACKAGE" as const,
+        serviceType: "PACKAGE" as const,
+        requiredWorkerType: "MOTORCYCLE" as const,
         customerId: user.id,
         citySlug,
-
-        paymentMethod: "WALLET",
-        autoPayWithWallet: true,
 
         dropoffAddress: draft.pickupAddress.trim(),
         dropoffLat: pickupGeo.lat,
@@ -748,13 +408,13 @@ export default function KronixEnviosStepThree() {
         customerNote:
           "KroniX Envíos Plus de un toque. Motorizado debe llegar al punto de recogida y confirmar detalles del envío en sitio.",
 
-        deliveryFeeCOP: pricing.deliveryFee,
-        serviceFeeCOP: pricing.serviceFee,
+        deliveryFeeCOP: 0,
+        serviceFeeCOP: 0,
         promoCOP: 0,
         tipCOP: 0,
-        totalCOP: pricing.total,
+        totalCOP: 0,
 
-        packageType: "KroniX Plus autorizado",
+        packageType: "KroniX Envíos",
         packageDescription,
 
         origin: {
@@ -792,20 +452,15 @@ export default function KronixEnviosStepThree() {
       router.push(`/tracking/${created.id}`);
     } catch (e: any) {
       const err = e as ApiError;
-      const msg =
+      setCreateError(
         String(err?.message ?? "").trim() ||
-        "No se pudo crear la solicitud en este momento.";
-
-      setCreateError(msg);
+          "No se pudo crear la solicitud en este momento."
+      );
       setSubmitting(false);
-      setShowConfirmModal(false);
     }
   }
 
-  if (
-  authLoading ||
-  (isKronixPlusApproved && pickupLoading)
-) {
+  if (authLoading || statusLoading || (isKronixPlusApproved && pickupLoading)) {
     return (
       <div className="space-y-3 px-4 pb-4 pt-3">
         <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -820,7 +475,9 @@ export default function KronixEnviosStepThree() {
     return (
       <div className="px-4 pb-4 pt-3">
         <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-5 text-amber-950 shadow-sm">
-          <div className="text-[20px] font-black">Inicia sesión para usar KroniX Envíos</div>
+          <div className="text-[20px] font-black">
+            Inicia sesión para usar KroniX Envíos
+          </div>
           <div className="mt-2 text-[14px] font-semibold leading-6">
             Este servicio requiere una cuenta Buyer activa y validación KroniX Plus.
           </div>
@@ -837,7 +494,9 @@ export default function KronixEnviosStepThree() {
   }
 
   if (!isKronixPlusApproved) {
-    const status = String(kronixPlusStatus?.status ?? user?.kronixPlusStatus ?? "NONE").toUpperCase();
+    const status = String(
+      kronixPlusStatus?.status ?? user?.kronixPlusStatus ?? "NONE"
+    ).toUpperCase();
     const pending = status === "PENDING";
 
     return (
@@ -876,8 +535,6 @@ export default function KronixEnviosStepThree() {
 
   return (
     <div className="space-y-1.5 px-4 pb-4 pt-2">
-      
-
       <div className="rounded-[24px] border border-slate-200 bg-white px-4 pb-2 pt-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
         <div className="flex items-start gap-3">
           <div className="relative -ml-1 -mt-1 h-[56px] w-[56px] shrink-0">
@@ -898,107 +555,32 @@ export default function KronixEnviosStepThree() {
         </div>
 
         <div className="-mt-1 grid gap-1">
-          <InfoLine label="Lugar" value={draft.pickupPlaceName.trim() || "Punto KroniX Plus"} />
-          <InfoLine label="Dirección" value={draft.pickupAddress.trim() || "No definida"} strong />
-          <InfoLine label="Referencia" value={draft.pickupReference.trim() || "Sin referencia"} />
-          <InfoLine label="Contacto" value={draft.senderName.trim() || "No definido"} />
-          <InfoLine label="Teléfono" value={draft.senderPhone.trim() || "Sin teléfono"} />
+          <InfoLine
+            label="Lugar"
+            value={draft.pickupPlaceName.trim() || "Punto KroniX Plus"}
+          />
+          <InfoLine
+            label="Dirección"
+            value={draft.pickupAddress.trim() || "No definida"}
+            strong
+          />
+          <InfoLine
+            label="Referencia"
+            value={draft.pickupReference.trim() || "Sin referencia"}
+          />
+          <InfoLine
+            label="Contacto"
+            value={draft.senderName.trim() || "No definido"}
+          />
+          <InfoLine
+            label="Teléfono"
+            value={draft.senderPhone.trim() || "Sin teléfono"}
+          />
         </div>
       </div>
 
-      <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-[18px] font-black text-slate-900">
-            Precio estimado
-          </div>
-
-          <div className="rounded-full bg-emerald-50 px-3 py-1 text-[12px] font-black text-emerald-700 ring-1 ring-emerald-100">
-            {pricingLoading
-              ? "Calculando..."
-              : pricing.zoneNumber
-                ? `Zona ${pricing.zoneNumber}`
-                : "Zona pendiente"}
-          </div>
-        </div>
-
-        {pricingError ? (
-          <div className="mt-3 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
-            {pricingError}
-          </div>
-        ) : null}
-
-        <div className="mt-2 rounded-[20px] bg-slate-50 px-4 py-2 ring-1 ring-slate-200">
-          <PriceLine label="Base del servicio" value={formatCOP(pricing.baseFee)} />
-          <PriceLine label="Costo servicio" value={formatCOP(pricing.serviceFee)} />
-          <div className="my-2 border-t border-slate-200" />
-          <PriceLine label="Total estimado" value={formatCOP(pricing.total)} highlight />
-        </div>
-
-        {pricing.isNegotiable ? (
-          <div className="mt-3 rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-semibold leading-5 text-amber-800">
-            Este servicio puede requerir ajuste por zona o condiciones especiales.
-            El motorizado podrá proponerlo por la aplicación y el cliente deberá aprobarlo.
-          </div>
-        ) : null}
-      </div>
-
-      <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-[18px] font-black text-slate-900">
-              KroniX Wallet
-            </div>
-            </div>
-
-          <div
-            className={[
-              "rounded-full px-3 py-1 text-[12px] font-black ring-1",
-              hasEnoughWalletBalance
-                ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
-                : "bg-amber-50 text-amber-700 ring-amber-100",
-            ].join(" ")}
-          >
-            {walletLoading
-              ? "Consultando..."
-              : hasEnoughWalletBalance
-                ? "Saldo OK"
-                : "Recargar"}
-          </div>
-        </div>
-
-        <div className="mt-2 rounded-[20px] bg-slate-50 px-4 py-2 ring-1 ring-slate-200">
-          <PriceLine
-            label="Saldo disponible"
-            value={walletLoading ? "..." : formatCOP(walletAvailableCOP)}
-          />
-          <PriceLine label="Costo del envío" value={formatCOP(pricing.total)} />
-          <div className="my-2 border-t border-slate-200" />
-          <PriceLine
-            label={hasEnoughWalletBalance ? "Disponible después" : "Falta por recargar"}
-            value={
-              hasEnoughWalletBalance
-                ? formatCOP(walletAvailableCOP - pricing.total)
-                : formatCOP(Math.max(pricing.total - walletAvailableCOP, 0))
-            }
-            highlight
-          />
-        </div>
-
-        {walletError ? (
-          <div className="mt-3 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-semibold text-red-700">
-            {walletError}
-          </div>
-        ) : null}
-
-        {!walletLoading && pricing.total > 0 && !hasEnoughWalletBalance ? (
-          <button
-            type="button"
-            onClick={() => router.push("/wallet")}
-            className="mt-3 w-full rounded-[22px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[14px] font-black text-emerald-800 shadow-sm"
-          >
-            Ir a Wallet para recargar
-          </button>
-        ) : null}
+      <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-900">
+        El cliente no pagará a KroniX por este envío. El valor se acuerda y se paga directamente al motorizado.
       </div>
 
       {pickupError ? (
@@ -1015,40 +597,17 @@ export default function KronixEnviosStepThree() {
 
       <button
         type="button"
-        disabled={
-          !ready ||
-          submitting ||
-          pricingLoading ||
-          walletLoading ||
-          !zoneCalculation ||
-          !!pickupError ||
-          !hasEnoughWalletBalance
-        }
+        disabled={!ready || submitting || !!pickupError}
         onClick={requestConfirm}
         className={[
           "w-full rounded-[24px] py-4 text-[15px] font-black text-white transition",
-          ready &&
-          !submitting &&
-          !pricingLoading &&
-          !walletLoading &&
-          zoneCalculation &&
-          !pickupError &&
-          hasEnoughWalletBalance
+          ready && !submitting && !pickupError
             ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_12px_22px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
             : "cursor-not-allowed bg-slate-300 shadow-none",
         ].join(" ")}
       >
-        {submitting ? "Pagando y creando envío..." : "Confirmar y pagar con Wallet"}
+        {submitting ? "Creando envío..." : "Solicitar KroniX Envíos"}
       </button>
-
-      <ConfirmationModal
-        open={showConfirmModal}
-        submitting={submitting}
-        totalCOP={pricing.total}
-        walletAvailableCOP={walletAvailableCOP}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={handleSubmit}
-      />
 
       <AuthRequiredModal
         open={showAuthModal}

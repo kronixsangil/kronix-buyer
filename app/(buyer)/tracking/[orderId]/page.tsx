@@ -71,9 +71,9 @@ export default function TrackingPage() {
 
         <TrackingRatingCard vm={vm} />
 
-        <TrackingPaymentCard vm={vm} />
+        {!vm.isServiceOrder ? <TrackingPaymentCard vm={vm} /> : null}
 
-        <TrackingSummaryCard vm={vm} />
+        {!vm.isServiceOrder ? <TrackingSummaryCard vm={vm} /> : null}
 
         {vm.cancelMsg ? (
           <div className="mt-4 rounded-2xl bg-green-50 p-3 text-sm font-extrabold text-green-800 ring-1 ring-green-200">

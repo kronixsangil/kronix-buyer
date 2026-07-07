@@ -25,6 +25,7 @@ import {
   contextualFlowLabel,
 getContextualFlowSteps,
 getCourierServiceTypeFromSources,
+getServiceKeyFromSources,
 } from "./utils";
 import {
   apiCancelOrder,
@@ -135,8 +136,10 @@ export function useTrackingPage(): TrackingViewModel {
   const isCourier = orderType === "COURIER";
 
   const courierServiceType = useMemo(() => {
-  return getCourierServiceTypeFromSources(order, tracking);
+  return getServiceKeyFromSources(order, tracking) || getCourierServiceTypeFromSources(order, tracking);
 }, [order, tracking]);
+
+  const isServiceOrder = isCourier;
 
   const courierData = useMemo(() => {
     const fromTracking = tracking?.courier ?? null;
@@ -368,15 +371,15 @@ export function useTrackingPage(): TrackingViewModel {
     if (normalizedFlow === "PAYMENT_PENDING") return "Un momento…";
     if (normalizedFlow === "PAID") return "En preparación";
     if (normalizedFlow === "PREPARING") return "En preparación";
-    if (normalizedFlow === "PAYMENT_FAILED") return "Reintenta pago";
+    if (normalizedFlow === "PAYMENT_FAILED") return isCourier ? "Revisando servicio" : "Reintenta pago";
     if (normalizedFlow === "CANCELLED") return "Cancelado";
     return "—";
   }
 
   if (normalizedFlow === "WAITING_CONFIRMATION") return "Solicitud recibida";
-  if (normalizedFlow === "STORE_CONFIRMED") return "Listo para pago";
-  if (normalizedFlow === "PAYMENT_PENDING") return "Validando pago";
-  if (normalizedFlow === "PAID") return "Buscando conductor";
+  if (normalizedFlow === "STORE_CONFIRMED") return "Buscando worker";
+  if (normalizedFlow === "PAYMENT_PENDING") return "Buscando worker";
+  if (normalizedFlow === "PAID") return "Buscando worker";
   if (normalizedFlow === "PREPARING") {
     if (courierServiceType === "SEND_PACKAGE") return "Recogiendo paquete";
     if (courierServiceType === "ERRAND") return "Realizando diligencia";
@@ -394,30 +397,36 @@ export function useTrackingPage(): TrackingViewModel {
   return "Tu servicio va en camino";
 }
   if (normalizedFlow === "DELIVERED") return "Finalizado";
-  if (normalizedFlow === "PAYMENT_FAILED") return "Reintenta pago";
+  if (normalizedFlow === "PAYMENT_FAILED") return "Revisando servicio";
   if (normalizedFlow === "CANCELLED") return "Cancelado";
 
   return "—";
 }, [order, normalizedFlow, isCourier, courierServiceType]);
 
+  const displayFlow = useMemo(() => {
+    if (!isCourier) return normalizedFlow;
+    if (normalizedFlow === "PAYMENT_PENDING" || normalizedFlow === "PAYMENT_FAILED") return "PAID" as any;
+    return normalizedFlow;
+  }, [isCourier, normalizedFlow]);
+
   const chip = useMemo(() => {
   if (!order && !tracking) return "—";
   return contextualFlowLabel({
-    flow: normalizedFlow,
+    flow: displayFlow,
     isCourier,
     courierServiceType,
   });
-}, [order, tracking, normalizedFlow, isCourier, courierServiceType]);
+}, [order, tracking, displayFlow, isCourier, courierServiceType]);
 
   const timeline = useMemo(() => {
-    if ((!order && !tracking) || !normalizedFlow) return { steps: [] as any[] };
+    if ((!order && !tracking) || !displayFlow) return { steps: [] as any[] };
 
     const negative = new Set(["CANCELLED", "PAYMENT_FAILED"]);
     const flowSteps = getContextualFlowSteps({ isCourier, courierServiceType });
-const currentIdx = flowSteps.findIndex((s) => s.key === normalizedFlow);
+const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
 
     if (currentIdx < 0) {
-      return { steps: [{ key: normalizedFlow, label: flowLabel(normalizedFlow), hint: "Estado actual", done: true, current: true }] };
+      return { steps: [{ key: displayFlow, label: flowLabel(displayFlow), hint: "Estado actual", done: true, current: true }] };
     }
 
     const steps: any[] = [];
@@ -427,13 +436,13 @@ const currentIdx = flowSteps.findIndex((s) => s.key === normalizedFlow);
     }
 
     const nextIdx = currentIdx + 1;
-    if (!negative.has(normalizedFlow) && nextIdx < flowSteps.length) {
+    if (!negative.has(displayFlow) && nextIdx < flowSteps.length) {
   const s = flowSteps[nextIdx];
       steps.push({ key: s.key, label: s.label, hint: s.hint, done: false, current: false });
     }
 
     return { steps };
-  }, [order, tracking, normalizedFlow]);
+  }, [order, tracking, displayFlow, isCourier, courierServiceType]);
 
   const updatedAgoText = useMemo(() => {
     void nowTick;
@@ -699,8 +708,8 @@ const currentIdx = flowSteps.findIndex((s) => s.key === normalizedFlow);
     normalizedFlow !== "DELIVERED" &&
     normalizedFlow !== "CANCELLED";
 
-  const canPayNow = Boolean(usingFlow) && normalizedFlow === "STORE_CONFIRMED" && !paying;
-  const canRetry = Boolean(usingFlow) && normalizedFlow === "PAYMENT_FAILED" && !paying;
+  const canPayNow = !isServiceOrder && Boolean(usingFlow) && normalizedFlow === "STORE_CONFIRMED" && !paying;
+  const canRetry = !isServiceOrder && Boolean(usingFlow) && normalizedFlow === "PAYMENT_FAILED" && !paying;
 
   return {
     CARD,
@@ -738,11 +747,12 @@ const currentIdx = flowSteps.findIndex((s) => s.key === normalizedFlow);
     normalizedFlow,
     orderType,
     isCourier,
+    courierServiceType,
+    isServiceOrder,
     courierData,
     etaText,
     chip,
     timeline,
-    courierServiceType,
     updatedAgoText,
     orderCityText,
     mapData,

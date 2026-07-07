@@ -1,5 +1,4 @@
 // app/(buyer)/page.tsx
-// app/(buyer)/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -71,8 +70,7 @@ type KronixOption = {
   title: string;
   subtitle: string;
   featured?: boolean;
-  iconEmoji?: string;
-  useMotoArt?: boolean;
+  serviceSlug?: "delivery" | "package" | "taxi" | "motocarga";
 };
 
 const options: KronixOption[] = [
@@ -83,25 +81,28 @@ const options: KronixOption[] = [
     featured: true,
   },
   {
-  href: "/kronix/recoger",
-  title: "Domicilio Express",
-  subtitle: "Pide un motorizado rápido para una tarea simple",
-  useMotoArt: true,
-  iconEmoji: "/branding/kronix/recoger-llevar.png",
-},
-{
-  href: "/kronix/enviar",
-  title: "KroniX Envíos",
-  subtitle: "Envíos para negocios, tiendas y clientes frecuentes",
-  useMotoArt: true,
-  iconEmoji: "/branding/kronix/Enviar-Paquete1.png",
-},
+    href: "/kronix/recoger",
+    title: "Domicilio Express",
+    subtitle: "Pide un motorizado rápido para una tarea simple",
+    serviceSlug: "delivery",
+  },
   {
-    href: "/kronix/diligencia",
-    title: "Domicilios y Diligencias",
-    subtitle: "Pagos, compras, trámites... lo que necesites",
-    useMotoArt: false,
-    iconEmoji: "/branding/kronix/check-list.png",
+    href: "/kronix/enviar",
+    title: "KroniX Envíos",
+    subtitle: "Envíos para negocios, tiendas y clientes frecuentes",
+    serviceSlug: "package",
+  },
+  {
+    href: "/kronix/taxi",
+    title: "Taxi",
+    subtitle: "Solicita un taxi legal cercano y paga directamente al taxista",
+    serviceSlug: "taxi",
+  },
+  {
+    href: "/kronix/motocarga",
+    title: "Motocarga",
+    subtitle: "Pide transporte rápido para objetos, paquetes grandes o carga ligera",
+    serviceSlug: "motocarga",
   },
 ];
 
@@ -145,15 +146,29 @@ function HeaderCut() {
   );
 }
 
-function LeftMiniIcon({ src }: { src: string }) {
+function ServiceCardLeftImage({ slug, title }: { slug: string; title: string }) {
   return (
-    <div className="relative h-[54px] w-[54px] shrink-0">
+    <div className="relative -ml-1 h-[66px] w-[78px] shrink-0 overflow-visible">
       <Image
-        src={src}
-        alt="icon"
+        src={`/services/${slug}/cardizq.png`}
+        alt={title}
         fill
-        className="object-contain scale-150"
-        sizes="54px"
+        className="object-contain drop-shadow-sm"
+        sizes="78px"
+      />
+    </div>
+  );
+}
+
+function ServiceCardRightImage({ slug, title }: { slug: string; title: string }) {
+  return (
+    <div className="relative -mr-2 h-[82px] w-[128px] shrink-0 overflow-visible">
+      <Image
+        src={`/services/${slug}/cardder.png`}
+        alt={title}
+        fill
+        className="object-contain opacity-95 drop-shadow-sm"
+        sizes="128px"
       />
     </div>
   );
@@ -295,87 +310,33 @@ function StandardCard({
   item: KronixOption;
   onClick?: () => void;
 }) {
-  const content = (
-    <div className="flex h-full items-center gap-3">
-      {/* ICONO IZQUIERDO */}
-      <div className="shrink-0">
-        <LeftMiniIcon src={item.iconEmoji || ""} />
-      </div>
+  const slug = item.serviceSlug ?? "delivery";
 
-      {/* TEXTO */}
+  const content = (
+    <div className="flex h-full items-center gap-2">
+      <ServiceCardLeftImage slug={slug} title={item.title} />
+
       <div className="flex min-w-0 flex-1 flex-col justify-center">
-        {/* TITULO */}
-        <div
-          className={[
-            item.title === "KroniX Envíos"
-  ? "ml-1 font-black text-white leading-tight whitespace-nowrap drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-  : "ml-1 font-black text-slate-900 leading-tight whitespace-nowrap",
-            item.title === "Domicilios y Diligencias"
-              ? "text-[18px]"
-              : "text-[22px]",
-          ].join(" ")}
-        >
+        <div className="ml-1 whitespace-nowrap text-[22px] font-black leading-tight text-slate-900">
           {item.title}
         </div>
 
-        {/* SUBTITULO */}
-        <div
-          className={[
-            item.title === "KroniX Envíos"
-  ? "ml-4 mt-1 font-medium text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]"
-  : "ml-4 mt-1 font-medium text-slate-500",
-            "text-[13px] leading-[16px]",
-            "line-clamp-3",
-            item.title === "Domicilio Express"
-              ? "max-w-[220px]"
-              : "",
-            item.title === "KroniX Envíos"
-              ? "max-w-[220px]"
-              : "",
-            item.title === "Domicilios y Diligencias"
-              ? "max-w-[220px]"
-              : "",
-          ].join(" ")}
-        >
+        <div className="ml-4 mt-1 max-w-[220px] text-[13px] font-medium leading-[16px] text-slate-500 line-clamp-3">
           {item.subtitle}
         </div>
       </div>
 
-      {/* MOTO / IMAGEN DERECHA */}
-      {item.useMotoArt ? (
-        <div className="relative h-[62px] w-[102px] shrink-0">
-          <Image
-            src={
-              item.title === "KroniX Envíos"
-                ? "/branding/kronix/enviar-Paquete2.png"
-                : "/branding/kronix/card-moto.png"
-            }
-            alt={item.title}
-            fill
-            className="object-contain opacity-95 scale-[1.65] translate-x-2"
-            sizes="102px"
-          />
-        </div>
-      ) : null}
+      <ServiceCardRightImage slug={slug} title={item.title} />
 
-      {/* CHEVRON */}
-      <div
-  className={[
-    "shrink-0 text-[28px] font-black transition group-hover:translate-x-0.5",
-    item.title === "KroniX Envíos"
-      ? "text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-      : "text-slate-300",
-  ].join(" ")}
->
+      <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
         ›
       </div>
     </div>
   );
 
   const cls =
-  item.title === "KroniX Envíos"
-    ? "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-emerald-300 px-4 py-1 text-left text-white shadow-[0_10px_26px_rgba(16,185,129,0.35)] transition hover:shadow-[0_14px_30px_rgba(16,185,129,0.45)] active:scale-[0.995] bg-[radial-gradient(circle_at_78%_50%,rgba(220,252,231,1)_0%,rgba(110,231,183,1)_15%,rgba(16,185,129,1)_35%,rgba(5,150,105,1)_60%,rgba(6,95,70,1)_100%)]"
-    : "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
+    "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
+
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={cls}>
@@ -446,7 +407,7 @@ function KronixPlusApplicationPanel({
 
               <div className="relative hidden h-[104px] w-[120px] shrink-0 sm:block">
                 <Image
-                  src="/branding/kronix/enviar-Paquete2.png"
+                  src="/services/package/cardder.png"
                   alt="KroniX Envíos"
                   fill
                   className="object-contain scale-[1.25] drop-shadow-[0_18px_28px_rgba(0,0,0,0.35)]"

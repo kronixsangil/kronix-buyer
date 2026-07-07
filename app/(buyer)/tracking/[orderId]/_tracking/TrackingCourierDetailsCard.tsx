@@ -2,85 +2,65 @@
 "use client";
 
 import type { TrackingViewModel } from "./types";
+import { getCourierServiceLabel } from "./utils";
 
 function normalizeText(value: unknown) {
   return String(value ?? "").trim().toLowerCase();
 }
 
-type CourierExperience = "ENVIAR" | "DILIGENCIA" | "GENERIC";
+function normalizeAddress(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
 
-function detectCourierExperience(vm: TrackingViewModel): CourierExperience {
-  const packageType = normalizeText(vm.courierData.packageType);
-  const packageDescription = normalizeText(vm.courierData.packageDescription);
-  const notes = normalizeText(vm.order?.customerNote);
+function getServiceKey(vm: TrackingViewModel) {
+  const fromVm = String(vm.courierServiceType ?? "").trim().toUpperCase();
+  if (fromVm) return fromVm;
 
-  const shippingPackageTypes = new Set([
-    "documento",
-    "sobre",
-    "bolsa pequeña",
-    "caja pequeña",
-    "caja mediana",
-    "frágil",
-    "fragil",
-  ]);
+  const raw = [
+    vm.courierData.packageType,
+    vm.courierData.packageDescription,
+    vm.order?.customerNote,
+  ]
+    .map((x) => String(x ?? "").toUpperCase())
+    .join(" ");
 
-  const diligenceTypes = new Set([
-    "pago o consignación",
-    "compra rápida",
-    "entregar documento",
-    "recoger documento",
-    "trámite sencillo",
-    "tramite sencillo",
-    "llevar o traer algo",
-  ]);
+  if (raw.includes("MOTOCARGA") || raw.includes("MOTORCARGO")) return "MOTORCARGO";
+  if (raw.includes("TAXI")) return "TAXI";
+  if (raw.includes("KRONIX ENVÍOS") || raw.includes("KRONIX ENVIOS")) return "SEND_PACKAGE";
+  if (raw.includes("DOMICILIO EXPRESS")) return "PICKUP_AND_DELIVERY";
 
-  const shippingKeywords = [
-    "paquete",
-    "sobre",
-    "caja",
-    "documento",
-    "envío",
-    "envio",
-    "enviar",
-    "frágil",
-    "fragil",
-  ];
+  return "SERVICE";
+}
 
-  const diligenceKeywords = [
-    "diligencia",
-    "consignación",
-    "consignacion",
-    "pago",
-    "trámite",
-    "tramite",
-    "comprar",
-    "compra",
-    "recibo",
-    "medicamento",
-    "documentos firmados",
-    "gestión",
-    "gestion",
-  ];
+function cleanServiceDescription(value: unknown, fallback: string) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return fallback;
 
-  const isDiligenciaByType = diligenceTypes.has(packageType);
-  const isDiligenciaByText = diligenceKeywords.some(
-    (keyword) => packageDescription.includes(keyword) || notes.includes(keyword)
-  );
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const upper = line.toUpperCase();
+      if (upper.startsWith("PAGO CLIENTE:")) return false;
+      if (upper.startsWith("PAGO KRONIX:")) return false;
+      if (upper.startsWith("COMISIÓN KRONIX:")) return false;
+      if (upper.startsWith("COMISION KRONIX:")) return false;
+      if (upper.startsWith("TIPO WORKER:")) return false;
+      if (upper.startsWith("SERVICIO:")) return false;
+      return true;
+    });
 
-  if (isDiligenciaByType || isDiligenciaByText) {
-    return "DILIGENCIA";
+  const indication = lines.find((line) => line.toUpperCase().startsWith("INDICACIÓN DEL CLIENTE:"));
+  if (indication) {
+    return indication.replace(/^INDICACI[ÓO]N DEL CLIENTE:\s*/i, "").trim() || fallback;
   }
 
-  const isShippingByType = shippingPackageTypes.has(packageType);
-  const isShippingByText = shippingKeywords.some(
-    (keyword) => packageDescription.includes(keyword) || notes.includes(keyword)
-  );
-
-  if (isShippingByType || isShippingByText) {
-    return "ENVIAR";
-  }
-
-  return "GENERIC";
+  const first = lines.find((line) => line.length > 0);
+  return first || fallback;
 }
 
 function SectionCard({
@@ -131,85 +111,73 @@ function ContactRow({
 export function TrackingCourierDetailsCard({ vm }: { vm: TrackingViewModel }) {
   if (!vm.isCourier) return null;
 
-  const experience = detectCourierExperience(vm);
+  const serviceKey = getServiceKey(vm);
+  const serviceLabel = getCourierServiceLabel(serviceKey);
 
-  const isEnviar = experience === "ENVIAR";
-  const isDiligencia = experience === "DILIGENCIA";
+  const isTaxi = serviceKey === "TAXI";
+  const isMotorcargo = serviceKey === "MOTORCARGO" || serviceKey === "MOTOCARGA";
+  const isPackage = serviceKey === "SEND_PACKAGE" || serviceKey === "PACKAGE";
+  const isDelivery = serviceKey === "PICKUP_AND_DELIVERY" || serviceKey === "DELIVERY";
 
-  const cardTitle = isDiligencia
-    ? "Detalles de la diligencia"
-    : isEnviar
-    ? "Detalles del envío"
-    : "Detalles del servicio";
+  const pickupAddress = vm.courierData.pickupAddress || vm.order?.address || "—";
+  const dropoffAddress = vm.order?.address || "";
+  const sameAddress = normalizeAddress(pickupAddress) === normalizeAddress(dropoffAddress);
 
-  const pickupEyebrow = isDiligencia
-    ? "Punto inicial"
-    : isEnviar
-    ? "Origen"
-    : "Recoger en";
+  const shouldShowDestination = isPackage && !sameAddress;
+
+  const cardTitle = `Detalles de ${serviceLabel}`;
 
   const pickupTitle =
     vm.courierData.pickupPlaceName ||
-    (isDiligencia
-      ? "Inicio de la diligencia"
-      : isEnviar
-      ? "Punto de origen"
-      : "Punto de recogida");
+    (isTaxi
+      ? "Punto donde te recoge el taxi"
+      : isMotorcargo
+      ? "Punto donde recoge la motocarga"
+      : isPackage
+      ? "Punto de recogida"
+      : isDelivery
+      ? "Punto del servicio"
+      : "Punto de inicio");
 
-  const pickupReferenceLabel = isDiligencia ? "Referencia punto inicial" : "Referencia origen";
+  const packageEyebrow = isTaxi
+    ? "Solicitud"
+    : isMotorcargo
+    ? "Carga solicitada"
+    : isPackage
+    ? "Envío"
+    : "Servicio solicitado";
 
-  const dropoffEyebrow = isDiligencia
-    ? "Punto final"
-    : isEnviar
-    ? "Destino"
-    : "Entregar en";
+  const packageTitle = vm.courierData.packageType || serviceLabel;
 
-  const dropoffTitle =
-    vm.courierData.dropoffPlaceName ||
-    (isDiligencia
-      ? "Final de la diligencia"
-      : isEnviar
-      ? "Punto de destino"
-      : "Punto de entrega");
+  const cleanDescription = cleanServiceDescription(
+    vm.courierData.packageDescription,
+    isTaxi
+      ? "Cliente solicita Taxi. La tarifa será acordada directamente con el taxista."
+      : isMotorcargo
+      ? "Cliente solicita Motocarga. Detalles y tarifa serán confirmados directamente con el motocarguero."
+      : isPackage
+      ? "Cliente solicita KroniX Envíos. Detalles del envío se confirman en el punto de recogida."
+      : "Cliente solicita un servicio KroniX."
+  );
 
-  const dropoffReferenceLabel = isDiligencia ? "Referencia punto final" : "Referencia destino";
+  const senderName = vm.courierData.senderName || "—";
+  const senderPhone = vm.courierData.senderPhone || "—";
+  const receiverName = vm.courierData.receiverName || "";
+  const receiverPhone = vm.courierData.receiverPhone || "";
 
-  const packageEyebrow = isDiligencia
-    ? "Gestión solicitada"
-    : isEnviar
-    ? "Paquete"
-    : "Encargo";
+  const sameContact =
+    normalizeText(senderName) === normalizeText(receiverName) &&
+    normalizeText(senderPhone) === normalizeText(receiverPhone);
 
-  const packageTitle =
-    vm.courierData.packageType ||
-    (isDiligencia
-      ? "Diligencia solicitada"
-      : isEnviar
-      ? "Envío de paquete"
-      : "Recoger y llevar");
+  const shouldShowReceiver = Boolean(receiverName || receiverPhone) && !sameContact && shouldShowDestination;
 
-  const contactsEyebrow = isDiligencia
-    ? "Personas de contacto"
-    : isEnviar
-    ? "Datos del envío"
-    : "Contactos";
-
-  const senderLabel = isDiligencia ? "Solicitante" : "Remitente";
-  const senderPhoneLabel = isDiligencia ? "Tel. principal" : "Tel. remitente";
-  const receiverLabel = isDiligencia ? "Contacto final" : "Destinatario";
-  const receiverPhoneLabel = isDiligencia ? "Tel. final" : "Tel. destinatario";
-
-  const notesLabel = isDiligencia
-    ? "Indicaciones de la diligencia"
-    : isEnviar
+  const notesLabel = isTaxi
+    ? "Indicaciones para el taxista"
+    : isMotorcargo
+    ? "Indicaciones para el motocarguero"
+    : isPackage
     ? "Indicaciones del envío"
-    : "Notas";
-
-  const emptyDescription = isDiligencia
-    ? "No se agregó una explicación adicional de la diligencia."
-    : isEnviar
-    ? "No se agregó una descripción adicional del paquete."
-    : "No se agregó una descripción adicional del encargo.";
+    : "Indicaciones del servicio";
 
   return (
     <div className={`${vm.CARD_PAD} mt-4`}>
@@ -217,31 +185,35 @@ export function TrackingCourierDetailsCard({ vm }: { vm: TrackingViewModel }) {
 
       <div className="mt-3 grid gap-3">
         <SectionCard
-          eyebrow={pickupEyebrow}
+          eyebrow="Punto inicial"
           title={pickupTitle}
-          description={vm.courierData.pickupAddress || "—"}
+          description={pickupAddress}
           icon="📍"
         />
 
         {vm.courierData.pickupReference ? (
           <div className="rounded-2xl bg-white px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200">
-            <span className="font-extrabold text-slate-700">{pickupReferenceLabel}:</span>{" "}
+            <span className="font-extrabold text-slate-700">Referencia:</span>{" "}
             {vm.courierData.pickupReference}
           </div>
         ) : null}
 
-        <SectionCard
-          eyebrow={dropoffEyebrow}
-          title={dropoffTitle}
-          description={vm.order?.address || "—"}
-          icon="🏁"
-        />
+        {shouldShowDestination ? (
+          <>
+            <SectionCard
+              eyebrow="Destino"
+              title={vm.courierData.dropoffPlaceName || "Punto final"}
+              description={dropoffAddress || "—"}
+              icon="🏁"
+            />
 
-        {vm.courierData.dropoffReference ? (
-          <div className="rounded-2xl bg-white px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200">
-            <span className="font-extrabold text-slate-700">{dropoffReferenceLabel}:</span>{" "}
-            {vm.courierData.dropoffReference}
-          </div>
+            {vm.courierData.dropoffReference ? (
+              <div className="rounded-2xl bg-white px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200">
+                <span className="font-extrabold text-slate-700">Referencia destino:</span>{" "}
+                {vm.courierData.dropoffReference}
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
@@ -251,34 +223,26 @@ export function TrackingCourierDetailsCard({ vm }: { vm: TrackingViewModel }) {
           <div className="mt-1 text-sm font-extrabold text-slate-900">
             {packageTitle}
           </div>
-          {vm.courierData.packageDescription ? (
-            <div className="mt-1 text-xs text-slate-600">
-              {vm.courierData.packageDescription}
-            </div>
-          ) : (
-            <div className="mt-1 text-xs text-slate-500">{emptyDescription}</div>
-          )}
+          <div className="mt-1 whitespace-pre-wrap text-xs text-slate-600">
+            {cleanDescription}
+          </div>
         </div>
 
         <div className="rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-500">
-            {contactsEyebrow}
+            Contacto
           </div>
 
           <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-700">
-            <ContactRow label={senderLabel} value={vm.courierData.senderName || "—"} />
+            <ContactRow label="Nombre" value={senderName} />
+            <ContactRow label="Teléfono" value={senderPhone} />
 
-            <ContactRow
-              label={senderPhoneLabel}
-              value={vm.courierData.senderPhone || "—"}
-            />
-
-            <ContactRow label={receiverLabel} value={vm.courierData.receiverName || "—"} />
-
-            <ContactRow
-              label={receiverPhoneLabel}
-              value={vm.courierData.receiverPhone || "—"}
-            />
+            {shouldShowReceiver ? (
+              <>
+                <ContactRow label="Contacto final" value={receiverName || "—"} />
+                <ContactRow label="Tel. final" value={receiverPhone || "—"} />
+              </>
+            ) : null}
           </div>
         </div>
 
