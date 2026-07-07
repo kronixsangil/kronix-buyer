@@ -39,19 +39,38 @@ type ApiServiceType =
   | "MOTORCARGO"
   | null;
 
-function flowChipFromFlowStatus(flow?: ApiOrderFlowStatus | null) {
-  const f = String(flow ?? "");
+function isServiceOrder(serviceType?: string | null, orderType?: string | null) {
+  const st = String(serviceType ?? "").toUpperCase();
+  const ot = String(orderType ?? "").toUpperCase();
 
-  if (f === "DELIVERED") return { text: "ENTREGADO", tone: "bg-green-50 text-green-700 ring-green-200" };
+  return ot !== "STORE" && st !== "STORE";
+}
+
+function flowChipFromFlowStatus(
+  flow?: ApiOrderFlowStatus | null,
+  serviceType?: string | null,
+  orderType?: string | null
+) {
+  const f = String(flow ?? "");
+  const service = isServiceOrder(serviceType, orderType);
+
+  if (f === "DELIVERED") return { text: "FINALIZADO", tone: "bg-green-50 text-green-700 ring-green-200" };
   if (f === "EN_ROUTE") return { text: "EN CAMINO", tone: "bg-blue-50 text-blue-800 ring-blue-200" };
-  if (f === "PREPARING") return { text: "PREPARANDO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
+  if (f === "PREPARING") return { text: "BUSCANDO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
+  if (f === "CANCELLED") return { text: "CANCELADO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
+
+  if (service) {
+    if (f === "WAITING_CONFIRMATION") return { text: "SOLICITADO", tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+    if (f === "STORE_CONFIRMED") return { text: "BUSCANDO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
+    if (f === "PAID") return { text: "BUSCANDO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
+    if (f === "PAYMENT_PENDING") return { text: "CONFIRMADO", tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+  }
 
   if (f === "WAITING_CONFIRMATION") return { text: "ESPERANDO CONF.", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
   if (f === "STORE_CONFIRMED") return { text: "CONFIRMADO", tone: "bg-green-50 text-green-700 ring-green-200" };
   if (f === "PAYMENT_PENDING") return { text: "PAGO EN PROCESO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
   if (f === "PAID") return { text: "PAGO APROBADO", tone: "bg-green-50 text-green-700 ring-green-200" };
   if (f === "PAYMENT_FAILED") return { text: "PAGO FALLIDO", tone: "bg-red-50 text-red-700 ring-red-200" };
-  if (f === "CANCELLED") return { text: "CANCELADO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
 
   return { text: "EN PROCESO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
 }
@@ -98,10 +117,10 @@ function serviceTone(
     return "bg-cyan-50 text-cyan-700 ring-cyan-200";
 
   if (st === "TAXI")
-    return "bg-yellow-300 text-yellow-900 ring-yellow-500";
+  return "bg-amber-50 text-amber-800 ring-amber-200";
 
-  if (st === "MOTORCARGO")
-    return "bg-black text-white ring-gray-700";
+if (st === "MOTORCARGO")
+  return "bg-violet-50 text-violet-700 ring-violet-200";
 
   // Compatibilidad órdenes antiguas
   if (ot === "STORE")
@@ -308,7 +327,11 @@ export default function OrdersPage() {
       ) : (
         <div className="mt-3 space-y-2.5">
           {viewList.map((o) => {
-            const chip = flowChipFromFlowStatus(o.flowStatus as any);
+            const chip = flowChipFromFlowStatus(
+  o.flowStatus as any,
+  o.serviceType,
+  o.orderType
+);
             const svc = getServiceLabel(
   o.serviceType,
   o.orderType,
@@ -359,7 +382,7 @@ export default function OrdersPage() {
 
                   {o.cityLabel ? (
                     <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-extrabold text-slate-700 ring-1 ring-slate-200">
-                      Ciudad: {o.cityLabel}
+                      {o.cityLabel}
                     </span>
                   ) : null}
                 </div>
