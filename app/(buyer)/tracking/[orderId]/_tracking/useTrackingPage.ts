@@ -377,9 +377,9 @@ export function useTrackingPage(): TrackingViewModel {
   }
 
   if (normalizedFlow === "WAITING_CONFIRMATION") return "Solicitud recibida";
-  if (normalizedFlow === "STORE_CONFIRMED") return "Buscando worker";
-  if (normalizedFlow === "PAYMENT_PENDING") return "Buscando worker";
-  if (normalizedFlow === "PAID") return "Buscando worker";
+  if (normalizedFlow === "STORE_CONFIRMED") return "Buscando Domiciliario";
+  if (normalizedFlow === "PAYMENT_PENDING") return "Buscando Domiciliario";
+  if (normalizedFlow === "PAID") return "Buscando Domiciliario";
   if (normalizedFlow === "PREPARING") {
     if (courierServiceType === "SEND_PACKAGE") return "Recogiendo paquete";
     if (courierServiceType === "ERRAND") return "Realizando diligencia";
