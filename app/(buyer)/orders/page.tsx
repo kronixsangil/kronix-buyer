@@ -31,6 +31,13 @@ type ApiOrderFlowStatus =
 
 type ApiOrderType = "STORE" | "COURIER";
 type ApiCourierServiceType = "PICKUP_AND_DELIVERY" | "SEND_PACKAGE" | "ERRAND" | null;
+type ApiServiceType =
+  | "STORE"
+  | "DELIVERY"
+  | "PACKAGE"
+  | "TAXI"
+  | "MOTORCARGO"
+  | null;
 
 function flowChipFromFlowStatus(flow?: ApiOrderFlowStatus | null) {
   const f = String(flow ?? "");
@@ -49,30 +56,65 @@ function flowChipFromFlowStatus(flow?: ApiOrderFlowStatus | null) {
   return { text: "EN PROCESO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
 }
 
-function getServiceLabel(orderType?: string | null, courierServiceType?: string | null) {
+function getServiceLabel(
+  serviceType?: string | null,
+  orderType?: string | null,
+  courierServiceType?: string | null
+) {
+  const st = String(serviceType ?? "").toUpperCase();
   const ot = String(orderType ?? "").toUpperCase();
   const ct = String(courierServiceType ?? "").toUpperCase();
 
-  if (ot === "STORE") return "Comprar algo";
-  if (ct === "SEND_PACKAGE") return "Enviar paquete";
-  if (ct === "ERRAND") return "Domicilios y diligencias";
-  if (ct === "PICKUP_AND_DELIVERY") return "Recoger y llevar";
-  if (ot === "COURIER") return "Servicio courier";
+  if (st === "STORE") return "Tienda en Línea";
+  if (st === "DELIVERY") return "Domicilio Express";
+  if (st === "PACKAGE") return "KroniX Envíos";
+  if (st === "TAXI") return "Taxi";
+  if (st === "MOTORCARGO") return "Motocarga";
 
-  return "Pedido";
+  // Compatibilidad órdenes antiguas
+  if (ot === "STORE") return "Tienda en Línea";
+  if (ct === "PICKUP_AND_DELIVERY") return "Domicilio Express";
+  if (ct === "SEND_PACKAGE") return "KroniX Envíos";
+
+  return "Servicio";
 }
 
-function serviceTone(orderType?: string | null, courierServiceType?: string | null) {
+function serviceTone(
+  serviceType?: string | null,
+  orderType?: string | null,
+  courierServiceType?: string | null
+) {
+  const st = String(serviceType ?? "").toUpperCase();
   const ot = String(orderType ?? "").toUpperCase();
   const ct = String(courierServiceType ?? "").toUpperCase();
 
-  if (ot === "STORE") return "bg-blue-50 text-blue-700 ring-blue-200";
-  if (ct === "SEND_PACKAGE") return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-  if (ct === "ERRAND") return "bg-violet-50 text-violet-700 ring-violet-200";
-  if (ct === "PICKUP_AND_DELIVERY") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (st === "STORE")
+    return "bg-blue-50 text-blue-700 ring-blue-200";
+
+  if (st === "DELIVERY")
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
+  if (st === "PACKAGE")
+    return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+
+  if (st === "TAXI")
+    return "bg-yellow-300 text-yellow-900 ring-yellow-500";
+
+  if (st === "MOTORCARGO")
+    return "bg-black text-white ring-gray-700";
+
+  // Compatibilidad órdenes antiguas
+  if (ot === "STORE")
+    return "bg-blue-50 text-blue-700 ring-blue-200";
+
+  if (ct === "PICKUP_AND_DELIVERY")
+    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+
+  if (ct === "SEND_PACKAGE")
+    return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+
   return "bg-slate-50 text-slate-700 ring-slate-200";
 }
-
 function OrdersSkeletonList({ count = 3 }: { count?: number }) {
   return (
     <div className="mt-3 space-y-2.5">
@@ -111,6 +153,7 @@ function EmptyOrders({ onGoHome }: { onGoHome: () => void }) {
 type BackendOrderLite = {
   id: string;
   orderType: ApiOrderType;
+  serviceType: ApiServiceType;
   courierServiceType: ApiCourierServiceType;
   flowStatus: ApiOrderFlowStatus;
   createdAt: string;
@@ -162,6 +205,9 @@ export default function OrdersPage() {
           .map((x) => ({
             id: String(x.id),
             orderType: String(x.orderType ?? "STORE") as ApiOrderType,
+            serviceType: x?.serviceType
+  ? (String(x.serviceType) as ApiServiceType)
+  : null,
             courierServiceType: x?.courierServiceType
               ? (String(x.courierServiceType) as ApiCourierServiceType)
               : null,
@@ -214,6 +260,7 @@ export default function OrdersPage() {
         citySlug: o.citySlug ?? null,
         cityLabel: o.cityLabel ?? null,
         orderType: (o as any).orderType ?? "STORE",
+        serviceType: (o as any).serviceType ?? null,
         courierServiceType: (o as any).courierServiceType ?? null,
       }));
     }
@@ -226,6 +273,7 @@ export default function OrdersPage() {
       citySlug: b.citySlug ?? null,
       cityLabel: b.cityLabel ?? null,
       orderType: b.orderType ?? "STORE",
+      serviceType: b.serviceType ?? null,
       courierServiceType: b.courierServiceType ?? null,
     }));
   }, [usingFallback, backendOrders, fallbackOrders]);
@@ -261,8 +309,16 @@ export default function OrdersPage() {
         <div className="mt-3 space-y-2.5">
           {viewList.map((o) => {
             const chip = flowChipFromFlowStatus(o.flowStatus as any);
-            const svc = getServiceLabel(o.orderType, o.courierServiceType);
-            const svcTone = serviceTone(o.orderType, o.courierServiceType);
+            const svc = getServiceLabel(
+  o.serviceType,
+  o.orderType,
+  o.courierServiceType
+);
+            const svcTone = serviceTone(
+  o.serviceType,
+  o.orderType,
+  o.courierServiceType
+);
 
             return (
               <Link
