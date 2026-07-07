@@ -23,7 +23,8 @@ type ApiOrderFlowStatus =
   | "STORE_CONFIRMED"
   | "PAYMENT_PENDING"
   | "PAID"
-  | "PREPARING"
+  | "ASSIGNED"
+  | "PREPARING" 
   | "EN_ROUTE"
   | "DELIVERED"
   | "CANCELLED"
@@ -60,10 +61,35 @@ function flowChipFromFlowStatus(
   if (f === "CANCELLED") return { text: "CANCELADO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
 
   if (service) {
-    if (f === "WAITING_CONFIRMATION") return { text: "SOLICITADO", tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
-    if (f === "STORE_CONFIRMED") return { text: "BUSCANDO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
-    if (f === "PAID") return { text: "BUSCANDO", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
-    if (f === "PAYMENT_PENDING") return { text: "CONFIRMADO", tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" };
+    if (f === "WAITING_CONFIRMATION")
+  return {
+    text: "SOLICITADO",
+    tone: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  };
+
+if (f === "STORE_CONFIRMED")
+  return {
+    text: "BUSCANDO",
+    tone: "bg-amber-50 text-amber-800 ring-amber-200",
+  };
+
+if (f === "PAID")
+  return {
+    text: "BUSCANDO",
+    tone: "bg-amber-50 text-amber-800 ring-amber-200",
+  };
+
+if (f === "ASSIGNED")
+  return {
+    text: "ASIGNADO",
+    tone: "bg-blue-50 text-blue-700 ring-blue-200",
+  };
+
+if (f === "PAYMENT_PENDING")
+  return {
+    text: "CONFIRMADO",
+    tone: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  };
   }
 
   if (f === "WAITING_CONFIRMATION") return { text: "ESPERANDO CONF.", tone: "bg-amber-50 text-amber-800 ring-amber-200" };
