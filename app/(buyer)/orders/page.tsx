@@ -203,6 +203,7 @@ type BackendOrderLite = {
   courierServiceType: ApiCourierServiceType;
   flowStatus: ApiOrderFlowStatus;
   createdAt: string;
+  status?: string | null;
   totalCOP: number;
   citySlug?: string | null;
   cityLabel?: string | null;
@@ -258,6 +259,7 @@ export default function OrdersPage() {
               ? (String(x.courierServiceType) as ApiCourierServiceType)
               : null,
             flowStatus: String(x.flowStatus ?? "WAITING_CONFIRMATION") as ApiOrderFlowStatus,
+            status: x?.status ? String(x.status) : null,
             createdAt: String(x.createdAt ?? new Date().toISOString()),
             totalCOP: typeof x.totalCOP === "number" ? x.totalCOP : 0,
             citySlug: x?.city?.slug ? String(x.city.slug) : null,
@@ -308,6 +310,7 @@ export default function OrdersPage() {
         orderType: (o as any).orderType ?? "STORE",
         serviceType: (o as any).serviceType ?? null,
         courierServiceType: (o as any).courierServiceType ?? null,
+        status: (o as any).status ?? null,
       }));
     }
 
@@ -321,6 +324,7 @@ export default function OrdersPage() {
       orderType: b.orderType ?? "STORE",
       serviceType: b.serviceType ?? null,
       courierServiceType: b.courierServiceType ?? null,
+      status: b.status ?? null,
     }));
   }, [usingFallback, backendOrders, fallbackOrders]);
 
@@ -354,8 +358,13 @@ export default function OrdersPage() {
       ) : (
         <div className="mt-3 space-y-2.5">
           {viewList.map((o) => {
-            const chip = flowChipFromFlowStatus(
-  o.flowStatus as any,
+            const chipStatus =
+  String(o.status ?? "").toUpperCase() === "ASSIGNED"
+    ? "ASSIGNED"
+    : o.flowStatus;
+
+const chip = flowChipFromFlowStatus(
+  chipStatus as any,
   o.serviceType,
   o.orderType
 );
