@@ -328,7 +328,7 @@ export default function BuyerHeader() {
 
   return (
   <>
-    <header className="sticky top-0 z-40 border-b-0 bg-transparent backdrop-blur">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
       <div className="relative w-full">
         <div
           className="
@@ -337,64 +337,54 @@ border-b-0
 px-3 pt-2 pb-2
           "
           style={{
-            background:
-              "var(--kx-header-gradient, linear-gradient(180deg, #03102b 0%, #0b356d 42%, #4a79b7 70%, var(--kx-page-bg, #ffffff) 100%))",
-          }}
+  background:
+    "linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #ffffff 100%)",
+}}
         >
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),transparent_32%,transparent)]" />
-
-          <div className="pointer-events-none absolute inset-0 opacity-95">
-            <div className="absolute left-[18px] top-[16px] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-            <div className="absolute left-[46px] top-[28px] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-            <div className="absolute left-[118px] top-[18px] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-            <div className="absolute left-[166px] top-[14px] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-            <div className="absolute right-[34px] top-[16px] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-            <div className="absolute right-[72px] top-[34px] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-            <div className="absolute right-[114px] top-[16px] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-            <div className="absolute left-[82px] top-[52px] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-            <div className="absolute right-[150px] top-[50px] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-            <div className="absolute left-[212px] top-[40px] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-          </div>
-
-          <div className="absolute -left-10 top-8 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
-          <div className="absolute right-[-10px] bottom-3 h-24 w-24 rounded-full bg-blue-200/10 blur-2xl" />
-          <div className="absolute left-1/2 top-6 h-20 w-40 -translate-x-1/2 rounded-full bg-white/8 blur-2xl" />
-
           <div className="relative flex min-h-[72px] items-start">
             <div className="flex w-16 items-start justify-start pt-1">
               {showBack ? (
                 <button
                   type="button"
                   onClick={() => router.back()}
-                  className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 shadow-sm backdrop-blur hover:bg-white/15"
+                  
                   aria-label="Volver"
                 >
-                  <span className="text-xl leading-none text-white">←</span>
+                 <Image
+  src="/branding/kronix/arrow.png"
+  alt="Volver"
+  width={64}
+  height={64}
+  className="
+    pointer-events-none
+    select-none
+    scale-[0.8]
+    translate-x-[1px]
+    translate-y-[1px]
+  "
+/>
                 </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setMenuOpen((prev) => !prev)}
-                  className="group relative grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-white/10 shadow-sm backdrop-blur transition hover:bg-white/15"
+                  onClick={() => setMenuOpen((prev) => !prev)}                  
                   aria-label="Abrir menú"
                 >
-                  <span className="relative flex h-5 w-5 flex-col items-center justify-center gap-[4px]">
-                    <span
-                      className={`block h-[2.5px] w-5 rounded-full bg-white transition-all duration-200 ${
-                        menuOpen ? "translate-y-[6px] rotate-45" : ""
-                      }`}
-                    />
-                    <span
-                      className={`block h-[2.5px] w-5 rounded-full bg-white transition-all duration-200 ${
-                        menuOpen ? "opacity-0" : ""
-                      }`}
-                    />
-                    <span
-                      className={`block h-[2.5px] w-5 rounded-full bg-white transition-all duration-200 ${
-                        menuOpen ? "-translate-y-[6px] -rotate-45" : ""
-                      }`}
-                    />
-                  </span>
+                 <Image
+  src="/branding/kronix/hamburguer.png"
+  alt="Menú"
+  width={64}
+  height={64}
+  className={`
+    pointer-events-none
+    select-none
+    scale-[0.8]
+    translate-x-[0px]
+    translate-y-[0px]
+    transition-transform duration-200
+    ${menuOpen ? "rotate-90 scale-[0.8]" : ""}
+  `}
+/>
                 </button>
               )}
             </div>
@@ -408,20 +398,20 @@ px-3 pt-2 pb-2
                   <div
                     role="img"
                     aria-label="KroniX"
-                    className="h-full w-full bg-contain bg-center bg-no-repeat drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)] scale-130 -translate-x-3 translate-y-1"
+                    className="h-full w-full bg-contain bg-center bg-no-repeat drop-shadow-[0_6px_12px_rgba(15,23,42,0.18)] scale-130 -translate-x-3 translate-y-1"
                     style={{
                       backgroundImage:
                         "var(--kx-header-logo, url('/branding/kronix/header-logo.png'))",
                     }}
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-2xl bg-white/10 text-[24px] font-black text-white backdrop-blur">
+                  <div className="flex h-full w-full items-center justify-center rounded-2xl bg-slate-100 text-[24px] font-black text-slate-800">
                     KroniX
                   </div>
                 )}
               </div>
 
-              <div className="-mt-1 flex items-center justify-center gap-1 text-white">
+              <div className="-mt-1 flex items-center justify-center gap-1 text-slate-700">
                 <span className="text-[12px]">📍</span>
                 <span className="text-[13px] font-semibold leading-none">{cityTitle}</span>
               </div>
@@ -454,7 +444,7 @@ px-3 pt-2 pb-2
             <div className="ml-auto flex w-20 flex-col items-center justify-start pt-0.5">
               <Link
                 href="/profile"
-                className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-white/20 bg-white/10 shadow-sm backdrop-blur hover:opacity-90"
+                className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 shadow-sm transition hover:bg-slate-200"
                 aria-label="Ir a Perfil"
                 title="Perfil"
               >
@@ -467,29 +457,29 @@ px-3 pt-2 pb-2
                     />
                   ) : (
                     <>
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white-400 to-white-600" />
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200 to-slate-300" />
                       <div className="relative z-10 grid h-full w-full place-items-center">
-                        <span className="text-sm font-extrabold text-white">{initials}</span>
+                        <span className="text-sm font-extrabold text-slate-700">{initials}</span>
                       </div>
                     </>
                   )
                 ) : (
-                  <div className="absolute inset-0 rounded-full bg-white/14" />
+                  <div className="absolute inset-0 rounded-full bg-slate-200" />
                 )}
               </Link>
 
               <div className="mt-1 min-h-[28px] text-center leading-tight">
                 {isChecking ? (
-                  <span className="text-[11px] font-semibold text-white/70">...</span>
+                  <span className="text-[11px] font-semibold text-slate-500">...</span>
                 ) : isLoggedIn ? (
                   <div className="flex items-center justify-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                    <span className="text-[11px] font-extrabold text-white">En Línea</span>
+                    <span className="text-[11px] font-extrabold text-slate-700">En Línea</span>
                   </div>
                 ) : (
                   <Link
                     href="/login?next=/comprar"
-                    className="inline-block text-[10px] font-extrabold leading-tight text-white hover:underline"
+                    className="inline-block text-[10px] font-extrabold leading-tight text-slate-700 hover:underline"
                   >
                     Iniciar
                     <br />
@@ -510,28 +500,9 @@ px-3 pt-2 pb-2
             }`}
           >
             <div className="no-scrollbar max-h-[calc(100dvh-11.5rem)] overflow-y-auto">
-              <div className="relative overflow-hidden border-b border-white/10 px-4 py-4 text-white">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#0a1f44] via-[#0b5ed7] to-black" />
-
-                <div className="absolute inset-0 pointer-events-none opacity-95">
-                  <span className="absolute left-[8%] top-[18%] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-                  <span className="absolute left-[18%] top-[30%] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-                  <span className="absolute left-[30%] top-[12%] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-                  <span className="absolute left-[44%] top-[24%] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-                  <span className="absolute left-[56%] top-[14%] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-                  <span className="absolute left-[72%] top-[22%] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-                  <span className="absolute right-[10%] top-[16%] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-                  <span className="absolute right-[18%] top-[34%] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-                  <span className="absolute left-[22%] top-[58%] h-[2px] w-[2px] rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.95)]" />
-                  <span className="absolute right-[28%] top-[56%] h-[3px] w-[3px] rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,1)]" />
-                </div>
-
-                <div className="absolute -left-10 top-6 h-24 w-24 rounded-full bg-cyan-300/10 blur-2xl" />
-                <div className="absolute right-[-8px] bottom-2 h-24 w-24 rounded-full bg-emerald-200/10 blur-2xl" />
-                <div className="absolute left-1/2 top-4 h-20 w-40 -translate-x-1/2 rounded-full bg-white/8 blur-2xl" />
-
+              <div className="relative overflow-hidden border-b border-slate-100 bg-white px-4 py-4 text-slate-900">
                 <div className="relative flex items-center gap-3">
-                  <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-white/15 font-extrabold ring-1 ring-white/20 backdrop-blur-sm">
+                  <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-slate-100 font-extrabold text-slate-700 ring-1 ring-slate-200">
                     {isLoggedIn && profileImageUrl ? (
                       <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
                     ) : (
@@ -540,10 +511,10 @@ px-3 pt-2 pb-2
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-lg font-extrabold text-white">
+                    <div className="truncate text-lg font-extrabold text-slate-900">
                       {isLoggedIn ? `¡Hola ${displayName}!` : "KroniX"}
                     </div>
-                    <div className="truncate text-sm text-white/90">
+                    <div className="truncate text-sm text-slate-600">
                       {isLoggedIn
                         ? String(
                             (me as any)?.email ??

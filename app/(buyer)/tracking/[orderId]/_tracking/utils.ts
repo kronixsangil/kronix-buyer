@@ -104,15 +104,15 @@ export function getContextualFlowSteps(args: {
   const workerLabel = t === "TAXI" ? "taxista" : t === "MOTORCARGO" ? "motocarguero" : "Domiciliario";
 
   if (t === "SEND_PACKAGE") {
-    return [
-      { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos registrando tu envío" },
-      { key: "STORE_CONFIRMED", label: "Envío confirmado", hint: "Buscaremos un ${workerLabel} disponible" },
-      { key: "PAID", label: "Buscando ${workerLabel}", hint: "Tu solicitud ya está disponible para los ${workerLabel} autorizados" },
-      { key: "PREPARING", label: "Recogiendo paquete", hint: "El ${workerLabel} se dirige al punto de recogida" },
-      { key: "EN_ROUTE", label: "En camino", hint: "Tu paquete va hacia el destino" },
-      { key: "DELIVERED", label: "Entregado", hint: "Tu envío fue completado" },
-    ];
-  }
+  return [
+    { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos registrando tu envío" },
+    { key: "STORE_CONFIRMED", label: "Envío confirmado", hint: `Buscaremos un ${workerLabel} disponible` },
+    { key: "PAID", label: `Buscando ${workerLabel}`, hint: `Tu solicitud ya está disponible para los ${workerLabel}s autorizados` },
+    { key: "PREPARING", label: "Recogiendo paquete", hint: `El ${workerLabel} se dirige al punto de recogida` },
+    { key: "EN_ROUTE", label: "En camino", hint: "Tu paquete va hacia el destino" },
+    { key: "DELIVERED", label: "Entregado", hint: "Tu envío fue completado" },
+  ];
+}
 
   return [
     { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: `Estamos registrando tu servicio ${serviceLabel}` },

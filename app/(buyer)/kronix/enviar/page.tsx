@@ -1,8 +1,9 @@
 // app/(buyer)/kronix/enviar/page.tsx
 "use client";
 
-import KronixEnviosStepThree from "@/components/buyer/kronix/KronixEnviosStepThree";
+import GenericTransportServiceRequest from "@/components/buyer/kronix/GenericTransportServiceRequest";
+import { getTransportServiceConfig } from "@/lib/services/transportServices";
 
 export default function KronixEnviarPage() {
-  return <KronixEnviosStepThree />;
+  return <GenericTransportServiceRequest config={getTransportServiceConfig("enviar")} />;
 }

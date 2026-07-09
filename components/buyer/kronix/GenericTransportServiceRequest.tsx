@@ -48,6 +48,7 @@ type ServiceConfig = {
   loginNext: string;
   buttonText: string;
   creatingText: string;
+  imageSrc?: string;
 };
 
 function getUserName(user: any) {
@@ -338,21 +339,27 @@ export default function GenericTransportServiceRequest({
   }
 
   return (
-    <div className="space-y-2 px-4 pb-4 pt-2">
-      <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-        <div className="flex items-start gap-3">
-          <div className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-[22px] bg-slate-50 text-[34px] ring-1 ring-slate-200">
+    <div className="space-y-2 px-4 pb-4 pt-1">
+      <div className="flex items-center gap-3 px-1 py-2">
+        {config.imageSrc ? (
+          <img
+            src={config.imageSrc}
+            alt={config.title}
+            className="h-[70px] w-[92px] shrink-0 object-contain"
+          />
+        ) : (
+          <div className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-full bg-white/70 text-[34px] ring-1 ring-slate-200">
             {config.emoji}
           </div>
+        )}
 
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[24px] font-black leading-tight text-slate-950">
-              {config.title}
-            </h1>
-            <p className="mt-1 text-[13px] font-semibold leading-5 text-slate-500">
-              {config.description}
-            </p>
-          </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[24px] font-black leading-tight text-slate-950">
+            {config.title}
+          </h1>
+          <p className="mt-1 text-[13px] font-semibold leading-5 text-slate-600">
+            {config.description}
+          </p>
         </div>
       </div>
 
@@ -500,10 +507,6 @@ export default function GenericTransportServiceRequest({
             className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2 text-[14px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:bg-white"
           />
         </div>
-      </div>
-
-      <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-900">
-        El cliente no pagará a KroniX por este servicio. El valor se acuerda y se paga directamente al worker que acepte la orden.
       </div>
 
       {touched && !ready ? (

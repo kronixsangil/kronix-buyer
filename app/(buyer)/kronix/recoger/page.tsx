@@ -1,8 +1,9 @@
 // app/(buyer)/kronix/recoger/page.tsx
 "use client";
 
-import DomicilioExpressStepOne from "@/components/buyer/kronix/DomicilioExpressStepOne";
+import GenericTransportServiceRequest from "@/components/buyer/kronix/GenericTransportServiceRequest";
+import { getTransportServiceConfig } from "@/lib/services/transportServices";
 
 export default function KronixRecogerPage() {
-  return <DomicilioExpressStepOne />;
+  return <GenericTransportServiceRequest config={getTransportServiceConfig("recoger")} />;
 }
