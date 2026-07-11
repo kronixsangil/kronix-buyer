@@ -263,17 +263,26 @@ export default function GenericTransportServiceRequest({
 
       const safeNotes = notes.trim() || config.defaultNote;
 
-      const packageDescription = [
-        `SERVICIO: ${config.title}`,
-        `TIPO WORKER: ${config.requiredWorkerType}`,
-        "PAGO CLIENTE: El cliente paga directamente al worker según acuerdo/tarifa personal.",
-        "PAGO KRONIX: El cliente no paga a KroniX en esta etapa piloto.",
-        "COMISIÓN KRONIX: Se descontará al worker al finalizar exitosamente el servicio.",
-        "",
-        `INDICACIÓN DEL CLIENTE: ${safeNotes}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const workerLabel =
+  config.requiredWorkerType === "TAXI"
+    ? "taxista"
+    : config.requiredWorkerType === "MOTORCARGO"
+      ? "motocarguero"
+      : "domiciliario";
+
+const packageDescription = [
+  `SERVICIO: ${config.title}`,
+  "PAGO CLIENTE: El cliente paga directamente al " +
+    workerLabel +
+    " según el acuerdo o tarifa establecida.",
+  "COMISIÓN KRONIX: Se descontará al " +
+    workerLabel +
+    " al finalizar exitosamente el servicio.",
+  "",
+  `INDICACIÓN DEL CLIENTE: ${safeNotes}`,
+]
+  .filter(Boolean)
+  .join("\n");
 
       const payload = {
         orderType: "COURIER" as const,
