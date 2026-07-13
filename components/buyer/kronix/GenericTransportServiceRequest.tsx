@@ -8,6 +8,7 @@ import { useAuth } from "@/components/buyer/useAuth";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { apiFetch, type ApiError } from "@/lib/api";
 import { geocodeAddressOSMInCity } from "@/lib/geocode";
+import type { DynamicTransportService } from "@/lib/services/transportServices";
 
 type AddressItem = {
   id: string;
@@ -33,23 +34,7 @@ type CreateServiceOrderResponse = {
   orderType?: "COURIER" | "STORE";
 };
 
-type ServiceConfig = {
-  title: string;
-  shortTitle: string;
-  emoji: string;
-  serviceType: "DELIVERY" | "PACKAGE" | "TAXI" | "MOTORCARGO";
-  courierServiceType: "PICKUP_AND_DELIVERY" | "SEND_PACKAGE";
-  requiredWorkerType: "MOTORCYCLE" | "TAXI" | "MOTORCARGO";
-  packageType: string;
-  heading: string;
-  description: string;
-  notePlaceholder: string;
-  defaultNote: string;
-  loginNext: string;
-  buttonText: string;
-  creatingText: string;
-  imageSrc?: string;
-};
+type ServiceConfig = DynamicTransportService;
 
 function getUserName(user: any) {
   return String(user?.name ?? user?.user?.name ?? "").trim();
@@ -73,6 +58,22 @@ export default function GenericTransportServiceRequest({
   const router = useRouter();
   const { isAuthed, isLoading: authLoading, user } = useAuth();
   const { citySlug, cityReady, cityGeoLabel, cityLabel } = useBuyerCity();
+
+  const schema = config.requestSchema ?? {};
+  const originSchema = schema.origin ?? {};
+  const contactSchema = schema.contact ?? {};
+  const noteSchema = schema.note ?? {};
+  const submitSchema = schema.submit ?? {};
+
+  const serviceTitle = String(config.name ?? config.shortName ?? "Servicio KRONIX").trim();
+  const serviceDescription = String(config.description ?? "").trim();
+  const serviceIcon = String(config.icon ?? "🧰").trim() || "🧰";
+  const serviceImage = String(config.cardImageRight ?? "").trim();
+  const serviceKey = String(config.serviceKey ?? "").trim().toUpperCase();
+  const workerTypeKey = String(config.workerTypeKey ?? "MOTORCYCLE").trim().toUpperCase();
+  const workerLabel = String(config.workerLabel ?? "Worker").trim() || "Worker";
+  const packageType = String(schema.packageType ?? config.shortName ?? serviceTitle).trim();
+  const loginNext = `/kronix/${encodeURIComponent(config.slug)}`;
 
   const [placeName, setPlaceName] = useState("");
   const [address, setAddress] = useState("");
@@ -130,12 +131,13 @@ export default function GenericTransportServiceRequest({
     };
   }, [cityReady, citySlug, isAuthed]);
 
-  const addressOk = address.trim().length >= 8;
-  const contactOk = contactName.trim().length >= 3;
+  const addressOk = originSchema.required === false || address.trim().length >= 8;
+  const contactOk = contactSchema.required === false || contactName.trim().length >= 3;
+  const noteOk = noteSchema.required !== true || notes.trim().length >= 2;
 
   const ready = useMemo(() => {
-    return addressOk && contactOk && !!citySlug;
-  }, [addressOk, contactOk, citySlug]);
+    return addressOk && contactOk && noteOk && !!citySlug;
+  }, [addressOk, contactOk, noteOk, citySlug]);
 
   function resetErrors() {
     setGeoError(null);
@@ -261,22 +263,16 @@ export default function GenericTransportServiceRequest({
         return;
       }
 
-      const safeNotes = notes.trim() || config.defaultNote;
-
-      const workerLabel =
-  config.requiredWorkerType === "TAXI"
-    ? "taxista"
-    : config.requiredWorkerType === "MOTORCARGO"
-      ? "motocarguero"
-      : "domiciliario";
+      const safeNotes = notes.trim() || String(noteSchema.defaultValue ?? "").trim();
+      const normalizedWorkerLabel = workerLabel.toLowerCase();
 
 const packageDescription = [
-  `SERVICIO: ${config.title}`,
+  `SERVICIO: ${serviceTitle}`,
   "PAGO CLIENTE: El cliente paga directamente al " +
-    workerLabel +
+    normalizedWorkerLabel +
     " según el acuerdo o tarifa establecida.",
   "COMISIÓN KRONIX: Se descontará al " +
-    workerLabel +
+    normalizedWorkerLabel +
     " al finalizar exitosamente el servicio.",
   "",
   `INDICACIÓN DEL CLIENTE: ${safeNotes}`,
@@ -286,9 +282,16 @@ const packageDescription = [
 
       const payload = {
         orderType: "COURIER" as const,
-        courierServiceType: config.courierServiceType,
-        serviceType: config.serviceType,
-        requiredWorkerType: config.requiredWorkerType,
+        courierServiceType:
+          serviceKey === "PACKAGE" ? "SEND_PACKAGE" : "PICKUP_AND_DELIVERY",
+        // Identidad dinámica maestra del servicio.
+        serviceDefinitionId: config.id,
+        serviceKey,
+        serviceVersion: Number(config.version ?? 1),
+
+        // Campos legacy temporales mientras Prisma conserva sus enums actuales.
+        serviceType: serviceKey,
+        requiredWorkerType: workerTypeKey,
         customerId: user.id,
         citySlug,
 
@@ -303,7 +306,7 @@ const packageDescription = [
         tipCOP: 0,
         totalCOP: 0,
 
-        packageType: config.packageType,
+        packageType,
         packageDescription,
 
         origin: {
@@ -350,30 +353,30 @@ const packageDescription = [
   return (
     <div className="space-y-2 px-4 pb-4 pt-1">
       <div className="flex items-center gap-3 px-1 py-2">
-        {config.imageSrc ? (
+        {serviceImage ? (
           <img
-            src={config.imageSrc}
-            alt={config.title}
+            src={serviceImage}
+            alt={serviceTitle}
             className="h-[70px] w-[92px] shrink-0 object-contain"
           />
         ) : (
           <div className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-full bg-white/70 text-[34px] ring-1 ring-slate-200">
-            {config.emoji}
+            {serviceIcon}
           </div>
         )}
 
         <div className="min-w-0 flex-1">
           <h1 className="text-[24px] font-black leading-tight text-slate-950">
-            {config.title}
+            {serviceTitle}
           </h1>
           <p className="mt-1 text-[13px] font-semibold leading-5 text-slate-600">
-            {config.description}
+            {serviceDescription}
           </p>
         </div>
       </div>
 
       <div className="rounded-[20px] border border-slate-200 bg-white p-2 shadow-sm">
-        {addresses.length > 0 || addressesLoading ? (
+        {schema.allowSavedAddress !== false && (addresses.length > 0 || addressesLoading) ? (
           <div className="rounded-[16px] border border-blue-100 bg-blue-50 px-2 py-2">
             <label className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-700">
               Usar dirección guardada
@@ -398,6 +401,7 @@ const packageDescription = [
           </div>
         ) : null}
 
+        {schema.allowCurrentLocation !== false ? (
         <button
           type="button"
           onClick={useCurrentLocation}
@@ -411,6 +415,7 @@ const packageDescription = [
         >
           {geoLoading ? "Tomando ubicación..." : "📍 Usar mi ubicación actual"}
         </button>
+        ) : null}
 
         {geoError ? (
           <div className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">
@@ -430,7 +435,7 @@ const packageDescription = [
               setUseGps(false);
             }}
             onBlur={() => setTouched(true)}
-            placeholder="Dirección o ubicación de inicio *"
+            placeholder={`${originSchema.addressLabel || "Dirección o ubicación de inicio"}${originSchema.required === false ? "" : " *"}`}
             className={[
               "h-12 w-full rounded-[14px] border bg-slate-50 px-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:bg-white",
               touched && !addressOk
@@ -447,7 +452,7 @@ const packageDescription = [
               resetErrors();
               setPlaceName(e.target.value);
             }}
-            placeholder="Nombre del lugar (opcional)"
+            placeholder={originSchema.placeNameLabel || "Nombre del lugar (opcional)"}
             className="h-12 w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
             maxLength={80}
           />
@@ -458,7 +463,7 @@ const packageDescription = [
               resetErrors();
               setReference(e.target.value);
             }}
-            placeholder="Referencia: barrio, portería, local, frente a..."
+            placeholder={originSchema.referenceLabel || "Referencia: barrio, portería, local, frente a..."}
             rows={2}
             className="w-full rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-2 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
             maxLength={160}
@@ -466,6 +471,7 @@ const packageDescription = [
         </div>
       </div>
 
+      {contactSchema.enabled !== false || noteSchema.enabled !== false ? (
       <div className="rounded-[20px] border border-slate-200 bg-white p-2 shadow-sm">
         <div className="grid grid-cols-[70px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
           <label className="text-[14px] font-black text-slate-700">Contacto</label>
@@ -510,13 +516,14 @@ const packageDescription = [
               resetErrors();
               setNotes(e.target.value);
             }}
-            placeholder={config.notePlaceholder}
+            placeholder={noteSchema.placeholder || "Describe lo que necesitas"}
             rows={2}
             maxLength={300}
             className="w-full rounded-[12px] border border-slate-200 bg-slate-50 px-4 py-2 text-[14px] font-semibold text-slate-900 outline-none transition focus:border-emerald-300 focus:bg-white"
           />
         </div>
       </div>
+      ) : null}
 
       {touched && !ready ? (
         <div className="rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">
@@ -541,13 +548,13 @@ const packageDescription = [
             : "cursor-not-allowed bg-slate-300 shadow-none",
         ].join(" ")}
       >
-        {submitting ? config.creatingText : config.buttonText}
+        {submitting ? submitSchema.creatingText || "Creando solicitud..." : submitSchema.buttonText || `Solicitar ${serviceTitle}`}
       </button>
 
       <AuthRequiredModal
         open={showAuthModal}
         onConfirm={() =>
-          router.push(`/login?next=${encodeURIComponent(config.loginNext)}`)
+          router.push(`/login?next=${encodeURIComponent(loginNext)}`)
         }
         onClose={() => setShowAuthModal(false)}
       />

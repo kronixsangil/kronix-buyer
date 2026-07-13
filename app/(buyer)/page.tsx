@@ -9,6 +9,11 @@ import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { logout } from "@/lib/authActions";
 import { useCart } from "@/components/buyer/CartContext";
+import {
+  dynamicServiceHref,
+  listDynamicTransportServices,
+  type DynamicTransportService,
+} from "@/lib/services/transportServices";
 
 type MeResponse =
   | {
@@ -70,41 +75,15 @@ type KronixOption = {
   title: string;
   subtitle: string;
   featured?: boolean;
-  serviceSlug?: "delivery" | "package" | "taxi" | "motocarga";
+  service?: DynamicTransportService;
 };
 
-const options: KronixOption[] = [
-  {
-    href: "/comprar",
-    title: "Tienda en Línea",
-    subtitle: "Compra en nuestras tiendas afiliadas y te lo llevamos a donde quieras",
-    featured: true,
-  },
-  {
-    href: "/kronix/recoger",
-    title: "Domicilio Express",
-    subtitle: "Pide un motorizado rápido para una tarea simple",
-    serviceSlug: "delivery",
-  },
-  {
-    href: "/kronix/enviar",
-    title: "KroniX Envíos",
-    subtitle: "Envíos para negocios, tiendas y clientes frecuentes",
-    serviceSlug: "package",
-  },
-  {
-    href: "/kronix/taxi",
-    title: "Taxi",
-    subtitle: "Solicita un taxi legal cercano y paga directamente al taxista",
-    serviceSlug: "taxi",
-  },
-  {
-    href: "/kronix/motocarga",
-    title: "Motocarga",
-    subtitle: "Pide transporte rápido para objetos, paquetes grandes o carga ligera",
-    serviceSlug: "motocarga",
-  },
-];
+const STORE_OPTION: KronixOption = {
+  href: "/comprar",
+  title: "Tienda en Línea",
+  subtitle: "Compra en nuestras tiendas afiliadas y te lo llevamos a donde quieras",
+  featured: true,
+};
 
 function getInitials(input?: string) {
   const s = String(input ?? "").trim();
@@ -146,11 +125,11 @@ function HeaderCut() {
   );
 }
 
-function ServiceCardLeftImage({ slug, title }: { slug: string; title: string }) {
+function ServiceCardLeftImage({ src, title }: { src: string; title: string }) {
   return (
     <div className="relative -ml-1 h-[66px] w-[78px] shrink-0 overflow-visible">
       <Image
-        src={`/services/${slug}/cardizq.png`}
+        src={src}
         alt={title}
         fill
         className="object-contain drop-shadow-sm"
@@ -160,11 +139,11 @@ function ServiceCardLeftImage({ slug, title }: { slug: string; title: string }) 
   );
 }
 
-function ServiceCardRightImage({ slug, title }: { slug: string; title: string }) {
+function ServiceCardRightImage({ src, title }: { src: string; title: string }) {
   return (
     <div className="relative -mr-2 h-[82px] w-[128px] shrink-0 overflow-visible">
       <Image
-        src={`/services/${slug}/cardder.png`}
+        src={src}
         alt={title}
         fill
         className="object-contain opacity-95 drop-shadow-sm"
@@ -310,11 +289,13 @@ function StandardCard({
   item: KronixOption;
   onClick?: () => void;
 }) {
-  const slug = item.serviceSlug ?? "delivery";
+  const service = item.service;
+  const leftImage = String(service?.cardImageLeft ?? "/branding/kronix/logoorder.png");
+  const rightImage = String(service?.cardImageRight ?? "/branding/kronix/logoorder.png");
 
   const content = (
     <div className="flex h-full items-center gap-2">
-      <ServiceCardLeftImage slug={slug} title={item.title} />
+      <ServiceCardLeftImage src={leftImage} title={item.title} />
 
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <div className="ml-1 whitespace-nowrap text-[22px] font-black leading-tight text-slate-900">
@@ -326,7 +307,7 @@ function StandardCard({
         </div>
       </div>
 
-      <ServiceCardRightImage slug={slug} title={item.title} />
+      <ServiceCardRightImage src={rightImage} title={item.title} />
 
       <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
         ›
@@ -581,10 +562,13 @@ function KronixPlusApplicationPanel({
 
 export default function HomePage() {
   const router = useRouter();
-  const { city } = useBuyerCity();
+  const { city, citySlug, cityReady } = useBuyerCity();
   const { items } = useCart();
 
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
+  const [dynamicServices, setDynamicServices] = useState<DynamicTransportService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [kronixPlusStatus, setKronixPlusStatus] =
@@ -712,6 +696,42 @@ email: prev.email || String(app?.email ?? ""),
     };
   }, [me]);
 
+  useEffect(() => {
+    let alive = true;
+
+    async function loadServices() {
+      if (!cityReady || !citySlug) return;
+      setServicesLoading(true);
+      setServicesError(null);
+      try {
+        const items = await listDynamicTransportServices(citySlug);
+        if (!alive) return;
+        setDynamicServices(items);
+      } catch (e: any) {
+        if (!alive) return;
+        setDynamicServices([]);
+        setServicesError(String(e?.message ?? "No pudimos cargar los servicios."));
+      } finally {
+        if (alive) setServicesLoading(false);
+      }
+    }
+
+    void loadServices();
+    return () => { alive = false; };
+  }, [cityReady, citySlug]);
+
+  const options = useMemo<KronixOption[]>(() => {
+    return [
+      STORE_OPTION,
+      ...dynamicServices.map((service) => ({
+        href: dynamicServiceHref(service),
+        title: service.name,
+        subtitle: service.description || `Solicita ${service.name} en tu ciudad`,
+        service,
+      })),
+    ];
+  }, [dynamicServices]);
+
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
     if (n) return n;
@@ -764,7 +784,7 @@ email: prev.email || String(app?.email ?? ""),
     setKronixPlusSuccess(null);
   }
 
-  async function handleKronixEnviosClick() {
+  async function handleKronixEnviosClick(serviceHref = "/kronix/enviar") {
     setMenuOpen(false);
 
     if (!isLoggedIn) {
@@ -773,7 +793,7 @@ email: prev.email || String(app?.email ?? ""),
     }
 
     if (isPlusApproved) {
-      router.push("/kronix/enviar");
+      router.push(serviceHref);
       return;
     }
 
@@ -1272,7 +1292,18 @@ if (kronixPlusForm.address.trim().length < 8) {
               </p>
             </div>
 
+            {servicesError ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-900">
+                {servicesError}
+              </div>
+            ) : null}
+
             <div className="mt-5 space-y-3">
+              {servicesLoading ? (
+                <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-6 text-center text-sm font-semibold text-slate-500 shadow-sm">
+                  Cargando servicios disponibles...
+                </div>
+              ) : null}
               {options.map((item) =>
                 item.featured ? (
                   <FeaturedCard key={item.title} item={item} />
@@ -1281,8 +1312,8 @@ if (kronixPlusForm.address.trim().length < 8) {
                     key={item.title}
                     item={item}
                     onClick={
-                      item.title === "KroniX Envíos"
-                        ? handleKronixEnviosClick
+                      String(item.service?.serviceKey ?? "").toUpperCase() === "PACKAGE"
+                        ? () => handleKronixEnviosClick(item.href)
                         : undefined
                     }
                   />

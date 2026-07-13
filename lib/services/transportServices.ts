@@ -1,94 +1,101 @@
 // lib/services/transportServices.ts
 
-import type { ServiceConfig } from "@/components/buyer/kronix/GenericTransportServiceRequest";
+import { apiFetch } from "@/lib/api";
 
-export type TransportServiceSlug = "taxi" | "motocarga" | "recoger" | "enviar";
-
-export const TRANSPORT_SERVICES: Record<TransportServiceSlug, ServiceConfig> = {
-  taxi: {
-    title: "Taxi",
-    shortTitle: "Taxi",
-    emoji: "🚕",
-    serviceType: "TAXI",
-    courierServiceType: "PICKUP_AND_DELIVERY",
-    requiredWorkerType: "TAXI",
-    packageType: "Taxi",
-    heading: "Taxi",
-    description:
-      "Solicita un taxi legal cercano. El valor del viaje se acuerda y se paga directamente al taxista.",
-    notePlaceholder: "Ej: voy para el terminal, llevo maleta, somos 2 pasajeros...",
-    defaultNote:
-      "Cliente solicita Taxi. Destino y tarifa serán confirmados directamente con el taxista.",
-    loginNext: "/kronix/taxi",
-    buttonText: "Solicitar Taxi",
-    creatingText: "Solicitando taxi...",
-    imageSrc: "/services/taxi/cardder.png",
-  },
-
-  motocarga: {
-    title: "Motocarga",
-    shortTitle: "Motocarga",
-    emoji: "🛵",
-    serviceType: "MOTORCARGO",
-    courierServiceType: "PICKUP_AND_DELIVERY",
-    requiredWorkerType: "MOTORCARGO",
-    packageType: "Motocarga",
-    heading: "Motocarga",
-    description:
-      "Solicita transporte en moto adaptada para objetos, paquetes grandes o carga ligera.",
-    notePlaceholder:
-      "Ej: caja mediana, mercado grande, herramienta, dimensiones aproximadas...",
-    defaultNote:
-      "Cliente solicita Motocarga. Detalles y tarifa serán confirmados directamente con el motocarguero.",
-    loginNext: "/kronix/motocarga",
-    buttonText: "Solicitar Motocarga",
-    creatingText: "Solicitando motocarga...",
-    imageSrc: "/services/motocarga/cardder.png",
-  },
-
-  recoger: {
-    title: "Domicilio Express",
-    shortTitle: "Domicilio",
-    emoji: "🏍️",
-    serviceType: "DELIVERY",
-    courierServiceType: "PICKUP_AND_DELIVERY",
-    requiredWorkerType: "MOTORCYCLE",
-    packageType: "Domicilio Express",
-    heading: "Domicilio Express",
-    description:
-      "Solicita un motorizado para recoger, comprar o llevar algo dentro de la ciudad.",
-    notePlaceholder:
-      "Ej: recoger llaves, comprar algo pequeño, llevar documento, punto de entrega, instrucciones...",
-    defaultNote:
-      "Cliente solicita Domicilio Express. Detalles y tarifa serán confirmados directamente con el motorizado.",
-    loginNext: "/kronix/recoger",
-    buttonText: "Solicitar Domicilio Express",
-    creatingText: "Solicitando domicilio...",
-    imageSrc: "/services/delivery/cardder.png",
-  },
-
-  enviar: {
-    title: "KroniX Envíos",
-    shortTitle: "Envíos",
-    emoji: "📦",
-    serviceType: "PACKAGE",
-    courierServiceType: "SEND_PACKAGE",
-    requiredWorkerType: "MOTORCYCLE",
-    packageType: "KroniX Envíos",
-    heading: "KroniX Envíos",
-    description:
-      "Solicita un motorizado para enviar paquetes, documentos o artículos pequeños dentro de la ciudad.",
-    notePlaceholder:
-      "Ej: documento, paquete pequeño, nombre del receptor, dirección destino, cuidado especial...",
-    defaultNote:
-      "Cliente solicita KroniX Envíos. Detalles y tarifa serán confirmados directamente con el motorizado.",
-    loginNext: "/kronix/enviar",
-    buttonText: "Solicitar Envío",
-    creatingText: "Solicitando envío...",
-    imageSrc: "/services/package/cardder.png",
-  },
+export type DynamicServiceRequestSchema = {
+  routeMode?: "POINT_ONLY" | "ORIGIN_DESTINATION" | "MULTI_STOP" | string;
+  packageType?: string | null;
+  allowSavedAddress?: boolean;
+  allowCurrentLocation?: boolean;
+  origin?: {
+    enabled?: boolean;
+    required?: boolean;
+    title?: string;
+    addressLabel?: string;
+    placeNameLabel?: string;
+    referenceLabel?: string;
+  };
+  destination?: {
+    enabled?: boolean;
+    required?: boolean;
+    title?: string;
+    addressLabel?: string;
+    placeNameLabel?: string;
+    referenceLabel?: string;
+  };
+  contact?: { enabled?: boolean; required?: boolean };
+  note?: {
+    enabled?: boolean;
+    required?: boolean;
+    label?: string;
+    placeholder?: string;
+    defaultValue?: string;
+  };
+  submit?: { buttonText?: string; creatingText?: string };
+  paymentMode?: "DIRECT_TO_WORKER" | "PLATFORM" | string;
 };
 
-export function getTransportServiceConfig(slug: TransportServiceSlug) {
-  return TRANSPORT_SERVICES[slug];
+export type DynamicTransportService = {
+  id: string;
+  serviceKey: string;
+  slug: string;
+  name: string;
+  shortName: string;
+  description?: string | null;
+  workerTypeKey: string;
+  workerLabel: string;
+  workerPluralLabel: string;
+  icon?: string | null;
+  assetSlug?: string | null;
+  buyerPath?: string | null;
+  cardImageLeft?: string | null;
+  cardImageRight?: string | null;
+  primaryColor?: string | null;
+  accentColor?: string | null;
+  requestSchema: DynamicServiceRequestSchema;
+  workerFlowSchema?: Record<string, unknown> | null;
+  trackingSchema?: Record<string, unknown> | null;
+  status?: string | null;
+  version?: number | null;
+  workerCommissionCOP?: number | null;
+  isActive?: boolean;
+  sortOrder?: number;
+  cityOverrides?: Record<string, unknown> | null;
+};
+
+type PublicServicesResponse = {
+  ok: true;
+  city: {
+    id: string;
+    slug: string;
+    name: string;
+    department?: string | null;
+    country?: string | null;
+  };
+  items: DynamicTransportService[];
+};
+
+export function dynamicServiceHref(service: Pick<DynamicTransportService, "slug">) {
+  return `/kronix/${encodeURIComponent(String(service.slug ?? "").trim())}`;
+}
+
+export async function listDynamicTransportServices(citySlug: string) {
+  const cleanCitySlug = String(citySlug ?? "").trim();
+  if (!cleanCitySlug) return [] as DynamicTransportService[];
+
+  const response = await apiFetch<PublicServicesResponse>(
+    `/public/services?citySlug=${encodeURIComponent(cleanCitySlug)}`,
+    { method: "GET", cache: "no-store", suppressSessionExpiredEvent: true } as any
+  );
+
+  return (Array.isArray(response?.items) ? response.items : [])
+    .filter((item) => item && item.isActive !== false)
+    .slice()
+    .sort((a, b) => Number(a.sortOrder ?? 100) - Number(b.sortOrder ?? 100));
+}
+
+export async function getDynamicTransportService(citySlug: string, serviceSlug: string) {
+  const services = await listDynamicTransportServices(citySlug);
+  const slug = String(serviceSlug ?? "").trim().toLowerCase();
+  return services.find((service) => String(service.slug ?? "").trim().toLowerCase() === slug) ?? null;
 }
