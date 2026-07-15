@@ -19,6 +19,19 @@ import privacidadIcon from "@/public/icons/privacidad.png";
 import soporteIcon from "@/public/icons/soporte.png";
 import tycIcon from "@/public/icons/tyc.png";
 
+type CustomerBehaviorIndicator = {
+  totalEvaluatedServices: number;
+  completedServices: number;
+  customerCancelledServices: number;
+  pointsEarned: number;
+  pointsPossible: number;
+  reliabilityPct: number | null;
+  rating: number | null;
+  level: "NEW" | "DEVELOPING" | "RELIABLE" | "VERY_RELIABLE";
+  levelLabel: string;
+  hasEnoughHistory: boolean;
+};
+
 type MeResponse =
   | {
       user: {
@@ -27,6 +40,7 @@ type MeResponse =
         phone?: string;
         email?: string;
         name?: string;
+        customerBehavior?: CustomerBehaviorIndicator | null;
       };
     }
   | { user?: any };
@@ -74,12 +88,16 @@ export default function ProfilePage() {
     try {
       setIsChecking(true);
 
-      const data = await apiFetch<MeResponse>("/auth/me", {
+      const data = await apiFetch<MeResponse | any>("/users/me", {
         method: "GET",
         cache: "no-store",
       });
 
-      const user = (data as any)?.user ?? null;
+      const raw = (data as any)?.user ?? data ?? null;
+      const user =
+        raw && typeof raw === "object"
+          ? { ...raw, sub: raw.sub ?? raw.id }
+          : null;
       setMe(user && typeof user === "object" ? user : null);
     } catch {
       setMe(null);
@@ -136,6 +154,21 @@ export default function ProfilePage() {
     [me]
   );
 
+  const customerBehavior = (me as any)?.customerBehavior as
+    | CustomerBehaviorIndicator
+    | null
+    | undefined;
+
+  const reliabilityLabel =
+    customerBehavior?.reliabilityPct != null
+      ? `${customerBehavior.reliabilityPct.toFixed(1)}%`
+      : "Nuevo";
+
+  const ratingLabel =
+    customerBehavior?.rating != null
+      ? customerBehavior.rating.toFixed(2)
+      : "—";
+
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -169,15 +202,7 @@ export default function ProfilePage() {
           <div className="relative overflow-hidden rounded-3xl border border-slate-200 shadow-sm">
             <div className="absolute inset-0 bg-gradient-to-br from-[#0a1f44] via-[#0b5ed7] to-black" />
 
-            <div className="absolute inset-0 pointer-events-none">
-              <span className="absolute left-[8%] top-[18%] h-1 w-1 rounded-full bg-white/90" />
-              <span className="absolute left-[18%] top-[28%] h-1 w-1 rounded-full bg-white/80" />
-              <span className="absolute left-[31%] top-[14%] h-1 w-1 rounded-full bg-white/90" />
-              <span className="absolute left-[46%] top-[24%] h-1 w-1 rounded-full bg-white/80" />
-              <span className="absolute left-[58%] top-[12%] h-1 w-1 rounded-full bg-white/90" />
-              <span className="absolute left-[71%] top-[22%] h-1 w-1 rounded-full bg-white/80" />
-              <span className="absolute left-[84%] top-[16%] h-1 w-1 rounded-full bg-white/90" />
-            </div>
+            
 
             <div className="relative p-3">
               <div className="flex items-start justify-between gap-2">
@@ -226,6 +251,27 @@ export default function ProfilePage() {
     </button>
   </div>
 </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur-sm">
+                <div className="text-center">
+                  <div className="text-[10px] font-bold uppercase text-white/75">Confiabilidad</div>
+                  <div className="mt-1 text-sm font-black text-white">{reliabilityLabel}</div>
+                </div>
+                <div className="border-x border-white/15 text-center">
+                  <div className="text-[10px] font-bold uppercase text-white/75">Calificación</div>
+                  <div className="mt-1 text-sm font-black text-white">⭐ {ratingLabel}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] font-bold uppercase text-white/75">Servicios</div>
+                  <div className="mt-1 text-sm font-black text-white">
+                    {customerBehavior?.totalEvaluatedServices ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-1 text-center text-[10px] font-semibold text-white/75">
+                {customerBehavior?.levelLabel ?? "Cliente nuevo"}
+              </div>
               
             </div>
           </div>

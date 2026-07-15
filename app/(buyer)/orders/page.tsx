@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { applyDriverSyncEvents, loadOrders, type Order } from "@/components/buyer/OrdersStorage";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentBuyerId } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
@@ -31,14 +31,8 @@ type ApiOrderFlowStatus =
   | "PAYMENT_FAILED";
 
 type ApiOrderType = "STORE" | "COURIER";
-type ApiCourierServiceType = "PICKUP_AND_DELIVERY" | "SEND_PACKAGE" | "ERRAND" | null;
-type ApiServiceType =
-  | "STORE"
-  | "DELIVERY"
-  | "PACKAGE"
-  | "TAXI"
-  | "MOTORCARGO"
-  | null;
+type ApiServiceSnapshot = Record<string, any> | null;
+type ApiServiceType = string | null;
 
 function isServiceOrder(serviceType?: string | null, orderType?: string | null) {
   const st = String(serviceType ?? "").toUpperCase();
@@ -101,65 +95,71 @@ if (f === "PAYMENT_PENDING")
   return { text: "EN PROCESO", tone: "bg-gray-50 text-gray-700 ring-gray-200" };
 }
 
+function getSnapshotDefinition(snapshot?: ApiServiceSnapshot) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const definition = (snapshot as any).definition;
+  return definition && typeof definition === "object" ? definition : snapshot;
+}
+
 function getServiceLabel(
   serviceType?: string | null,
   orderType?: string | null,
-  courierServiceType?: string | null
+  serviceSnapshot?: ApiServiceSnapshot
 ) {
-  const st = String(serviceType ?? "").toUpperCase();
-  const ot = String(orderType ?? "").toUpperCase();
-  const ct = String(courierServiceType ?? "").toUpperCase();
+  const ot = String(orderType ?? "").trim().toUpperCase();
+  const st = String(serviceType ?? "").trim().toUpperCase();
 
-  if (st === "STORE") return "Tienda en Línea";
-  if (st === "DELIVERY") return "Domicilio Express";
+  if (ot === "STORE" || st === "STORE") return "Tienda en Línea";
   if (st === "PACKAGE") return "KroniX Envíos";
-  if (st === "TAXI") return "Taxi";
-  if (st === "MOTORCARGO") return "Motocarga";
 
-  // Compatibilidad órdenes antiguas
-  if (ot === "STORE") return "Tienda en Línea";
-  if (ct === "PICKUP_AND_DELIVERY") return "Domicilio Express";
-  if (ct === "SEND_PACKAGE") return "KroniX Envíos";
-
-  return "Servicio";
+  const definition = getSnapshotDefinition(serviceSnapshot);
+  return (
+    String(definition?.name ?? "").trim() ||
+    String((serviceSnapshot as any)?.name ?? "").trim() ||
+    "Servicio"
+  );
 }
 
-function serviceTone(
+function hexToRgba(hex: string, alpha: number) {
+  const value = String(hex ?? "").trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(value)) {
+    return `rgba(100, 116, 139, ${alpha})`;
+  }
+
+  const clean = value.slice(1);
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function serviceStyle(
   serviceType?: string | null,
   orderType?: string | null,
-  courierServiceType?: string | null
-) {
-  const st = String(serviceType ?? "").toUpperCase();
-  const ot = String(orderType ?? "").toUpperCase();
-  const ct = String(courierServiceType ?? "").toUpperCase();
+  serviceSnapshot?: ApiServiceSnapshot
+): CSSProperties {
+  const ot = String(orderType ?? "").trim().toUpperCase();
+  const st = String(serviceType ?? "").trim().toUpperCase();
 
-  if (st === "STORE")
-    return "bg-blue-50 text-blue-700 ring-blue-200";
+  if (ot === "STORE" || st === "STORE") {
+    return {
+      backgroundColor: "#EFF6FF",
+      color: "#1D4ED8",
+      boxShadow: "inset 0 0 0 1px #BFDBFE",
+    };
+  }
 
-  if (st === "DELIVERY")
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  const definition = getSnapshotDefinition(serviceSnapshot);
+  const primary = String(definition?.primaryColor ?? "#64748B");
+  const accent = String(definition?.accentColor ?? "#F8FAFC");
 
-  if (st === "PACKAGE")
-    return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-
-  if (st === "TAXI")
-  return "bg-amber-50 text-amber-800 ring-amber-200";
-
-if (st === "MOTORCARGO")
-  return "bg-violet-50 text-violet-700 ring-violet-200";
-
-  // Compatibilidad órdenes antiguas
-  if (ot === "STORE")
-    return "bg-blue-50 text-blue-700 ring-blue-200";
-
-  if (ct === "PICKUP_AND_DELIVERY")
-    return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-
-  if (ct === "SEND_PACKAGE")
-    return "bg-cyan-50 text-cyan-700 ring-cyan-200";
-
-  return "bg-slate-50 text-slate-700 ring-slate-200";
+  return {
+    backgroundColor: accent,
+    color: primary,
+    boxShadow: `inset 0 0 0 1px ${hexToRgba(primary, 0.24)}`,
+  };
 }
+
 function OrdersSkeletonList({ count = 3 }: { count?: number }) {
   return (
     <div className="mt-3 space-y-2.5">
@@ -199,7 +199,8 @@ type BackendOrderLite = {
   id: string;
   orderType: ApiOrderType;
   serviceType: ApiServiceType;
-  courierServiceType: ApiCourierServiceType;
+  serviceKey?: string | null;
+  serviceSnapshot?: ApiServiceSnapshot;
   flowStatus: ApiOrderFlowStatus;
   createdAt: string;
   status?: string | null;
@@ -254,9 +255,11 @@ export default function OrdersPage() {
             serviceType: x?.serviceType
   ? (String(x.serviceType) as ApiServiceType)
   : null,
-            courierServiceType: x?.courierServiceType
-              ? (String(x.courierServiceType) as ApiCourierServiceType)
-              : null,
+            serviceKey: x?.serviceKey ? String(x.serviceKey) : null,
+            serviceSnapshot:
+              x?.serviceSnapshot && typeof x.serviceSnapshot === "object"
+                ? x.serviceSnapshot
+                : null,
             flowStatus: String(x.flowStatus ?? "WAITING_CONFIRMATION") as ApiOrderFlowStatus,
             status: x?.status ? String(x.status) : null,
             createdAt: String(x.createdAt ?? new Date().toISOString()),
@@ -308,7 +311,8 @@ export default function OrdersPage() {
         cityLabel: o.cityLabel ?? null,
         orderType: (o as any).orderType ?? "STORE",
         serviceType: (o as any).serviceType ?? null,
-        courierServiceType: (o as any).courierServiceType ?? null,
+        serviceKey: (o as any).serviceKey ?? null,
+        serviceSnapshot: (o as any).serviceSnapshot ?? null,
         status: (o as any).status ?? null,
       }));
     }
@@ -322,7 +326,8 @@ export default function OrdersPage() {
       cityLabel: b.cityLabel ?? null,
       orderType: b.orderType ?? "STORE",
       serviceType: b.serviceType ?? null,
-      courierServiceType: b.courierServiceType ?? null,
+      serviceKey: b.serviceKey ?? null,
+      serviceSnapshot: b.serviceSnapshot ?? null,
       status: b.status ?? null,
     }));
   }, [usingFallback, backendOrders, fallbackOrders]);
@@ -368,15 +373,15 @@ const chip = flowChipFromFlowStatus(
   o.orderType
 );
             const svc = getServiceLabel(
-  o.serviceType,
-  o.orderType,
-  o.courierServiceType
-);
-            const svcTone = serviceTone(
-  o.serviceType,
-  o.orderType,
-  o.courierServiceType
-);
+              o.serviceType ?? o.serviceKey,
+              o.orderType,
+              o.serviceSnapshot
+            );
+            const svcStyle = serviceStyle(
+              o.serviceType ?? o.serviceKey,
+              o.orderType,
+              o.serviceSnapshot
+            );
 
             return (
               <Link
@@ -409,8 +414,8 @@ const chip = flowChipFromFlowStatus(
                   <span
                     className={[
                       "inline-flex rounded-full px-3 py-1 text-[11px] font-extrabold ring-1",
-                      svcTone,
                     ].join(" ")}
+                    style={svcStyle}
                   >
                     Servicio: {svc}
                   </span>

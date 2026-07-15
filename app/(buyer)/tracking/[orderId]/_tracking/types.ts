@@ -33,6 +33,11 @@ export type ApiCourierData = {
 export type ApiOrder = {
   id: string;
   orderType?: ApiOrderType | null;
+  serviceType?: string | null;
+  serviceKey?: string | null;
+  serviceDefinitionId?: string | null;
+  serviceVersion?: number | null;
+  serviceSnapshot?: Record<string, any> | null;
   courierServiceType?: string | null;
   flowStatus?: ApiOrderFlowStatus | null;
   createdAt: string;
@@ -101,7 +106,21 @@ export type ApiOrder = {
 export type ApiTrackingSnapshot = {
   orderId: string;
   orderType?: ApiOrderType | null;
+  serviceType?: string | null;
+  serviceKey?: string | null;
+  serviceDefinitionId?: string | null;
+  serviceVersion?: number | null;
+  serviceSnapshot?: Record<string, any> | null;
+  serviceName?: string | null;
+  workerLabel?: string | null;
+  workerPluralLabel?: string | null;
   courierServiceType?: string | null;
+  cancellationPolicy?: {
+    isDynamicService: boolean;
+    hasAssignedWorker: boolean;
+    affectsReliability: boolean;
+    workerLabel: string;
+  } | null;
   status?: string | null;
   flowStatus?: ApiOrderFlowStatus | null;
   paymentStatus?: "PENDING" | "PAID" | "FAILED" | null;
@@ -255,6 +274,7 @@ export type TrackingViewModel = {
   isCourier: boolean;
   courierServiceType: string;
   isServiceOrder: boolean;
+  servicePresentation: import("./dynamicServicePresentation").DynamicServicePresentation;
   courierData: {
     pickupAddress: string | null;
     pickupLat: number | null;
@@ -296,6 +316,12 @@ export type TrackingViewModel = {
   storeStatesToRender: any[] | null;
 
   canCancel: boolean;
+  cancellationPolicy: {
+    isDynamicService: boolean;
+    hasAssignedWorker: boolean;
+    affectsReliability: boolean;
+    workerLabel: string;
+  };
   canPayNow: boolean;
   canRetry: boolean;
 

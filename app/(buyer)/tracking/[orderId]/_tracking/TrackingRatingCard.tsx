@@ -40,7 +40,9 @@ export function TrackingRatingCard({ vm }: { vm: TrackingViewModel }) {
   return (
     <div className={`${vm.CARD_PAD} mt-4`}>
       <div className="flex items-center justify-between">
-        <div className="text-sm font-extrabold text-gray-900">Califica tu entrega</div>
+        <div className="text-sm font-extrabold text-gray-900">
+          {vm.isCourier ? "Califica tu servicio" : "Califica tu entrega"}
+        </div>
 
         {vm.hasRated ? (
           <span className="rounded-full bg-green-50 px-3 py-1 text-[11px] font-extrabold text-green-700 ring-1 ring-green-200">
@@ -62,12 +64,14 @@ export function TrackingRatingCard({ vm }: { vm: TrackingViewModel }) {
       ) : (
         <>
           <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
-            <div className="text-[12px] font-semibold text-gray-800">¿Cómo te fue con tu conductor?</div>
+            <div className="text-[12px] font-semibold text-gray-800">
+              ¿Cómo te fue con tu {vm.servicePresentation.workerLabel || "trabajador"}?
+            </div>
 
             <StarSelector
               value={vm.driverRatingStars}
               onChange={vm.setDriverRatingStars}
-              ariaPrefix="conductor"
+              ariaPrefix={vm.servicePresentation.workerLabel || "trabajador"}
             />
 
             <button
@@ -83,7 +87,7 @@ export function TrackingRatingCard({ vm }: { vm: TrackingViewModel }) {
                 <textarea
                   value={vm.driverRatingComment}
                   onChange={(e) => vm.setDriverRatingComment(e.target.value)}
-                  placeholder="Cuéntanos cómo fue la atención del conductor..."
+                  placeholder={`Cuéntanos cómo fue la atención del ${vm.servicePresentation.workerLabel || "trabajador"}...`}
                   className="w-full rounded-2xl border border-gray-200 bg-white p-3 text-sm text-gray-900 outline-none ring-0 focus:border-gray-300"
                   rows={3}
                   maxLength={500}

@@ -127,7 +127,8 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
       .join("") || "CT";
 
   const hasPhone = Boolean(phone);
-  const waMsg = `Hola ${name || "conductor"}, soy el cliente de KroniX. Estoy siguiendo mi pedido ${vm.order!.id}.`;
+  const workerLabel = vm.servicePresentation.workerLabel || "trabajador";
+  const waMsg = `Hola ${name || workerLabel}, soy el cliente de KroniX. Estoy siguiendo mi servicio ${vm.order!.id}.`;
   const waUrl = hasPhone ? buildWhatsAppUrl(phone, waMsg) : "";
   const callUrl = hasPhone ? `tel:${phone}` : "";
 
@@ -135,7 +136,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
     <div className={`${vm.CARD_PAD} mt-4`}>
       <div className="flex items-center justify-between">
         <div className="text-sm font-extrabold text-gray-900">
-          Conductor asignado
+          {vm.isCourier ? `${workerLabel} asignado` : "Domiciliario asignado"}
         </div>
 
         <button
@@ -149,7 +150,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
 
       {!prof ? (
         <div className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs text-slate-700 ring-1 ring-slate-200">
-          Aún no hay conductor asignado. Te notificaremos apenas se asigne uno.
+          Aún no hay {workerLabel} asignado. Te notificaremos apenas se asigne uno.
         </div>
       ) : (
         <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
@@ -158,7 +159,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
               {profileImageUrl ? (
                 <img
                   src={profileImageUrl}
-                  alt="Foto oficial del conductor"
+                  alt={`Foto del ${workerLabel}`}
                   className="block h-full w-full object-cover"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
@@ -172,7 +173,7 @@ export function TrackingDriverCard({ vm }: { vm: TrackingViewModel }) {
 
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-extrabold text-slate-900">
-                {name || "Conductor"}
+                {name || workerLabel}
               </div>
               <div className="mt-0.5 text-[11px] font-semibold text-slate-600">
                 {brand || plate ? (

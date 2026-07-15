@@ -2,7 +2,6 @@
 "use client";
 
 import type { TrackingViewModel } from "./types";
-import { getCourierServiceLabel } from "./utils";
 
 function normalizeText(value: unknown) {
   return String(value ?? "").trim().toLowerCase();
@@ -13,26 +12,6 @@ function normalizeAddress(value: unknown) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
-}
-
-function getServiceKey(vm: TrackingViewModel) {
-  const fromVm = String(vm.courierServiceType ?? "").trim().toUpperCase();
-  if (fromVm) return fromVm;
-
-  const raw = [
-    vm.courierData.packageType,
-    vm.courierData.packageDescription,
-    vm.order?.customerNote,
-  ]
-    .map((x) => String(x ?? "").toUpperCase())
-    .join(" ");
-
-  if (raw.includes("MOTOCARGA") || raw.includes("MOTORCARGO")) return "MOTORCARGO";
-  if (raw.includes("TAXI")) return "TAXI";
-  if (raw.includes("KRONIX ENVÍOS") || raw.includes("KRONIX ENVIOS")) return "SEND_PACKAGE";
-  if (raw.includes("DOMICILIO EXPRESS")) return "PICKUP_AND_DELIVERY";
-
-  return "SERVICE";
 }
 
 function cleanServiceDescription(value: unknown, fallback: string) {
@@ -111,53 +90,44 @@ function ContactRow({
 export function TrackingCourierDetailsCard({ vm }: { vm: TrackingViewModel }) {
   if (!vm.isCourier) return null;
 
-  const serviceKey = getServiceKey(vm);
-  const serviceLabel = getCourierServiceLabel(serviceKey);
-
-  const isTaxi = serviceKey === "TAXI";
-  const isMotorcargo = serviceKey === "MOTORCARGO" || serviceKey === "MOTOCARGA";
-  const isPackage = serviceKey === "SEND_PACKAGE" || serviceKey === "PACKAGE";
-  const isDelivery = serviceKey === "PICKUP_AND_DELIVERY" || serviceKey === "DELIVERY";
+  const presentation = vm.servicePresentation;
+  const serviceLabel = presentation.serviceName;
+  const requestSchema = presentation.requestSchema ?? {};
+  const trackingSchema = presentation.trackingSchema ?? {};
 
   const pickupAddress = vm.courierData.pickupAddress || vm.order?.address || "—";
   const dropoffAddress = vm.order?.address || "";
-  const sameAddress = normalizeAddress(pickupAddress) === normalizeAddress(dropoffAddress);
+  const sameAddress =
+    normalizeAddress(pickupAddress) === normalizeAddress(dropoffAddress);
 
-  const shouldShowDestination = isPackage && !sameAddress;
+  const destinationEnabled =
+    requestSchema?.destination?.enabled === true ||
+    requestSchema?.routeMode === "ORIGIN_DESTINATION";
 
+  const shouldShowDestination = Boolean(destinationEnabled && !sameAddress);
   const cardTitle = `Detalles de ${serviceLabel}`;
 
   const pickupTitle =
     vm.courierData.pickupPlaceName ||
-    (isTaxi
-      ? "Punto donde te recoge el taxi"
-      : isMotorcargo
-      ? "Punto donde recoge la motocarga"
-      : isPackage
-      ? "Punto de recogida"
-      : isDelivery
-      ? "Punto del servicio"
-      : "Punto de inicio");
+    String(
+      trackingSchema?.pickupTitle ??
+        requestSchema?.origin?.title ??
+        "Punto de inicio"
+    );
 
-  const packageEyebrow = isTaxi
-    ? "Solicitud"
-    : isMotorcargo
-    ? "Carga solicitada"
-    : isPackage
-    ? "Envío"
-    : "Servicio solicitado";
+  const packageEyebrow = String(
+    trackingSchema?.requestEyebrow ?? "Servicio solicitado"
+  );
 
-  const packageTitle = vm.courierData.packageType || serviceLabel;
+  const packageTitle =
+    vm.courierData.packageType || presentation.shortName || serviceLabel;
 
   const cleanDescription = cleanServiceDescription(
     vm.courierData.packageDescription,
-    isTaxi
-      ? "Cliente solicita Taxi. La tarifa será acordada directamente con el taxista."
-      : isMotorcargo
-      ? "Cliente solicita Motocarga. Detalles y tarifa serán confirmados directamente con el motocarguero."
-      : isPackage
-      ? "Cliente solicita KroniX Envíos. Detalles del envío se confirman en el punto de recogida."
-      : "Cliente solicita un servicio KroniX."
+    String(
+      trackingSchema?.defaultDescription ??
+        `Cliente solicita ${serviceLabel}. Los detalles se coordinarán directamente con el ${presentation.workerLabel}.`
+    )
   );
 
   const senderName = vm.courierData.senderName || "—";
@@ -171,13 +141,10 @@ export function TrackingCourierDetailsCard({ vm }: { vm: TrackingViewModel }) {
 
   const shouldShowReceiver = Boolean(receiverName || receiverPhone) && !sameContact && shouldShowDestination;
 
-  const notesLabel = isTaxi
-    ? "Indicaciones para el taxista"
-    : isMotorcargo
-    ? "Indicaciones para el motocarguero"
-    : isPackage
-    ? "Indicaciones del envío"
-    : "Indicaciones del servicio";
+  const notesLabel = String(
+    trackingSchema?.notesLabel ??
+      `Indicaciones para el ${presentation.workerLabel}`
+  );
 
   return (
     <div className={`${vm.CARD_PAD} mt-4`}>

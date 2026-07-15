@@ -5,24 +5,8 @@ import Image from "next/image";
 import type { TrackingViewModel } from "./types";
 import { formatCOP } from "./utils";
 
-function getCourierServiceLabel(vm: TrackingViewModel) {
-  const serviceType = String(
-    (vm.tracking as any)?.courierServiceType ??
-      (vm.order as any)?.courierServiceType ??
-      ""
-  )
-    .trim()
-    .toUpperCase();
-
-  if (serviceType === "SEND_PACKAGE") return "KroniX Envíos";
-  if (serviceType === "ERRAND") return "Domicilios y Diligencias";
-  if (serviceType === "PICKUP_AND_DELIVERY") return "Domicilio Express";
-
-  return vm.courierData.packageType || "Servicio courier";
-}
-
 export function TrackingSummaryCard({ vm }: { vm: TrackingViewModel }) {
-  const courierServiceLabel = getCourierServiceLabel(vm);
+  const courierServiceLabel = vm.servicePresentation.serviceName;
 
   return (
     <div className={`${vm.CARD_PAD} mt-4`}>
@@ -37,7 +21,9 @@ export function TrackingSummaryCard({ vm }: { vm: TrackingViewModel }) {
               <div className="text-sm font-extrabold text-gray-900">
                 {courierServiceLabel}
               </div>
-              <div className="mt-1 text-xs text-gray-600">Servicio KroniX</div>
+              <div className="mt-1 text-xs text-gray-600">
+                Atendido por {vm.servicePresentation.workerLabel}
+              </div>
             </div>
 
             <div className="text-right">

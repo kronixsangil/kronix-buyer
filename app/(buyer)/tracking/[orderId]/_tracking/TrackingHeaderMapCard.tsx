@@ -62,7 +62,9 @@ export function TrackingHeaderMapCard({ vm }: { vm: TrackingViewModel }) {
 
         <div className="mt-3 rounded-2xl bg-slate-50 p-3 ring-1 ring-slate-200">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-extrabold text-gray-900">Ubicación del driver</div>
+            <div className="text-xs font-extrabold text-gray-900">
+              Ubicación del {vm.servicePresentation.workerLabel || "trabajador"}
+            </div>
             <span
               className={[
                 "rounded-full px-2 py-0.5 text-[11px] font-extrabold ring-1",
@@ -86,7 +88,7 @@ export function TrackingHeaderMapCard({ vm }: { vm: TrackingViewModel }) {
             </span>
 
             <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
-              Driver:{" "}
+              Trabajador:{" "}
               <span className="font-extrabold">
                 {vm.mapData.driver
                   ? `${vm.mapData.driver.lat.toFixed(5)}, ${vm.mapData.driver.lng.toFixed(5)}`

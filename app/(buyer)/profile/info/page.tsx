@@ -46,6 +46,19 @@ type SessionMeShape = {
   };
 };
 
+type CustomerBehaviorIndicator = {
+  totalEvaluatedServices: number;
+  completedServices: number;
+  customerCancelledServices: number;
+  pointsEarned: number;
+  pointsPossible: number;
+  reliabilityPct: number | null;
+  rating: number | null;
+  level: "NEW" | "DEVELOPING" | "RELIABLE" | "VERY_RELIABLE";
+  levelLabel: string;
+  hasEnoughHistory: boolean;
+};
+
 type ApiMe = {
   id: string;
   name: string | null;
@@ -60,6 +73,7 @@ type ApiMe = {
   createdAt?: string | Date | null;
   storeId?: string | null;
   store?: { id: string; storeCode: string; name: string } | null;
+  customerBehavior?: CustomerBehaviorIndicator | null;
 };
 
 type SavedAddressItem = {
@@ -460,6 +474,25 @@ export default function InfoPage() {
     }
   }
 
+  const customerBehavior = profile?.customerBehavior ?? null;
+
+  const reliabilityText =
+    customerBehavior?.reliabilityPct != null
+      ? `${customerBehavior.reliabilityPct.toFixed(1)}%`
+      : "Sin historial";
+
+  const ratingText =
+    customerBehavior?.rating != null
+      ? `${customerBehavior.rating.toFixed(2)} / 5`
+      : "Sin historial";
+
+  function behaviorTone() {
+    if (customerBehavior?.level === "VERY_RELIABLE") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    if (customerBehavior?.level === "RELIABLE") return "border-blue-200 bg-blue-50 text-blue-800";
+    if (customerBehavior?.level === "DEVELOPING") return "border-amber-200 bg-amber-50 text-amber-800";
+    return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+
   function AvatarBox({ size = 48 }: { size?: number }) {
     return (
       <div
@@ -525,6 +558,51 @@ export default function InfoPage() {
           </div>
 
           <div className="shrink-0 text-xs font-extrabold text-emerald-700">En línea</div>
+        </div>
+      </div>
+
+      <div className="mt-2 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-extrabold text-slate-900">Indicador de comportamiento</div>
+            <div className="mt-1 text-[11px] leading-4 text-slate-500">
+              Se calcula automáticamente con servicios finalizados y cancelaciones hechas por el cliente.
+            </div>
+          </div>
+          <span className={cx("shrink-0 rounded-full border px-3 py-1 text-[11px] font-extrabold", behaviorTone())}>
+            {customerBehavior?.levelLabel ?? "Cliente nuevo"}
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+            <div className="text-[10px] font-bold uppercase text-emerald-700">Confiabilidad</div>
+            <div className="mt-1 text-2xl font-black text-emerald-900">{reliabilityText}</div>
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+            <div className="text-[10px] font-bold uppercase text-amber-700">Calificación</div>
+            <div className="mt-1 text-2xl font-black text-amber-900">⭐ {ratingText}</div>
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+            <div className="text-lg font-black">{customerBehavior?.totalEvaluatedServices ?? 0}</div>
+            <div className="text-[10px] font-bold text-slate-500">Contabilizados</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+            <div className="text-lg font-black text-emerald-700">{customerBehavior?.completedServices ?? 0}</div>
+            <div className="text-[10px] font-bold text-slate-500">Efectivos</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+            <div className="text-lg font-black text-amber-700">{customerBehavior?.customerCancelledServices ?? 0}</div>
+            <div className="text-[10px] font-bold text-slate-500">Cancelados</div>
+          </div>
+        </div>
+
+        <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] leading-4 text-blue-800">
+          Puntos: <b>{customerBehavior?.pointsEarned ?? 0}</b> de{" "}
+          <b>{customerBehavior?.pointsPossible ?? 0}</b>. Cada servicio efectivo suma 5 puntos y cada cancelación del cliente suma 3.
         </div>
       </div>
 

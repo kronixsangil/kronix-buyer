@@ -50,6 +50,20 @@ function cleanPhone(value: unknown) {
   return String(value ?? "").replace(/\D/g, "").slice(0, 15);
 }
 
+
+function normalizeHexColor(value: unknown, fallback: string) {
+  const raw = String(value ?? "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toUpperCase() : fallback;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const clean = normalizeHexColor(hex, "#64748B").slice(1);
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function GenericTransportServiceRequest({
   config,
 }: {
@@ -75,6 +89,20 @@ export default function GenericTransportServiceRequest({
   const packageType = String(schema.packageType ?? config.shortName ?? serviceTitle).trim();
   const loginNext = `/kronix/${encodeURIComponent(config.slug)}`;
 
+  const servicePrimaryColor = normalizeHexColor(
+    config.primaryColor,
+    "#0F766E"
+  );
+  const serviceAccentColor = normalizeHexColor(
+    config.accentColor,
+    "#ECFDF5"
+  );
+
+  const serviceSurfaceBackground = [
+    `radial-gradient(circle at 88% 3%, ${hexToRgba(servicePrimaryColor, 0.18)} 0%, ${hexToRgba(servicePrimaryColor, 0.08)} 24%, transparent 48%)`,
+    `linear-gradient(180deg, ${serviceAccentColor} 0px, ${hexToRgba(serviceAccentColor, 0.82)} 120px, #FFFFFF 310px)`,
+  ].join(", ");
+
   const [placeName, setPlaceName] = useState("");
   const [address, setAddress] = useState("");
   const [reference, setReference] = useState("");
@@ -93,6 +121,30 @@ export default function GenericTransportServiceRequest({
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    root.style.setProperty("--kx-service-primary", servicePrimaryColor);
+    root.style.setProperty("--kx-service-accent", serviceAccentColor);
+    root.style.setProperty(
+      "--kx-service-primary-soft",
+      hexToRgba(servicePrimaryColor, 0.16)
+    );
+    root.style.setProperty(
+      "--kx-service-primary-faint",
+      hexToRgba(servicePrimaryColor, 0.07)
+    );
+    root.dataset.kxServiceTheme = "active";
+
+    return () => {
+      root.style.removeProperty("--kx-service-primary");
+      root.style.removeProperty("--kx-service-accent");
+      root.style.removeProperty("--kx-service-primary-soft");
+      root.style.removeProperty("--kx-service-primary-faint");
+      delete root.dataset.kxServiceTheme;
+    };
+  }, [servicePrimaryColor, serviceAccentColor]);
 
   useEffect(() => {
     const profileName = getUserName(user);
@@ -351,8 +403,19 @@ const packageDescription = [
   }
 
   return (
-    <div className="space-y-2 px-4 pb-4 pt-1">
-      <div className="flex items-center gap-3 px-1 py-2">
+    <div
+      className="-mt-px min-h-full space-y-2 px-4 pb-4 pt-1"
+      style={{ background: serviceSurfaceBackground }}
+    >
+      <div
+        className="relative flex items-center gap-3 overflow-hidden rounded-[22px] px-2 py-2"
+        style={{
+          background: `linear-gradient(90deg, ${hexToRgba(
+            servicePrimaryColor,
+            0.05
+          )} 0%, ${hexToRgba(servicePrimaryColor, 0.13)} 100%)`,
+        }}
+      >
         {serviceImage ? (
           <img
             src={serviceImage}
@@ -410,8 +473,18 @@ const packageDescription = [
             "mt-2 h-12 w-full rounded-[16px] px-4 text-[14px] font-black text-white shadow-sm transition",
             geoLoading
               ? "cursor-not-allowed bg-slate-300"
-              : "bg-emerald-600 hover:bg-emerald-700",
+              : "hover:brightness-95",
           ].join(" ")}
+          style={
+            geoLoading
+              ? undefined
+              : {
+                  background: `linear-gradient(90deg, ${servicePrimaryColor} 0%, ${hexToRgba(
+                    servicePrimaryColor,
+                    0.78
+                  )} 100%)`,
+                }
+          }
         >
           {geoLoading ? "Tomando ubicación..." : "📍 Usar mi ubicación actual"}
         </button>
@@ -544,9 +617,19 @@ const packageDescription = [
         className={[
           "w-full rounded-[20px] py-3 text-[15px] font-black text-white transition",
           ready && !submitting
-            ? "bg-[linear-gradient(90deg,#059669_0%,#0ea5e9_100%)] shadow-[0_10px_18px_rgba(5,150,105,0.22)] hover:scale-[0.995]"
+            ? "shadow-[0_10px_18px_rgba(15,23,42,0.14)] hover:scale-[0.995] hover:brightness-95"
             : "cursor-not-allowed bg-slate-300 shadow-none",
         ].join(" ")}
+        style={
+          ready && !submitting
+            ? {
+                background: `linear-gradient(90deg, ${servicePrimaryColor} 0%, ${hexToRgba(
+                  servicePrimaryColor,
+                  0.72
+                )} 100%)`,
+              }
+            : undefined
+        }
       >
         {submitting ? submitSchema.creatingText || "Creando solicitud..." : submitSchema.buttonText || `Solicitar ${serviceTitle}`}
       </button>

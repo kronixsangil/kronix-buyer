@@ -328,7 +328,13 @@ export default function BuyerHeader() {
 
   return (
   <>
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur">
+    <header
+      className="sticky top-0 z-40 backdrop-blur"
+      style={{
+        background:
+          "linear-gradient(180deg, var(--kx-service-accent, #ffffff) 0%, var(--kx-service-accent, #ffffff) 68%, var(--kx-service-primary-faint, rgba(255,255,255,0)) 100%)",
+      }}
+    >
       <div className="relative w-full">
         <div
           className="
@@ -337,9 +343,9 @@ border-b-0
 px-3 pt-2 pb-2
           "
           style={{
-  background:
-    "linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #ffffff 100%)",
-}}
+            background:
+              "radial-gradient(circle at 88% 12%, var(--kx-service-primary-soft, rgba(255,255,255,0)) 0%, transparent 42%), linear-gradient(180deg, var(--kx-service-accent, #ffffff) 0%, var(--kx-service-accent, #ffffff) 58%, var(--kx-service-primary-faint, rgba(255,255,255,0)) 100%)",
+          }}
         >
           <div className="relative flex min-h-[72px] items-start">
             <div className="flex w-16 items-start justify-start pt-1">
@@ -444,7 +450,7 @@ px-3 pt-2 pb-2
             <div className="ml-auto flex w-20 flex-col items-center justify-start pt-0.5">
               <Link
                 href="/profile"
-                className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 shadow-sm transition hover:bg-slate-200"
+                className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200/80 bg-white/70 shadow-sm backdrop-blur transition hover:bg-white"
                 aria-label="Ir a Perfil"
                 title="Perfil"
               >

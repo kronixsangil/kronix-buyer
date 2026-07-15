@@ -12,7 +12,6 @@ import {
   CARD,
   CARD_PAD,
   CARD_PAD_SM,
-  FLOW_STEPS,
   flowLabel,
   getLocalOrderById,
   isFiniteCoord,
@@ -23,10 +22,12 @@ import {
   saveBuyerNotifyState,
   buildEmbedUrl,
   contextualFlowLabel,
-getContextualFlowSteps,
-getCourierServiceTypeFromSources,
-getServiceKeyFromSources,
+  getContextualFlowSteps,
 } from "./utils";
+import {
+  getTrackingCopy,
+  resolveDynamicServicePresentation,
+} from "./dynamicServicePresentation";
 import {
   apiCancelOrder,
   apiGetOrderReviews,
@@ -135,11 +136,13 @@ export function useTrackingPage(): TrackingViewModel {
 
   const isCourier = orderType === "COURIER";
 
-  const courierServiceType = useMemo(() => {
-  return getServiceKeyFromSources(order, tracking) || getCourierServiceTypeFromSources(order, tracking);
-}, [order, tracking]);
+  const servicePresentation = useMemo(
+    () => resolveDynamicServicePresentation(order, tracking),
+    [order, tracking]
+  );
 
-  const isServiceOrder = isCourier;
+  const courierServiceType = servicePresentation.serviceKey;
+  const isServiceOrder = servicePresentation.isDynamicService;
 
   const courierData = useMemo(() => {
     const fromTracking = tracking?.courier ?? null;
@@ -237,10 +240,12 @@ export function useTrackingPage(): TrackingViewModel {
     const prevAssigned = Boolean(prev?.driverAssigned);
 
     if (driverAssignedNow && !prevAssigned) {
-      const name = String(prof?.name ?? "").trim() || "Tu conductor";
+      const name =
+        String(prof?.name ?? "").trim() ||
+        `Tu ${servicePresentation.workerLabel}`;
       notifyBuyer({
-        title: "🚗 Conductor asignado",
-        body: `${name} ya fue asignado a tu pedido #${orderId}.`,
+        title: `✅ ${servicePresentation.workerLabel} asignado`,
+        body: `${name} ya fue asignado a tu servicio #${orderId}.`,
         tag: `buyer:assigned:${orderId}`,
         soundEvent: "DRIVER_ASSIGNED",
       });
@@ -363,45 +368,44 @@ export function useTrackingPage(): TrackingViewModel {
   }, [order?.id, fromApi, normalizedFlow, order, tracking]);
 
   const etaText = useMemo(() => {
-  if (!order) return "";
+    if (!order) return "";
 
-  if (!isCourier) {
-    if (normalizedFlow === "WAITING_CONFIRMATION") return "Por confirmar";
-    if (normalizedFlow === "STORE_CONFIRMED") return "Listo para pago";
-    if (normalizedFlow === "PAYMENT_PENDING") return "Un momento…";
-    if (normalizedFlow === "PAID") return "En preparación";
-    if (normalizedFlow === "PREPARING") return "En preparación";
-    if (normalizedFlow === "PAYMENT_FAILED") return isCourier ? "Revisando servicio" : "Reintenta pago";
+    if (!isCourier) {
+      if (normalizedFlow === "WAITING_CONFIRMATION") return "Por confirmar";
+      if (normalizedFlow === "STORE_CONFIRMED") return "Listo para pago";
+      if (normalizedFlow === "PAYMENT_PENDING") return "Un momento…";
+      if (normalizedFlow === "PAID") return "En preparación";
+      if (normalizedFlow === "PREPARING") return "En preparación";
+      if (normalizedFlow === "PAYMENT_FAILED") return "Reintenta pago";
+      if (normalizedFlow === "CANCELLED") return "Cancelado";
+      return "—";
+    }
+
+    const configured = getTrackingCopy(
+      servicePresentation,
+      String(normalizedFlow ?? ""),
+      ""
+    );
+    if (configured) return configured;
+
+    if (normalizedFlow === "WAITING_CONFIRMATION") return "Solicitud recibida";
+    if (
+      normalizedFlow === "STORE_CONFIRMED" ||
+      normalizedFlow === "PAYMENT_PENDING" ||
+      normalizedFlow === "PAID"
+    ) {
+      return `Buscando ${servicePresentation.workerLabel}`;
+    }
+    if (normalizedFlow === "PREPARING") {
+      return `${servicePresentation.workerLabel} asignado`;
+    }
+    if (normalizedFlow === "EN_ROUTE") return "Servicio en curso";
+    if (normalizedFlow === "DELIVERED") return "Finalizado";
+    if (normalizedFlow === "PAYMENT_FAILED") return "Revisando servicio";
     if (normalizedFlow === "CANCELLED") return "Cancelado";
+
     return "—";
-  }
-
-  if (normalizedFlow === "WAITING_CONFIRMATION") return "Solicitud recibida";
-  if (normalizedFlow === "STORE_CONFIRMED") return "Buscando Domiciliario";
-  if (normalizedFlow === "PAYMENT_PENDING") return "Buscando Domiciliario";
-  if (normalizedFlow === "PAID") return "Buscando Domiciliario";
-  if (normalizedFlow === "PREPARING") {
-    if (courierServiceType === "SEND_PACKAGE") return "Recogiendo paquete";
-    if (courierServiceType === "ERRAND") return "Realizando diligencia";
-    return "Coordinando recogida";
-  }
-  if (normalizedFlow === "EN_ROUTE") {
-  if (courierServiceType === "SEND_PACKAGE") {
-    return "Tu paquete va en camino";
-  }
-
-  if (courierServiceType === "ERRAND") {
-    return "Tu diligencia está en curso";
-  }
-
-  return "Tu servicio va en camino";
-}
-  if (normalizedFlow === "DELIVERED") return "Finalizado";
-  if (normalizedFlow === "PAYMENT_FAILED") return "Revisando servicio";
-  if (normalizedFlow === "CANCELLED") return "Cancelado";
-
-  return "—";
-}, [order, normalizedFlow, isCourier, courierServiceType]);
+  }, [order, normalizedFlow, isCourier, servicePresentation]);
 
   const displayFlow = useMemo(() => {
     if (!isCourier) return normalizedFlow;
@@ -414,15 +418,18 @@ export function useTrackingPage(): TrackingViewModel {
   return contextualFlowLabel({
     flow: displayFlow,
     isCourier,
-    courierServiceType,
+    presentation: servicePresentation,
   });
-}, [order, tracking, displayFlow, isCourier, courierServiceType]);
+}, [order, tracking, displayFlow, isCourier, servicePresentation]);
 
   const timeline = useMemo(() => {
     if ((!order && !tracking) || !displayFlow) return { steps: [] as any[] };
 
     const negative = new Set(["CANCELLED", "PAYMENT_FAILED"]);
-    const flowSteps = getContextualFlowSteps({ isCourier, courierServiceType });
+    const flowSteps = getContextualFlowSteps({
+      isCourier,
+      presentation: servicePresentation,
+    });
 const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
 
     if (currentIdx < 0) {
@@ -442,7 +449,7 @@ const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
     }
 
     return { steps };
-  }, [order, tracking, displayFlow, isCourier, courierServiceType]);
+  }, [order, tracking, displayFlow, isCourier, servicePresentation]);
 
   const updatedAgoText = useMemo(() => {
     void nowTick;
@@ -547,6 +554,35 @@ const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
       : "";
   }, [order?.cityLabel, order?.citySlug]);
 
+  const cancellationPolicy = useMemo(() => {
+    const fromApi = tracking?.cancellationPolicy ?? null;
+
+    const hasAssignedWorker = Boolean(
+      fromApi?.hasAssignedWorker ||
+        tracking?.driver?.profile?.id ||
+        String((order as any)?.status ?? "").toUpperCase() === "ASSIGNED" ||
+        ["PREPARING", "EN_ROUTE"].includes(
+          String(normalizedFlow ?? "").toUpperCase()
+        )
+    );
+
+    return {
+      isDynamicService: Boolean(isServiceOrder),
+      hasAssignedWorker,
+      affectsReliability: Boolean(isServiceOrder && hasAssignedWorker),
+      workerLabel:
+        String(fromApi?.workerLabel ?? "").trim() ||
+        servicePresentation.workerLabel ||
+        "trabajador",
+    };
+  }, [
+    tracking,
+    order,
+    normalizedFlow,
+    isServiceOrder,
+    servicePresentation,
+  ]);
+
   const simulatePay = async (method: PaymentMethod) => {
   if (!authLoading && !isAuthed) {
     requireLogin(`/tracking/${orderId}`);
@@ -634,32 +670,74 @@ const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
 
   const cancelOrder = async () => {
     if (!order) return;
+
     if (!fromApi) {
-      setCancelErr("Este pedido no está conectado al servidor.");
+      setCancelErr("Este servicio no está conectado al servidor.");
       return;
     }
 
     setCancelErr(null);
     setCancelMsg(null);
 
-    const ok = window.confirm("¿Seguro que deseas cancelar este pedido?");
-    if (!ok) return;
+    const workerLabel = cancellationPolicy.workerLabel || "trabajador";
+
+    const message = cancellationPolicy.affectsReliability
+      ? `Cancelar este servicio con ${workerLabel} afectará tus indicadores de confiabilidad. \n\n3 cancelaciones consecutivas generarán un bloqueo temporal durante 24 horas.\n\n¿Deseas cancelar de todas formas?`
+      : `Esta cancelación no genera efectos negativos ya que no tiene ${workerLabel} asignado.\n\n¿Deseas continuar?`;
+
+    const confirmed = window.confirm(message);
+    if (!confirmed) return;
 
     setCancelling(true);
+
     try {
-      const done = await apiCancelOrder(order.id);
-      if (!done) {
-        setCancelErr("No se pudo cancelar. Si ya pagaste, debes contactar soporte.");
-        return;
+      const result = await apiCancelOrder(
+        order.id,
+        cancellationPolicy.affectsReliability
+      );
+
+      const consecutive = Number(
+        result?.cancellationPolicy?.consecutivePostAssignmentCancellations ?? 0
+      );
+      const blockedUntil =
+        result?.cancellationPolicy?.blockedUntil ?? null;
+
+      if (blockedUntil) {
+        setCancelMsg(
+          `Servicio cancelado. Tu acceso a Servicios dinámicos quedó bloqueado temporalmente hasta ${new Date(
+            blockedUntil
+          ).toLocaleString("es-CO")} por acumular 3 cancelaciones consecutivas después de una asignación.`
+        );
+      } else if (cancellationPolicy.affectsReliability) {
+        setCancelMsg(
+          `Servicio cancelado. Esta cancelación afectará tus indicadores de confiabilidad${
+            consecutive > 0
+              ? ` (${consecutive} cancelación${
+                  consecutive === 1 ? "" : "es"
+                } consecutiva${consecutive === 1 ? "" : "s"}).`
+              : "."
+          }`
+        );
+      } else {
+        setCancelMsg(
+          "Servicio cancelado sin afectar tus indicadores de confiabilidad."
+        );
       }
 
-      setCancelMsg("Tu pedido fue cancelado");
+      const [refreshed, snap] = await Promise.all([
+        fetchOrderFromApi(order.id),
+        fetchTrackingSnapshot(order.id),
+      ]);
 
-      const [refreshed, snap] = await Promise.all([fetchOrderFromApi(order.id), fetchTrackingSnapshot(order.id)]);
       if (refreshed) setOrder(refreshed);
       if (snap) setTracking(snap);
-    } catch {
-      setCancelErr("No se pudo cancelar. Revisa la API e inténtalo de nuevo.");
+    } catch (e: any) {
+      setCancelErr(
+        String(
+          e?.message ??
+            "No se pudo cancelar el servicio. Revisa la API e inténtalo nuevamente."
+        )
+      );
     } finally {
       setCancelling(false);
     }
@@ -702,11 +780,12 @@ const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
   const canCancel =
     Boolean(usingFlow) &&
     !cancelling &&
-    normalizedFlow !== "PAID" &&
-    normalizedFlow !== "PREPARING" &&
-    normalizedFlow !== "EN_ROUTE" &&
     normalizedFlow !== "DELIVERED" &&
-    normalizedFlow !== "CANCELLED";
+    normalizedFlow !== "CANCELLED" &&
+    (isServiceOrder ||
+      (normalizedFlow !== "PAID" &&
+        normalizedFlow !== "PREPARING" &&
+        normalizedFlow !== "EN_ROUTE"));
 
   const canPayNow = !isServiceOrder && Boolean(usingFlow) && normalizedFlow === "STORE_CONFIRMED" && !paying;
   const canRetry = !isServiceOrder && Boolean(usingFlow) && normalizedFlow === "PAYMENT_FAILED" && !paying;
@@ -749,6 +828,7 @@ const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
     isCourier,
     courierServiceType,
     isServiceOrder,
+    servicePresentation,
     courierData,
     etaText,
     chip,
@@ -761,6 +841,7 @@ const currentIdx = flowSteps.findIndex((s) => s.key === displayFlow);
     setDriverOpen,
     storeStatesToRender,
     canCancel,
+    cancellationPolicy,
     canPayNow,
     canRetry,
     simulatePay,

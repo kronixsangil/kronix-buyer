@@ -59,16 +59,28 @@ export async function apiPostOrderReviews(
   });
 }
 
-export async function apiCancelOrder(orderId: string) {
-  try {
-    await apiFetch(`/orders/${orderId}/cancel`, {
-      method: "POST",
-      json: { reason: "CUSTOMER_CANCELLED" },
-    });
-    return true;
-  } catch {
-    return false;
-  }
+export type CancelOrderResponse = {
+  id?: string;
+  cancelReason?: string;
+  cancellationPolicy?: {
+    affectedReliability?: boolean;
+    workerLabel?: string;
+    consecutivePostAssignmentCancellations?: number;
+    blockedUntil?: string | null;
+  };
+};
+
+export async function apiCancelOrder(
+  orderId: string,
+  confirmReliabilityImpact = false
+) {
+  return apiFetch<CancelOrderResponse>(`/orders/${orderId}/cancel`, {
+    method: "POST",
+    json: {
+      reason: "CUSTOMER_CANCELLED",
+      confirmReliabilityImpact,
+    },
+  });
 }
 
 export async function apiVerifyWompiPayment(

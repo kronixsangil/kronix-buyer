@@ -282,6 +282,31 @@ function FeaturedCard({ item }: { item: KronixOption }) {
   );
 }
 
+
+function normalizeHexColor(value: unknown, fallback: string) {
+  const raw = String(value ?? "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toUpperCase() : fallback;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const clean = normalizeHexColor(hex, "#64748B").slice(1);
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getServiceCardBackground(service?: DynamicTransportService) {
+  const primary = normalizeHexColor(service?.primaryColor, "#64748B");
+  const accent = normalizeHexColor(service?.accentColor, "#F8FAFC");
+
+  return [
+    `radial-gradient(circle at 92% 48%, ${hexToRgba(primary, 0.20)} 0%, ${hexToRgba(primary, 0.10)} 20%, transparent 48%)`,
+    `radial-gradient(circle at 6% 50%, ${hexToRgba(primary, 0.10)} 0%, transparent 34%)`,
+    `linear-gradient(90deg, #FFFFFF 0%, ${accent} 56%, ${hexToRgba(primary, 0.10)} 100%)`,
+  ].join(", ");
+}
+
 function StandardCard({
   item,
   onClick,
@@ -316,18 +341,26 @@ function StandardCard({
   );
 
   const cls =
-    "group block h-[110px] w-full overflow-hidden rounded-[24px] border border-slate-200 bg-white px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
+    "group block h-[110px] w-full overflow-hidden rounded-[24px] border px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
+
+  const cardStyle: React.CSSProperties = {
+    background: getServiceCardBackground(service),
+    borderColor: hexToRgba(
+      normalizeHexColor(service?.primaryColor, "#CBD5E1"),
+      0.22
+    ),
+  };
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cls}>
+      <button type="button" onClick={onClick} className={cls} style={cardStyle}>
         {content}
       </button>
     );
   }
 
   return (
-    <Link href={item.href} className={cls}>
+    <Link href={item.href} className={cls} style={cardStyle}>
       {content}
     </Link>
   );

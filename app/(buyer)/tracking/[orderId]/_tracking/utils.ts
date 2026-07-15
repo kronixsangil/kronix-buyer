@@ -10,6 +10,11 @@ import type {
   PositiveStep,
   StoreReviewDraft,
 } from "./types";
+import {
+  getTrackingFlowSteps,
+  resolveDynamicServicePresentation,
+  type DynamicServicePresentation,
+} from "./dynamicServicePresentation";
 
 export const CARD = "rounded-2xl border border-gray-200 bg-white shadow-sm";
 export const CARD_PAD = `${CARD} p-4`;
@@ -31,113 +36,31 @@ export const FLOW_STEPS: PositiveStep[] = [
   { key: "DELIVERED", label: "Entregado", hint: "¡Disfrútalo!" },
 ];
 
-export type CourierServiceType = "PICKUP_AND_DELIVERY" | "SEND_PACKAGE" | "ERRAND" | string | null;
-
-export function getCourierServiceTypeFromSources(order: any, tracking: any): string {
-  return String(
-    tracking?.courierServiceType ??
-      order?.courierServiceType ??
-      order?.courier?.courierServiceType ??
-      ""
-  )
-    .trim()
-    .toUpperCase();
-}
-
-export function getServiceKeyFromSources(order: any, tracking: any): string {
-  const raw = String(
-    tracking?.serviceType ??
-      order?.serviceType ??
-      tracking?.courierServiceType ??
-      order?.courierServiceType ??
-      order?.courier?.courierServiceType ??
-      ""
-  )
-    .trim()
-    .toUpperCase();
-
-  if (raw === "MOTORCARGO" || raw === "MOTOCARGA") return "MOTORCARGO";
-  if (raw === "TAXI") return "TAXI";
-  if (raw === "PACKAGE" || raw === "SEND_PACKAGE") return "SEND_PACKAGE";
-  if (raw === "DELIVERY" || raw === "PICKUP_AND_DELIVERY") return "PICKUP_AND_DELIVERY";
-
-  const text = String(
-    order?.packageType ??
-      order?.courier?.packageType ??
-      tracking?.courier?.packageType ??
-      order?.packageDescription ??
-      order?.courier?.packageDescription ??
-      tracking?.courier?.packageDescription ??
-      order?.customerNote ??
-      ""
-  )
-    .trim()
-    .toUpperCase();
-
-  if (text.includes("MOTOCARGA") || text.includes("MOTORCARGO")) return "MOTORCARGO";
-  if (text.includes("TAXI")) return "TAXI";
-  if (text.includes("KRONIX ENVÍOS") || text.includes("KRONIX ENVIOS") || text.includes("SEND_PACKAGE")) return "SEND_PACKAGE";
-  if (text.includes("DOMICILIO EXPRESS") || text.includes("PICKUP_AND_DELIVERY")) return "PICKUP_AND_DELIVERY";
-
-  return raw;
-}
-
-export function getCourierServiceLabel(serviceType?: CourierServiceType) {
-  const t = String(serviceType ?? "").trim().toUpperCase();
-
-  if (t === "TAXI") return "Taxi";
-  if (t === "MOTORCARGO" || t === "MOTOCARGA") return "Motocarga";
-  if (t === "SEND_PACKAGE" || t === "PACKAGE") return "KroniX Envíos";
-  if (t === "PICKUP_AND_DELIVERY" || t === "DELIVERY") return "Domicilio Express";
-
-  return "Servicio KroniX";
-}
-
 export function getContextualFlowSteps(args: {
   isCourier: boolean;
-  courierServiceType?: CourierServiceType;
+  presentation?: DynamicServicePresentation | null;
 }): PositiveStep[] {
   if (!args.isCourier) return FLOW_STEPS;
 
-  const t = String(args.courierServiceType ?? "").trim().toUpperCase();
-  const serviceLabel = getCourierServiceLabel(t);
-  const workerLabel = t === "TAXI" ? "taxista" : t === "MOTORCARGO" ? "motocarguero" : "Domiciliario";
+  const presentation =
+    args.presentation ??
+    resolveDynamicServicePresentation(null, null);
 
-  if (t === "SEND_PACKAGE") {
-  return [
-    { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: "Estamos registrando tu envío" },
-    { key: "STORE_CONFIRMED", label: "Envío confirmado", hint: `Buscaremos un ${workerLabel} disponible` },
-    { key: "PAID", label: `Buscando ${workerLabel}`, hint: `Tu solicitud ya está disponible para los ${workerLabel}s autorizados` },
-    { key: "PREPARING", label: "Recogiendo paquete", hint: `El ${workerLabel} se dirige al punto de recogida` },
-    { key: "EN_ROUTE", label: "En camino", hint: "Tu paquete va hacia el destino" },
-    { key: "DELIVERED", label: "Entregado", hint: "Tu envío fue completado" },
-  ];
-}
-
-  return [
-    { key: "WAITING_CONFIRMATION", label: "Solicitud recibida", hint: `Estamos registrando tu servicio ${serviceLabel}` },
-    { key: "STORE_CONFIRMED", label: "Servicio confirmado", hint: `Buscaremos un ${workerLabel} disponible` },
-    { key: "PAID", label: `Buscando ${workerLabel}`, hint: "Tu solicitud ya está disponible para los ${workerLabel}s autorizados" },
-    { key: "PREPARING", label: `${workerLabel} asignado`, hint: `El ${workerLabel} se dirige al punto indicado` },
-    { key: "EN_ROUTE", label: "Servicio en curso", hint: "El servicio ya está en proceso" },
-    { key: "DELIVERED", label: "Finalizado", hint: "Tu servicio fue completado" },
-  ];
+  return getTrackingFlowSteps(presentation) as PositiveStep[];
 }
 
 export function contextualFlowLabel(args: {
   flow?: ApiOrderFlowStatus | null;
   isCourier: boolean;
-  courierServiceType?: CourierServiceType;
+  presentation?: DynamicServicePresentation | null;
 }) {
   const steps = getContextualFlowSteps({
     isCourier: args.isCourier,
-    courierServiceType: args.courierServiceType,
+    presentation: args.presentation,
   });
 
-  const found = steps.find((s) => s.key === args.flow);
-  if (found) return found.label.toUpperCase();
-
-  return flowLabel(args.flow);
+  const found = steps.find((step) => step.key === args.flow);
+  return found ? found.label.toUpperCase() : flowLabel(args.flow);
 }
 
 export function formatCOP(value: number) {
@@ -246,7 +169,12 @@ export function mapApiOrderToBuyerOrder(data: ApiOrder, previous?: Order | null)
         {
           id: "courier-service",
           storeId: "",
-          name: String(data.packageType ?? "Domicilio Express"),
+          name: String(
+            (data.serviceSnapshot as any)?.definition?.name ??
+              (data.serviceSnapshot as any)?.name ??
+              data.packageType ??
+              "Servicio"
+          ),
           price: Number(data.totalCOP ?? 0),
           qty: 1,
         },
@@ -330,6 +258,11 @@ export function mapApiOrderToBuyerOrder(data: ApiOrder, previous?: Order | null)
   (order as any).promoCOP = Number(data.promoCOP ?? 0);
   (order as any).serviceFeeCOP = Number(data.serviceFeeCOP ?? 0);
   (order as any).orderType = apiOrderType;
+  (order as any).serviceType = data.serviceType ?? null;
+  (order as any).serviceKey = data.serviceKey ?? null;
+  (order as any).serviceDefinitionId = data.serviceDefinitionId ?? null;
+  (order as any).serviceVersion = data.serviceVersion ?? null;
+  (order as any).serviceSnapshot = data.serviceSnapshot ?? null;
   (order as any).courier = isCourier
     ? {
         pickupAddress: data.pickupAddress ?? null,
