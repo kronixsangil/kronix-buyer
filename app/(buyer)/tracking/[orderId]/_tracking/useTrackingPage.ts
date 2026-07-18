@@ -37,6 +37,11 @@ import {
   fetchTrackingSnapshot,
   
 } from "./api";
+import {
+  getCachedBuyerTracking,
+  revalidateBuyerTracking,
+  writeCachedBuyerTracking,
+} from "@/lib/cache/buyerExperienceCache";
 
 export function useTrackingPage(): TrackingViewModel {
   const [driverOpen, setDriverOpen] = useState(false);
@@ -54,8 +59,17 @@ export function useTrackingPage(): TrackingViewModel {
   const orderId = String(params?.orderId ?? "");
   const invalidOrderId = !orderId;
 
-  const [order, setOrder] = useState<Order | null>(null);
-  const [tracking, setTracking] = useState<any | null>(null);
+  const initialTrackingCache = useMemo(
+    () => (orderId ? getCachedBuyerTracking(orderId)?.value ?? null : null),
+    [orderId]
+  );
+
+  const [order, setOrder] = useState<Order | null>(
+    () => (initialTrackingCache?.order as Order | null) ?? null
+  );
+  const [tracking, setTracking] = useState<any | null>(
+    () => initialTrackingCache?.tracking ?? null
+  );
   const deliveredTrackingRef = useRef<any | null>(null);
 
   const [paying, setPaying] = useState(false);
@@ -92,36 +106,74 @@ export function useTrackingPage(): TrackingViewModel {
       setLoadErr(null);
 
       const local = getLocalOrderById(orderId);
-      if (local && alive) setOrder(local);
+      const cached = getCachedBuyerTracking(orderId);
 
-      const [apiOrder, snap] = await Promise.all([fetchOrderFromApi(orderId), fetchTrackingSnapshot(orderId)]);
-      if (!alive) return;
+      if (cached) {
+        setOrder((cached.value.order as Order | null) ?? local ?? null);
+        setTracking(cached.value.tracking ?? null);
+        setFromApi(Boolean(cached.value.order));
+      } else if (local) {
+        setOrder(local);
+      }
 
-      if (!apiOrder) {
-        if (local) {
+      try {
+        const result = await revalidateBuyerTracking(orderId, async () => {
+          const [apiOrder, snap] = await Promise.all([
+            fetchOrderFromApi(orderId),
+            fetchTrackingSnapshot(orderId),
+          ]);
+          return { order: apiOrder, tracking: snap };
+        });
+
+        if (!alive) return;
+
+        const apiOrder = result.value.order as Order | null;
+        const snap = result.value.tracking as any | null;
+
+        if (!apiOrder) {
+          if (cached || local) {
+            setFromApi(Boolean(cached?.value.order));
+            setOrder((cached?.value.order as Order | null) ?? local ?? null);
+            setTracking(cached?.value.tracking ?? null);
+            return;
+          }
+
           setFromApi(false);
-          setOrder(local);
+          setOrder(null);
           setTracking(null);
-          setLoadErr(null);
+          setLoadErr(
+            "No pudimos cargar este pedido desde el servidor. Revisa tu conexión e inténtalo nuevamente."
+          );
           return;
         }
 
-        setFromApi(false);
-        setOrder(null);
-        setTracking(null);
-        setLoadErr("No pudimos cargar este pedido desde el servidor. Revisa que la API esté encendida.");
-        return;
+        setFromApi(true);
+
+        if (result.changed || !cached) {
+          setOrder(apiOrder);
+          setTracking(snap);
+        }
+
+        const flow = String(
+          snap?.flowStatus ?? apiOrder?.flowStatus ?? ""
+        ).toUpperCase();
+
+        if (flow === "DELIVERED" && snap) {
+          deliveredTrackingRef.current = snap;
+        }
+      } catch {
+        if (!alive) return;
+
+        if (!cached && !local) {
+          setLoadErr(
+            "No pudimos cargar este pedido desde el servidor. Revisa tu conexión e inténtalo nuevamente."
+          );
+        }
       }
-
-      setFromApi(true);
-      setOrder(apiOrder);
-      setTracking(snap);
-
-      const flow = String(snap?.flowStatus ?? apiOrder?.flowStatus ?? "").toUpperCase();
-      if (flow === "DELIVERED" && snap) deliveredTrackingRef.current = snap;
     }
 
-    load();
+    void load();
+
     return () => {
       alive = false;
     };
@@ -183,6 +235,10 @@ export function useTrackingPage(): TrackingViewModel {
       const snap = await fetchTrackingSnapshot(orderId);
       if (!alive || !snap) return;
       setTracking(snap);
+      writeCachedBuyerTracking(orderId, {
+        order,
+        tracking: snap,
+      });
     }
 
     refreshSnapshot();
@@ -207,6 +263,13 @@ export function useTrackingPage(): TrackingViewModel {
 
         Promise.all([fetchOrderFromApi(orderId), fetchTrackingSnapshot(orderId)]).then(([fresh, snap]) => {
           if (fresh) setOrder(fresh);
+
+          if (fresh || snap) {
+            writeCachedBuyerTracking(orderId, {
+              order: fresh ?? order,
+              tracking: snap ?? tracking,
+            });
+          }
 
           const flow = String(snap?.flowStatus ?? fresh?.flowStatus ?? "").toUpperCase();
           if (flow === "DELIVERED") {

@@ -54,8 +54,13 @@ export default function OrderDetailPage() {
   const router = useRouter();
   const orderId = String(params?.orderId ?? "");
 
-  const [order, setOrder] = useState<Order | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const initialOrder = useMemo(
+    () => loadOrders().find((item) => item.id === orderId) ?? null,
+    [orderId]
+  );
+
+  const [order, setOrder] = useState<Order | null>(initialOrder);
+  const [notFound, setNotFound] = useState(() => !initialOrder);
   const [busy, setBusy] = useState(false);
 
   const refresh = () => {

@@ -1,6 +1,7 @@
 // lib/services/transportServices.ts
 
 import { apiFetch } from "@/lib/api";
+import { createTwoLevelCatalogCache } from "@/lib/cache/twoLevelCatalogCache";
 
 export type DynamicServiceRequestSchema = {
   routeMode?: "POINT_ONLY" | "ORIGIN_DESTINATION" | "MULTI_STOP" | string;
@@ -79,23 +80,68 @@ export function dynamicServiceHref(service: Pick<DynamicTransportService, "slug"
   return `/kronix/${encodeURIComponent(String(service.slug ?? "").trim())}`;
 }
 
-export async function listDynamicTransportServices(citySlug: string) {
-  const cleanCitySlug = String(citySlug ?? "").trim();
-  if (!cleanCitySlug) return [] as DynamicTransportService[];
+function normalizeCitySlug(citySlug: string) {
+  return String(citySlug ?? "").trim().toLowerCase();
+}
 
-  const response = await apiFetch<PublicServicesResponse>(
-    `/public/services?citySlug=${encodeURIComponent(cleanCitySlug)}`,
-    { method: "GET", cache: "no-store", suppressSessionExpiredEvent: true } as any
-  );
+function normalizeServiceSlug(serviceSlug: string) {
+  return String(serviceSlug ?? "").trim().toLowerCase();
+}
 
-  return (Array.isArray(response?.items) ? response.items : [])
+function normalizeDynamicServices(items: DynamicTransportService[]) {
+  return (Array.isArray(items) ? items : [])
     .filter((item) => item && item.isActive !== false)
     .slice()
-    .sort((a, b) => Number(a.sortOrder ?? 100) - Number(b.sortOrder ?? 100));
+    .sort((a, b) => {
+      const orderDifference = Number(a.sortOrder ?? 100) - Number(b.sortOrder ?? 100);
+      if (orderDifference !== 0) return orderDifference;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""), "es");
+    });
+}
+
+const dynamicServicesCache = createTwoLevelCatalogCache<DynamicTransportService[]>({
+  namespace: "kronix:catalog:dynamic-services",
+  version: 1,
+  normalize: normalizeDynamicServices,
+});
+
+async function fetchDynamicTransportServices(citySlug: string) {
+  const response = await apiFetch<PublicServicesResponse>(
+    `/public/services?citySlug=${encodeURIComponent(citySlug)}`,
+    { method: "GET", cache: "no-store", suppressSessionExpiredEvent: true } as any
+  );
+  return normalizeDynamicServices(response?.items ?? []);
+}
+
+export function getCachedDynamicTransportServices(citySlug: string) {
+  const cleanCitySlug = normalizeCitySlug(citySlug);
+  if (!cleanCitySlug) return null;
+  return dynamicServicesCache.read(cleanCitySlug);
+}
+
+export async function listDynamicTransportServices(citySlug: string) {
+  const cleanCitySlug = normalizeCitySlug(citySlug);
+  if (!cleanCitySlug) return [] as DynamicTransportService[];
+  return dynamicServicesCache.getOrLoad(cleanCitySlug, () => fetchDynamicTransportServices(cleanCitySlug));
+}
+
+export async function revalidateDynamicTransportServices(citySlug: string) {
+  const cleanCitySlug = normalizeCitySlug(citySlug);
+  if (!cleanCitySlug) {
+    return { value: [] as DynamicTransportService[], signature: "[]", changed: false, hadCachedValue: false };
+  }
+  return dynamicServicesCache.refresh(cleanCitySlug, () => fetchDynamicTransportServices(cleanCitySlug));
+}
+
+export function invalidateDynamicTransportServices(citySlug: string) {
+  const cleanCitySlug = normalizeCitySlug(citySlug);
+  if (!cleanCitySlug) return;
+  dynamicServicesCache.invalidate(cleanCitySlug);
 }
 
 export async function getDynamicTransportService(citySlug: string, serviceSlug: string) {
+  const cleanServiceSlug = normalizeServiceSlug(serviceSlug);
+  if (!cleanServiceSlug) return null;
   const services = await listDynamicTransportServices(citySlug);
-  const slug = String(serviceSlug ?? "").trim().toLowerCase();
-  return services.find((service) => String(service.slug ?? "").trim().toLowerCase() === slug) ?? null;
+  return services.find((service) => normalizeServiceSlug(service.slug) === cleanServiceSlug) ?? null;
 }

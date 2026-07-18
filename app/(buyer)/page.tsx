@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
@@ -11,7 +11,9 @@ import { logout } from "@/lib/authActions";
 import { useCart } from "@/components/buyer/CartContext";
 import {
   dynamicServiceHref,
-  listDynamicTransportServices,
+  getCachedDynamicTransportServices,
+  invalidateDynamicTransportServices,
+  revalidateDynamicTransportServices,
   type DynamicTransportService,
 } from "@/lib/services/transportServices";
 
@@ -84,6 +86,14 @@ const STORE_OPTION: KronixOption = {
   subtitle: "Compra en nuestras tiendas afiliadas y te lo llevamos a donde quieras",
   featured: true,
 };
+
+function dynamicServicesSignature(items: DynamicTransportService[]) {
+  return JSON.stringify(items);
+}
+
+function sameDynamicServices(current: DynamicTransportService[], next: DynamicTransportService[]) {
+  return dynamicServicesSignature(current) === dynamicServicesSignature(next);
+}
 
 function getInitials(input?: string) {
   const s = String(input ?? "").trim();
@@ -319,17 +329,18 @@ function StandardCard({
   const rightImage = String(service?.cardImageRight ?? "/branding/kronix/logoorder.png");
 
   const content = (
-    <div className="flex h-full items-center gap-2">
+    <div className="relative flex h-full items-center gap-2">
+      <div className="pointer-events-none absolute inset-x-4 top-1 h-8 rounded-full bg-white/35 blur-xl" />
       <ServiceCardLeftImage src={leftImage} title={item.title} />
 
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
+      <div className="flex min-w-0 flex-1.35 flex-col justify-center">
         <div className="ml-1 whitespace-nowrap text-[22px] font-black leading-tight text-slate-900">
           {item.title}
         </div>
 
-        <div className="ml-4 mt-1 max-w-[220px] text-[13px] font-medium leading-[16px] text-slate-500 line-clamp-3">
-          {item.subtitle}
-        </div>
+        <div className="ml-2 mt-1 flex-1 pr-2 text-[13px] font-medium leading-[16px] text-slate-500 line-clamp-3">
+  {item.subtitle}
+</div>
       </div>
 
       <ServiceCardRightImage src={rightImage} title={item.title} />
@@ -341,7 +352,7 @@ function StandardCard({
   );
 
   const cls =
-    "group block h-[110px] w-full overflow-hidden rounded-[24px] border px-4 py-1 text-left shadow-[0_8px_18px_rgba(15,23,42,0.08)] transition hover:shadow-[0_10px_20px_rgba(15,23,42,0.11)] active:scale-[0.995]";
+    "group block h-[110px] w-full overflow-hidden rounded-[24px] border px-4 py-1 text-left shadow-[0_16px_34px_rgba(15,23,42,0.16)] transition hover:shadow-[0_22px_40px_rgba(15,23,42,0.20)] hover:-translate-y-[2px] active:translate-y-[1px] active:scale-[0.985]";
 
   const cardStyle: React.CSSProperties = {
     background: getServiceCardBackground(service),
@@ -598,10 +609,20 @@ export default function HomePage() {
   const { city, citySlug, cityReady } = useBuyerCity();
   const { items } = useCart();
 
+  const initialServicesCache =
+    cityReady && citySlug
+      ? getCachedDynamicTransportServices(citySlug)
+      : null;
+
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
-  const [dynamicServices, setDynamicServices] = useState<DynamicTransportService[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(true);
+  const [dynamicServices, setDynamicServices] = useState<DynamicTransportService[]>(
+    () => initialServicesCache?.value ?? []
+  );
+  const [servicesLoading, setServicesLoading] = useState(
+    () => !initialServicesCache
+  );
   const [servicesError, setServicesError] = useState<string | null>(null);
+  const previousServicesCityRef = useRef<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [kronixPlusStatus, setKronixPlusStatus] =
@@ -732,25 +753,63 @@ email: prev.email || String(app?.email ?? ""),
   useEffect(() => {
     let alive = true;
 
-    async function loadServices() {
-      if (!cityReady || !citySlug) return;
+    if (!cityReady || !citySlug) {
+      return () => {
+        alive = false;
+      };
+    }
+
+    const cleanCitySlug = String(citySlug).trim().toLowerCase();
+    const previousCitySlug = previousServicesCityRef.current;
+
+    if (previousCitySlug && previousCitySlug !== cleanCitySlug) {
+      invalidateDynamicTransportServices(previousCitySlug);
+    }
+
+    previousServicesCityRef.current = cleanCitySlug;
+
+    const cached = getCachedDynamicTransportServices(cleanCitySlug);
+    const hadCachedServices = Boolean(cached);
+
+    if (cached) {
+      setDynamicServices((current) =>
+        sameDynamicServices(current, cached.value) ? current : cached.value
+      );
+      setServicesLoading(false);
+      setServicesError(null);
+    } else {
+      setDynamicServices((current) => (current.length ? [] : current));
       setServicesLoading(true);
       setServicesError(null);
+    }
+
+    async function revalidateServices() {
       try {
-        const items = await listDynamicTransportServices(citySlug);
+        const result = await revalidateDynamicTransportServices(cleanCitySlug);
         if (!alive) return;
-        setDynamicServices(items);
+
+        if (result.changed || !hadCachedServices) {
+          setDynamicServices((current) =>
+            sameDynamicServices(current, result.value) ? current : result.value
+          );
+        }
+
+        setServicesError(null);
       } catch (e: any) {
         if (!alive) return;
-        setDynamicServices([]);
-        setServicesError(String(e?.message ?? "No pudimos cargar los servicios."));
+        if (!hadCachedServices) {
+          setServicesError(String(e?.message ?? "No pudimos cargar los servicios."));
+        }
       } finally {
         if (alive) setServicesLoading(false);
       }
     }
 
-    void loadServices();
-    return () => { alive = false; };
+    void revalidateServices();
+
+    return () => {
+      alive = false;
+    };
   }, [cityReady, citySlug]);
 
   const options = useMemo<KronixOption[]>(() => {

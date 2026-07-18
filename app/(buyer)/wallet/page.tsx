@@ -5,6 +5,11 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
+import {
+  getCachedBuyerWallet,
+  revalidateBuyerWallet,
+  writeCachedBuyerWallet,
+} from "@/lib/cache/buyerExperienceCache";
 
 type WalletResponse = {
   ok: boolean;
@@ -236,6 +241,30 @@ function clearPendingRecharge(reference?: string) {
   }
 }
 
+
+async function fetchWalletBundle(cityId: string) {
+  const [walletRes, txRes, rechargeRes] = await Promise.all([
+    apiFetch<WalletResponse>(
+      `/wallet/me?cityId=${encodeURIComponent(cityId)}`,
+      { method: "GET", cache: "no-store" } as any
+    ),
+    apiFetch<WalletTransactionsResponse>(
+      `/wallet/me/transactions?limit=20&cityId=${encodeURIComponent(cityId)}`,
+      { method: "GET", cache: "no-store" } as any
+    ),
+    apiFetch<WalletRechargesResponse>(
+      `/wallet/me/recharges?limit=20&cityId=${encodeURIComponent(cityId)}`,
+      { method: "GET", cache: "no-store" } as any
+    ),
+  ]);
+
+  return {
+    wallet: walletRes?.wallet ?? null,
+    transactions: Array.isArray(txRes?.items) ? txRes.items : [],
+    recharges: Array.isArray(rechargeRes?.items) ? rechargeRes.items : [],
+  };
+}
+
 export default function WalletPage() {
   const { city } = useBuyerCity();
 
@@ -327,55 +356,63 @@ export default function WalletPage() {
     };
   }, [transactions]);
 
-  const loadAll = useCallback(async () => {
-    if (!city?.id) {
-      setWallet(null);
-      setTransactions([]);
-      setLoading(false);
-      setError("No se ha seleccionado ciudad.");
-      return;
-    }
+  const applyWalletBundle = useCallback((bundle: {
+    wallet: WalletResponse["wallet"] | null;
+    transactions: WalletTransactionItem[];
+    recharges: WalletRechargeItem[];
+  }) => {
+    setWallet(bundle.wallet ?? null);
+    setTransactions(
+      Array.isArray(bundle.transactions) ? bundle.transactions : []
+    );
+    setRecharges(
+      Array.isArray(bundle.recharges) ? bundle.recharges : []
+    );
+  }, []);
 
-    setLoading(true);
-    setError(null);
+  const loadAll = useCallback(
+    async (options?: { background?: boolean; forceState?: boolean }) => {
+      if (!city?.id) {
+        setWallet(null);
+        setTransactions([]);
+        setRecharges([]);
+        setLoading(false);
+        setError("No se ha seleccionado ciudad.");
+        return;
+      }
 
-    try {
-      const [walletRes, txRes, rechargeRes] = await Promise.all([
-  apiFetch<WalletResponse>(
-    `/wallet/me?cityId=${encodeURIComponent(city.id)}`,
-    {
-      method: "GET",
-    }
-  ),
+      const cityId = city.id;
+      const background = options?.background === true;
+      const cached = getCachedBuyerWallet(cityId);
 
-  apiFetch<WalletTransactionsResponse>(
-    `/wallet/me/transactions?limit=20&cityId=${encodeURIComponent(city.id)}`,
-    {
-      method: "GET",
-    }
-  ),
+      if (cached) {
+        applyWalletBundle(cached.value as any);
+      }
 
-  apiFetch<WalletRechargesResponse>(
-    `/wallet/me/recharges?limit=20&cityId=${encodeURIComponent(city.id)}`,
-    {
-      method: "GET",
-    }
-  ),
-]);
+      if (!background && !cached) {
+        setLoading(true);
+      }
 
-      setWallet(walletRes?.wallet ?? null);
-      setTransactions(Array.isArray(txRes?.items) ? txRes.items : []);
-      setRecharges(
-  Array.isArray(rechargeRes?.items)
-    ? rechargeRes.items
-    : []
-);
-    } catch (err: any) {
-      setError(err?.message || "No se pudo cargar tu saldo KroniX.");
-    } finally {
-      setLoading(false);
-    }
-  }, [city?.id]);
+      setError(null);
+
+      try {
+        const result = await revalidateBuyerWallet(cityId, () =>
+          fetchWalletBundle(cityId)
+        );
+
+        if (result.changed || !cached || options?.forceState) {
+          applyWalletBundle(result.value as any);
+        }
+      } catch (err: any) {
+        if (!cached) {
+          setError(err?.message || "No se pudo cargar tu saldo KroniX.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [city?.id, applyWalletBundle]
+  );
 
   async function ensureWompiScript() {
     if (wompiScriptLoadedRef.current || (window as any).WidgetCheckout) return;
@@ -423,7 +460,7 @@ export default function WalletPage() {
         clearPendingRecharge(reference);
         setCustomAmount("");
         setStatusMessage("Recarga aprobada. Saldo actualizado.");
-        await loadAll();
+        await loadAll({ forceState: true });
         setCheckingPending(false);
         return true;
       }
@@ -480,21 +517,29 @@ export default function WalletPage() {
 
   async function refreshWalletAndRecover() {
     await recoverPendingRecharge(false);
-    await loadAll();
+    await loadAll({ forceState: true });
   }
 
   useEffect(() => {
     if (city?.id) {
-      loadAll().then(() => {
-        recoverPendingRecharge(true);
+      const cached = getCachedBuyerWallet(city.id);
+
+      if (cached) {
+        applyWalletBundle(cached.value as any);
+        setLoading(false);
+      }
+
+      void loadAll({ background: Boolean(cached) }).then(() => {
+        void recoverPendingRecharge(true);
       });
     } else {
       setWallet(null);
       setTransactions([]);
+      setRecharges([]);
       setLoading(false);
       setError("No se ha seleccionado ciudad.");
     }
-  }, [city?.id, loadAll]);
+  }, [city?.id, loadAll, applyWalletBundle]);
 
   useEffect(() => {
     function onFocus() {

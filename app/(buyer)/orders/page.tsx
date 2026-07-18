@@ -7,6 +7,15 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentBuyerId } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
+import {
+  getCachedBuyerOrders,
+  primeBuyerTracking,
+  revalidateBuyerOrders,
+} from "@/lib/cache/buyerExperienceCache";
+import {
+  fetchOrderFromApi,
+  fetchTrackingSnapshot,
+} from "@/app/(buyer)/tracking/[orderId]/_tracking/api";
 import AuthRequiredModal from "@/components/buyer/AuthRequiredModal";
 import { useAuth } from "@/components/buyer/useAuth";
 
@@ -209,6 +218,37 @@ type BackendOrderLite = {
   cityLabel?: string | null;
 };
 
+
+function normalizeBackendOrders(data: unknown): BackendOrderLite[] {
+  const list = Array.isArray(data) ? data : [];
+
+  return list
+    .filter((x) => x?.id)
+    .map((x) => ({
+      id: String(x.id),
+      orderType: String(x.orderType ?? "STORE") as ApiOrderType,
+      serviceType: x?.serviceType
+        ? (String(x.serviceType) as ApiServiceType)
+        : null,
+      serviceKey: x?.serviceKey ? String(x.serviceKey) : null,
+      serviceSnapshot:
+        x?.serviceSnapshot && typeof x.serviceSnapshot === "object"
+          ? x.serviceSnapshot
+          : null,
+      flowStatus: String(
+        x.flowStatus ?? "WAITING_CONFIRMATION"
+      ) as ApiOrderFlowStatus,
+      status: x?.status ? String(x.status) : null,
+      createdAt: String(x.createdAt ?? new Date().toISOString()),
+      totalCOP: typeof x.totalCOP === "number" ? x.totalCOP : 0,
+      citySlug: x?.city?.slug ? String(x.city.slug) : null,
+      cityLabel:
+        x?.city?.name && x?.city?.department
+          ? `${String(x.city.name)}, ${String(x.city.department)}`
+          : null,
+    }));
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthed } = useAuth();
@@ -233,72 +273,69 @@ export default function OrdersPage() {
     let alive = true;
 
     async function loadPrimaryFromBackend() {
-      setIsLoading(true);
-      setUsingFallback(false);
-
+      const customerId = getCurrentBuyerId();
       const local = loadOrders();
+      const cached = getCachedBuyerOrders(customerId);
+
+      setFallbackOrders(local);
+      setUsingFallback(false);
+      setIsLoading(!cached);
+
+      if (cached) {
+        setBackendOrders(cached.value as BackendOrderLite[]);
+      }
 
       try {
-        const customerId = getCurrentBuyerId();
-
-        const data = await apiFetch<Array<any>>(
-          `/orders?customerId=${encodeURIComponent(customerId)}`,
-          { method: "GET" }
-        );
-        const list = Array.isArray(data) ? data : [];
-
-        const normalized: BackendOrderLite[] = list
-          .filter((x) => x?.id)
-          .map((x) => ({
-            id: String(x.id),
-            orderType: String(x.orderType ?? "STORE") as ApiOrderType,
-            serviceType: x?.serviceType
-  ? (String(x.serviceType) as ApiServiceType)
-  : null,
-            serviceKey: x?.serviceKey ? String(x.serviceKey) : null,
-            serviceSnapshot:
-              x?.serviceSnapshot && typeof x.serviceSnapshot === "object"
-                ? x.serviceSnapshot
-                : null,
-            flowStatus: String(x.flowStatus ?? "WAITING_CONFIRMATION") as ApiOrderFlowStatus,
-            status: x?.status ? String(x.status) : null,
-            createdAt: String(x.createdAt ?? new Date().toISOString()),
-            totalCOP: typeof x.totalCOP === "number" ? x.totalCOP : 0,
-            citySlug: x?.city?.slug ? String(x.city.slug) : null,
-            cityLabel:
-              x?.city?.name && x?.city?.department
-                ? `${String(x.city.name)}, ${String(x.city.department)}`
-                : null,
-          }));
+        const result = await revalidateBuyerOrders(customerId, async () => {
+          const data = await apiFetch<Array<any>>(
+            `/orders?customerId=${encodeURIComponent(customerId)}`,
+            { method: "GET", cache: "no-store" } as any
+          );
+          return normalizeBackendOrders(data);
+        });
 
         if (!alive) return;
 
-        setTimeout(() => {
-          if (!alive) return;
-          setBackendOrders(normalized);
-          setFallbackOrders(local);
-          setUsingFallback(false);
-          setIsLoading(false);
-        }, 250);
+        if (result.changed || !cached) {
+          setBackendOrders(result.value as BackendOrderLite[]);
+        }
+
+        setUsingFallback(false);
+        setIsLoading(false);
       } catch {
         if (!alive) return;
 
-        setTimeout(() => {
-          if (!alive) return;
+        if (cached) {
+          setBackendOrders(cached.value as BackendOrderLite[]);
+          setUsingFallback(false);
+        } else {
           setBackendOrders([]);
-          setFallbackOrders(local);
           setUsingFallback(true);
-          setIsLoading(false);
-        }, 250);
+        }
+
+        setIsLoading(false);
       }
     }
 
-    loadPrimaryFromBackend();
+    void loadPrimaryFromBackend();
 
     return () => {
       alive = false;
     };
   }, []);
+
+  const warmTracking = (orderId: string) => {
+    router.prefetch(`/tracking/${orderId}`);
+
+    void primeBuyerTracking(orderId, async () => {
+      const [order, tracking] = await Promise.all([
+        fetchOrderFromApi(orderId),
+        fetchTrackingSnapshot(orderId),
+      ]);
+
+      return { order, tracking };
+    }).catch(() => null);
+  };
 
   const viewList = useMemo(() => {
     if (usingFallback) {
@@ -387,6 +424,9 @@ const chip = flowChipFromFlowStatus(
               <Link
                 key={o.id}
                 href={`/tracking/${o.id}`}
+                onMouseEnter={() => warmTracking(o.id)}
+                onFocus={() => warmTracking(o.id)}
+                onTouchStart={() => warmTracking(o.id)}
                 className="block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50"
               >
                 <div className="flex items-center justify-between gap-3">

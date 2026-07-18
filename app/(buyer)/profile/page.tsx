@@ -7,6 +7,11 @@ import { useRouter } from "next/navigation";
 import { logout } from "@/lib/authActions";
 import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
+import {
+  getCachedBuyerProfile,
+  invalidateBuyerProfile,
+  revalidateBuyerProfile,
+} from "@/lib/cache/buyerExperienceCache";
 
 import Image from "next/image";
 
@@ -79,38 +84,58 @@ export default function ProfilePage() {
   const router = useRouter();
   const { city, cities, citiesLoading, setCity } = useBuyerCity();
 
-  const [isChecking, setIsChecking] = useState(true);
-  const [me, setMe] = useState<MeResponse["user"] | null>(null);
+  const initialProfile = useMemo(
+    () => getCachedBuyerProfile()?.value ?? null,
+    []
+  );
+
+  const [isChecking, setIsChecking] = useState(!initialProfile);
+  const [me, setMe] = useState<MeResponse["user"] | null>(
+    () => initialProfile
+  );
   const [loggingOut, setLoggingOut] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
   
-  async function refreshMe() {
-    try {
+  async function refreshMe(background = false) {
+    if (!background && !me) {
       setIsChecking(true);
+    }
 
-      const data = await apiFetch<MeResponse | any>("/users/me", {
-        method: "GET",
-        cache: "no-store",
-      });
+    try {
+      const result = await revalidateBuyerProfile(async () => {
+        const data = await apiFetch<MeResponse | any>("/users/me", {
+          method: "GET",
+          cache: "no-store",
+          suppressSessionExpiredEvent: true,
+        } as any);
 
-      const raw = (data as any)?.user ?? data ?? null;
-      const user =
-        raw && typeof raw === "object"
+        const raw = (data as any)?.user ?? data ?? null;
+        return raw && typeof raw === "object"
           ? { ...raw, sub: raw.sub ?? raw.id }
           : null;
-      setMe(user && typeof user === "object" ? user : null);
+      });
+
+      if (result.changed || !me) {
+        setMe(
+          result.value && typeof result.value === "object"
+            ? result.value
+            : null
+        );
+      }
     } catch {
-      setMe(null);
+      if (!getCachedBuyerProfile()) {
+        setMe(null);
+      }
     } finally {
       setIsChecking(false);
     }
   }
 
   useEffect(() => {
-    refreshMe();
+    void refreshMe(Boolean(initialProfile));
 
-    const onAuthChanged = () => refreshMe();
-    const onFocus = () => refreshMe();
+    const onAuthChanged = () => void refreshMe(true);
+    const onFocus = () => void refreshMe(true);
 
     window.addEventListener("ct-auth-changed", onAuthChanged);
     window.addEventListener("auth:changed", onAuthChanged);
@@ -174,6 +199,7 @@ export default function ProfilePage() {
     setLoggingOut(true);
     try {
       await logout();
+      invalidateBuyerProfile();
     } finally {
       setLoggingOut(false);
       window.dispatchEvent(new Event("ct-auth-changed"));
