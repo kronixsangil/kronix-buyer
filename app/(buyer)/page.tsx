@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { logout } from "@/lib/authActions";
 import { useCart } from "@/components/buyer/CartContext";
+import { useTelAvailability } from "@/components/buyer/TelAvailabilityContext";
 import {
   dynamicServiceHref,
   getCachedDynamicTransportServices,
@@ -605,6 +606,7 @@ function KronixPlusApplicationPanel({
 }
 
 export default function HomePage() {
+  const tel = useTelAvailability();
   const router = useRouter();
   const { city, citySlug, cityReady } = useBuyerCity();
   const { items } = useCart();
@@ -814,7 +816,7 @@ email: prev.email || String(app?.email ?? ""),
 
   const options = useMemo<KronixOption[]>(() => {
     return [
-      STORE_OPTION,
+      ...(tel.enabled ? [STORE_OPTION] : []),
       ...dynamicServices.map((service) => ({
         href: dynamicServiceHref(service),
         title: service.name,
@@ -822,7 +824,7 @@ email: prev.email || String(app?.email ?? ""),
         service,
       })),
     ];
-  }, [dynamicServices]);
+  }, [dynamicServices, tel.enabled]);
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -1159,6 +1161,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                     />
                   }
                 />
+                {tel.enabled ? (
                 <MenuRow
                   href="/comprar"
                   onClick={() => setMenuOpen(false)}
@@ -1174,6 +1177,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                     />
                   }
                 />
+                ) : null}
                 <MenuRow
                   href="/orders"
                   onClick={() => setMenuOpen(false)}
@@ -1189,6 +1193,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                     />
                   }
                 />
+                {tel.enabled ? (
                 <MenuRow
                   href="/cart"
                   onClick={() => setMenuOpen(false)}
@@ -1205,6 +1210,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                   }
                   badge={cartCount > 0 ? String(cartCount) : null}
                 />
+                ) : null}
                 <MenuRow
                   href="/profile"
                   onClick={() => setMenuOpen(false)}
@@ -1387,6 +1393,12 @@ if (kronixPlusForm.address.trim().length < 8) {
             {servicesError ? (
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-900">
                 {servicesError}
+              </div>
+            ) : null}
+
+            {!tel.enabled && tel.showMessage && tel.message ? (
+              <div className="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-center text-sm font-bold leading-6 text-amber-900 shadow-sm">
+                {tel.message}
               </div>
             ) : null}
 

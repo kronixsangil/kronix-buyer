@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getMe } from "@/lib/authClient";
 import { apiFetch } from "@/lib/api";
-import { geocodeAddressOSMInCity } from "@/lib/geocode";
+import { geocodeAddressOSMInCity, normalizeColombianAddress } from "@/lib/geocode";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 
 function cx(...a: Array<string | false | null | undefined>) {
@@ -146,6 +146,8 @@ export default function InfoPage() {
   const [primaryAddress, setPrimaryAddress] = useState("");
   const [primaryReference, setPrimaryReference] = useState("");
   const [primaryAddressId, setPrimaryAddressId] = useState<string | null>(null);
+  const [primaryLat, setPrimaryLat] = useState<number | null>(null);
+  const [primaryLng, setPrimaryLng] = useState<number | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -247,9 +249,33 @@ export default function InfoPage() {
             setPrimaryAddressId(primary.id);
             setPrimaryAddress(String(primary.address ?? "").trim());
             setPrimaryReference(String(primary.reference ?? "").trim());
+            setPrimaryLat(
+              primary.lat != null && Number.isFinite(Number(primary.lat))
+                ? Number(primary.lat)
+                : prof.ok && prof.data?.defaultLat != null && Number.isFinite(Number(prof.data.defaultLat))
+                  ? Number(prof.data.defaultLat)
+                  : null
+            );
+            setPrimaryLng(
+              primary.lng != null && Number.isFinite(Number(primary.lng))
+                ? Number(primary.lng)
+                : prof.ok && prof.data?.defaultLng != null && Number.isFinite(Number(prof.data.defaultLng))
+                  ? Number(prof.data.defaultLng)
+                  : null
+            );
           } else {
             setPrimaryAddressId(null);
             setPrimaryAddress("");
+            setPrimaryLat(
+              prof.ok && prof.data?.defaultLat != null && Number.isFinite(Number(prof.data.defaultLat))
+                ? Number(prof.data.defaultLat)
+                : null
+            );
+            setPrimaryLng(
+              prof.ok && prof.data?.defaultLng != null && Number.isFinite(Number(prof.data.defaultLng))
+                ? Number(prof.data.defaultLng)
+                : null
+            );
           }
         }
       } finally {
@@ -359,17 +385,31 @@ export default function InfoPage() {
   async function upsertPrimaryAddress() {
     if (!citySlug) throw new Error("No se encontró ciudad activa.");
 
-    const cleanAddress = primaryAddress.trim();
+    const cleanAddress = normalizeColombianAddress(primaryAddress);
+    setPrimaryAddress(cleanAddress);
     if (cleanAddress.length < 8) {
       throw new Error("La dirección principal es obligatoria y debe estar más completa.");
     }
 
-    const geo = await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
+    let resolvedLat =
+      primaryLat != null && Number.isFinite(Number(primaryLat))
+        ? Number(primaryLat)
+        : null;
+    let resolvedLng =
+      primaryLng != null && Number.isFinite(Number(primaryLng))
+        ? Number(primaryLng)
+        : null;
 
-    if (!geo) {
-      throw new Error(
-        `No pudimos ubicar tu dirección principal en ${cityLabel}. Revisa que esté bien escrita e intenta de nuevo.`
-      );
+    // Si ya existen coordenadas válidas, se conservan y NO se recalculan.
+    // Si no existen, intentamos geocodificar, pero una falla del geocoder
+    // NO debe impedir guardar el perfil ni la dirección escrita.
+    if (resolvedLat == null || resolvedLng == null) {
+      const geo = await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
+
+      if (geo) {
+        resolvedLat = geo.lat;
+        resolvedLng = geo.lng;
+      }
     }
 
     if (primaryAddressId) {
@@ -391,16 +431,28 @@ export default function InfoPage() {
         reference: primaryReference.trim() || null,
         contactName: name.trim() || null,
         contactPhone: formatPhone(String(phone ?? "")) || null,
-        lat: geo.lat,
-        lng: geo.lng,
+        lat: resolvedLat,
+        lng: resolvedLng,
         isDefault: true,
         isFavorite: true,
       },
     } as any);
 
     const freshPrimary = await fetchPrimaryAddress();
+
     setPrimaryAddressId(freshPrimary?.id ?? null);
     setPrimaryAddress(String(freshPrimary?.address ?? cleanAddress).trim());
+    setPrimaryReference(String(freshPrimary?.reference ?? primaryReference).trim());
+    setPrimaryLat(
+      freshPrimary?.lat != null && Number.isFinite(Number(freshPrimary.lat))
+        ? Number(freshPrimary.lat)
+        : resolvedLat
+    );
+    setPrimaryLng(
+      freshPrimary?.lng != null && Number.isFinite(Number(freshPrimary.lng))
+        ? Number(freshPrimary.lng)
+        : resolvedLng
+    );
   }
 
   async function handleSave() {
@@ -724,7 +776,14 @@ export default function InfoPage() {
           >
             <textarea
               value={primaryAddress}
-              onChange={(e) => setPrimaryAddress(e.target.value)}
+              onChange={(e) => {
+                setPrimaryAddress(e.target.value);
+                // Si el usuario cambia la dirección escrita, las coordenadas previas
+                // dejan de ser confiables y deberán recalcularse al guardar.
+                setPrimaryLat(null);
+                setPrimaryLng(null);
+              }}
+              onBlur={(e) => setPrimaryAddress(normalizeColombianAddress(e.target.value))}
               placeholder={`Dirección principal en ${cityLabel || "tu ciudad"} *`}
               rows={2}
               className={`${inputClass} resize-none`}

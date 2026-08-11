@@ -1,13 +1,13 @@
 // components/buyer/kronix/GenericTransportServiceRequest.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthRequiredModal from "@/components/buyer/AuthRequiredModal";
 import { useAuth } from "@/components/buyer/useAuth";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { apiFetch, type ApiError } from "@/lib/api";
-import { geocodeAddressOSMInCity } from "@/lib/geocode";
+import { geocodeAddressOSMInCity, reverseGeocodeOSM } from "@/lib/geocode";
 import type { DynamicTransportService } from "@/lib/services/transportServices";
 
 type AddressItem = {
@@ -121,6 +121,10 @@ export default function GenericTransportServiceRequest({
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  const [showSavedAddressModal, setShowSavedAddressModal] = useState(false);
+  const [gpsAddressConfirmed, setGpsAddressConfirmed] = useState(false);
+  const [gpsAddressNeedsNumber, setGpsAddressNeedsNumber] = useState(false);
+  const addressInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -188,8 +192,9 @@ export default function GenericTransportServiceRequest({
   const noteOk = noteSchema.required !== true || notes.trim().length >= 2;
 
   const ready = useMemo(() => {
-    return addressOk && contactOk && noteOk && !!citySlug;
-  }, [addressOk, contactOk, noteOk, citySlug]);
+    const gpsOk = !useGps || gpsAddressConfirmed;
+    return addressOk && contactOk && noteOk && gpsOk && !!citySlug;
+  }, [addressOk, contactOk, noteOk, useGps, gpsAddressConfirmed, citySlug]);
 
   function resetErrors() {
     setGeoError(null);
@@ -216,6 +221,9 @@ export default function GenericTransportServiceRequest({
         : null
     );
     setUseGps(false);
+    setGpsAddressConfirmed(false);
+    setGpsAddressNeedsNumber(false);
+    setShowSavedAddressModal(false);
 
     setContactName(
       String(selected.contactName ?? "").trim() || contactName || getUserName(user)
@@ -234,22 +242,46 @@ export default function GenericTransportServiceRequest({
     }
 
     setGeoLoading(true);
+    setGpsAddressConfirmed(false);
+    setGpsAddressNeedsNumber(false);
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const nextLat = Number(pos.coords.latitude);
         const nextLng = Number(pos.coords.longitude);
 
-        setPlaceName("Mi ubicación actual");
-        setAddress("Mi ubicación actual");
-        setReference((prev) =>
-          prev.trim() || "El worker debe llegar a mi ubicación GPS actual."
-        );
         setLat(nextLat);
         setLng(nextLng);
         setUseGps(true);
         setTouched(false);
-        setGeoLoading(false);
+
+        try {
+          const found = await reverseGeocodeOSM(nextLat, nextLng);
+
+          if (!found?.address) {
+            setPlaceName("Ubicación detectada");
+            setAddress("");
+            setGpsAddressNeedsNumber(true);
+            setGeoError(
+              "Encontramos tu ubicación, pero no pudimos identificar la dirección. Escríbela y confírmala antes de continuar."
+            );
+            return;
+          }
+
+          setPlaceName(found.placeName || "Mi ubicación actual");
+          setAddress(found.address);
+          setGpsAddressNeedsNumber(found.hasHouseNumber === false);
+          setReference((prev) => prev.trim());
+        } catch {
+          setPlaceName("Ubicación detectada");
+          setAddress("");
+          setGpsAddressNeedsNumber(true);
+          setGeoError(
+            "Encontramos tu ubicación, pero no pudimos identificar la dirección. Escríbela y confírmala antes de continuar."
+          );
+        } finally {
+          setGeoLoading(false);
+        }
       },
       () => {
         setGeoError(
@@ -440,27 +472,24 @@ const packageDescription = [
 
       <div className="rounded-[20px] border border-slate-200 bg-white p-2 shadow-sm">
         {schema.allowSavedAddress !== false && (addresses.length > 0 || addressesLoading) ? (
-          <div className="rounded-[16px] border border-blue-100 bg-blue-50 px-2 py-2">
-            <label className="mb-1 block text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-700">
+          <div className="rounded-[16px] border border-blue-100 bg-gradient-to-r from-blue-50 to-cyan-50 px-2 py-2">
+            <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-blue-700">
               Usar dirección guardada
-            </label>
-            <select
+            </div>
+            <button
+              type="button"
               disabled={addressesLoading}
-              defaultValue=""
-              onChange={(e) => applySavedAddress(e.target.value)}
-              className="h-10 w-full rounded-[14px] border border-blue-100 bg-white px-4 text-[13px] font-bold text-slate-900 outline-none"
+              onClick={() => setShowSavedAddressModal(true)}
+              className="flex h-11 w-full items-center justify-between rounded-[14px] border border-blue-100 bg-white px-3 text-left shadow-sm transition active:scale-[0.99] disabled:opacity-60"
             >
-              <option value="">
-                {addressesLoading ? "Cargando..." : "Seleccionar dirección"}
-              </option>
-              {addresses.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {`${a.isDefault ? "🏠 " : a.isFavorite ? "❤️ " : ""}${
-                    a.placeName || a.label || "Dirección guardada"
-                  } — ${a.address}`}
-                </option>
-              ))}
-            </select>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-blue-50 text-base">📍</span>
+                <span className="truncate text-[13px] font-bold text-slate-700">
+                  {addressesLoading ? "Cargando direcciones..." : "Seleccionar dirección"}
+                </span>
+              </span>
+              <span className="text-lg font-black text-blue-600">›</span>
+            </button>
           </div>
         ) : null}
 
@@ -496,16 +525,75 @@ const packageDescription = [
           </div>
         ) : null}
 
+        {useGps && address.trim() ? (
+          <div className={[
+            "mt-2 rounded-[16px] border px-3 py-3",
+            gpsAddressConfirmed
+              ? "border-emerald-200 bg-emerald-50"
+              : "border-amber-200 bg-amber-50",
+          ].join(" ")}>
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-lg">{gpsAddressConfirmed ? "✅" : "📍"}</span>
+              <div className="min-w-0 flex-1">
+                <div className={[
+                  "text-[11px] font-extrabold uppercase tracking-[0.11em]",
+                  gpsAddressConfirmed ? "text-emerald-700" : "text-amber-700",
+                ].join(" ")}>
+                  {gpsAddressConfirmed ? "Dirección confirmada" : "Verifica tu dirección"}
+                </div>
+                <div className="mt-1 text-[13px] font-bold leading-5 text-slate-900">
+                  {address}
+                </div>
+                {gpsAddressNeedsNumber && !gpsAddressConfirmed ? (
+                  <div className="mt-2 rounded-xl border border-amber-200 bg-white/80 px-3 py-2 text-[11px] font-semibold leading-4 text-amber-900">
+                    OpenStreetMap identificó la vía, pero no el número exacto. Completa el número de la vivienda antes de confirmar.
+                  </div>
+                ) : null}
+                {!gpsAddressConfirmed ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setGpsAddressConfirmed(true)}
+                      className="rounded-xl bg-emerald-600 px-3 py-2.5 text-[12px] font-extrabold text-white"
+                    >
+                      Sí, es correcta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGpsAddressConfirmed(false);
+                        window.setTimeout(() => {
+                          addressInputRef.current?.focus();
+                          addressInputRef.current?.select();
+                        }, 50);
+                      }}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-extrabold text-slate-700"
+                    >
+                      Editar
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-2 grid gap-1.5">
           <input
+            ref={addressInputRef}
             type="text"
             value={address}
             onChange={(e) => {
               resetErrors();
               setAddress(e.target.value);
-              setLat(null);
-              setLng(null);
-              setUseGps(false);
+              setGpsAddressConfirmed(false);
+
+              // Si el punto proviene del GPS, editar el texto NO debe reemplazar
+              // las coordenadas exactas capturadas por el teléfono.
+              if (!useGps) {
+                setLat(null);
+                setLng(null);
+              }
             }}
             onBlur={() => setTouched(true)}
             placeholder={`${originSchema.addressLabel || "Dirección o ubicación de inicio"}${originSchema.required === false ? "" : " *"}`}
@@ -633,6 +721,86 @@ const packageDescription = [
       >
         {submitting ? submitSchema.creatingText || "Creando solicitud..." : submitSchema.buttonText || `Solicitar ${serviceTitle}`}
       </button>
+
+      {showSavedAddressModal ? (
+        <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-[2px] sm:items-center">
+          <button
+            type="button"
+            aria-label="Cerrar selector de direcciones"
+            className="absolute inset-0"
+            onClick={() => setShowSavedAddressModal(false)}
+          />
+
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[26px] border border-white/70 bg-[#f8fafc] shadow-[0_24px_70px_rgba(15,23,42,0.30)]">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+              <div>
+                <div className="text-[17px] font-black text-slate-950">Selecciona una dirección</div>
+                <div className="mt-0.5 text-[11px] font-semibold text-slate-500">Tus direcciones guardadas en {cityLabel}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSavedAddressModal(false)}
+                className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-xl font-black text-slate-600"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="max-h-[62dvh] space-y-2 overflow-y-auto p-3">
+              {addresses.map((item) => {
+                const title = String(item.placeName ?? item.label ?? "Dirección guardada").trim();
+                const itemAddress = String(item.address ?? "").trim();
+                const itemReference = String(item.reference ?? "").trim();
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => applySavedAddress(item.id)}
+                    className="flex w-full items-start gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:border-blue-300 active:scale-[0.995]"
+                  >
+                    <span className={[
+                      "grid h-10 w-10 shrink-0 place-items-center rounded-[14px] text-lg",
+                      item.isDefault
+                        ? "bg-emerald-50 ring-1 ring-emerald-200"
+                        : item.isFavorite
+                          ? "bg-rose-50 ring-1 ring-rose-200"
+                          : "bg-blue-50 ring-1 ring-blue-100",
+                    ].join(" ")}>
+                      {item.isDefault ? "🏠" : item.isFavorite ? "❤️" : "📍"}
+                    </span>
+
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[14px] font-extrabold text-slate-900">{title}</span>
+                        {item.isDefault ? (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700 ring-1 ring-emerald-200">
+                            PRINCIPAL
+                          </span>
+                        ) : item.isFavorite ? (
+                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold text-rose-700 ring-1 ring-rose-200">
+                            FAVORITA
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-1 block break-words text-[13px] font-semibold leading-5 text-slate-700">
+                        {itemAddress}
+                      </span>
+                      {itemReference ? (
+                        <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                          Ref.: {itemReference}
+                        </span>
+                      ) : null}
+                    </span>
+
+                    <span className="mt-2 text-lg font-black text-blue-600">›</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <AuthRequiredModal
         open={showAuthModal}

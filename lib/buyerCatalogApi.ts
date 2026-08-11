@@ -158,6 +158,9 @@ export type ApiBuyerHomeConfig = {
   storeCardTitleFontSize: number;
   storeCardSubtitleFontSize: number;
   storeCardMetaFontSize: number;
+  telEnabled: boolean;
+  telShowMessage: boolean;
+  telMessage: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -253,6 +256,21 @@ export async function publicListBuyerCategories(citySlug?: string) {
       suppressSessionExpiredEvent: true,
     } as any
   );
+}
+
+export type TelAvailability = {
+  enabled: boolean;
+  showMessage: boolean;
+  message: string | null;
+};
+
+export async function publicGetTelAvailability(citySlug?: string): Promise<TelAvailability> {
+  const config = await publicGetBuyerHomeConfig(citySlug);
+  return {
+    enabled: config.telEnabled !== false,
+    showMessage: config.telShowMessage === true,
+    message: String(config.telMessage ?? "").trim() || null,
+  };
 }
 
 export async function publicGetBuyerHomeBanner(citySlug?: string) {

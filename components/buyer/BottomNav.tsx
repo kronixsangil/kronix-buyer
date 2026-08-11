@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/components/buyer/CartContext";
+import { useTelAvailability } from "@/components/buyer/TelAvailabilityContext";
 
 /**
  * BottomNav con fondo estilo BuyerHeader invertido.
@@ -89,6 +90,7 @@ function NavItemBox({ children, active }: { children: React.ReactNode; active: b
 export default function BottomNav() {
   const pathname = usePathname();
   const { items } = useCart();
+  const tel = useTelAvailability();
   const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
 
   const isActive = (href: string) =>
@@ -134,21 +136,23 @@ export default function BottomNav() {
             <span className={labelClass(isActive("/orders"))} style={labelStyle(isActive("/orders"))}>Pedidos</span>
           </Link>
 
-          <Link className={itemClass(isActive("/cart"))} href="/cart">
-            <span className="relative">
-              <NavItemBox active={isActive("/cart")}>
-                <IconCart />
-              </NavItemBox>
+          {tel.enabled ? (
+            <Link className={itemClass(isActive("/cart"))} href="/cart">
+              <span className="relative">
+                <NavItemBox active={isActive("/cart")}>
+                  <IconCart />
+                </NavItemBox>
 
-              {cartCount > 0 && (
-                <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-extrabold"
-                  style={{ background: "var(--kx-primary, #16a34a)", color: "var(--kx-button-text, #ffffff)" }}>
-                  {cartCount}
-                </span>
-              )}
-            </span>
-            <span className={labelClass(isActive("/cart"))} style={labelStyle(isActive("/cart"))}>Carrito</span>
-          </Link>
+                {cartCount > 0 && (
+                  <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-extrabold"
+                    style={{ background: "var(--kx-primary, #16a34a)", color: "var(--kx-button-text, #ffffff)" }}>
+                    {cartCount}
+                  </span>
+                )}
+              </span>
+              <span className={labelClass(isActive("/cart"))} style={labelStyle(isActive("/cart"))}>Carrito</span>
+            </Link>
+          ) : null}
 
           <Link className={itemClass(isActive("/wallet"))} href="/wallet">
             <NavItemBox active={isActive("/wallet")}>

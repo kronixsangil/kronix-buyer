@@ -10,6 +10,10 @@ import { CartProvider } from "@/components/buyer/CartContext";
 import { SearchProvider } from "@/components/buyer/SearchContext";
 import SessionExpiredModal from "@/components/buyer/SessionExpiredModal";
 import { BuyerCityProvider } from "@/components/buyer/CityContext";
+import {
+  TelAvailabilityProvider,
+  useTelAvailability,
+} from "@/components/buyer/TelAvailabilityContext";
 import { getMe } from "@/lib/authClient";
 import BuyerTermsModal from "@/components/buyer/legal/BuyerTermsModal";
 import BuyerPrivacyModal from "@/components/buyer/legal/BuyerPrivacyModal";
@@ -245,6 +249,40 @@ function AuthGateFallback() {
   );
 }
 
+function isTelRoute(pathname: string) {
+  return (
+    pathname === "/comprar" ||
+    pathname.startsWith("/comprar/") ||
+    pathname === "/cart" ||
+    pathname.startsWith("/cart/") ||
+    pathname === "/store" ||
+    pathname.startsWith("/store/")
+  );
+}
+
+function TelRouteGuard({
+  pathname,
+  children,
+}: {
+  pathname: string;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const tel = useTelAvailability();
+
+  useEffect(() => {
+    if (!tel.loading && !tel.enabled && isTelRoute(pathname)) {
+      router.replace("/");
+    }
+  }, [pathname, router, tel.enabled, tel.loading]);
+
+  if (!tel.loading && !tel.enabled && isTelRoute(pathname)) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 function BottomKronixGlow() {
   return (
     <div
@@ -273,6 +311,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
     <CartProvider>
       <SearchProvider>
         <BuyerCityProvider>
+          <TelAvailabilityProvider>
           <div className="fixed inset-0 overflow-hidden bg-[#03102b] buyer-app-shell">
             <div className="mx-auto h-[100dvh] w-full max-w-md overflow-hidden bg-[#03102b] shadow-lg md:my-4 md:h-[calc(100dvh-2rem)] md:rounded-[28px] md:ring-1 md:ring-black/10">
               <div className="relative h-full w-full overflow-hidden" style={{ background: "var(--kx-page-bg, #f8fafc)" }}>
@@ -295,7 +334,9 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
                   ].join(" ")}
                 >
                   <Suspense fallback={<AuthGateFallback />}>
-                    <AuthGate pathname={pathname}>{children}</AuthGate>
+                    <AuthGate pathname={pathname}>
+                      <TelRouteGuard pathname={pathname}>{children}</TelRouteGuard>
+                    </AuthGate>
                   </Suspense>
                 </main>
 
@@ -305,6 +346,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
           </div>
+          </TelAvailabilityProvider>
         </BuyerCityProvider>
       </SearchProvider>
     </CartProvider>
