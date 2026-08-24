@@ -25,7 +25,7 @@ export default function IPhoneInstallPage() {
   }, []);
 
   return (
-    <main className="min-h-screen overflow-y-auto bg-[#f3f6fb] px-4 py-5 text-slate-950">
+    <main className="fixed inset-0 overflow-y-auto overscroll-y-contain bg-[#f3f6fb] px-4 pt-[calc(1.25rem+env(safe-area-inset-top))] pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-slate-950 touch-pan-y [-webkit-overflow-scrolling:touch]">
       <section className="mx-auto w-full max-w-md rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_46px_rgba(15,23,42,0.16)]">
         <div className="relative overflow-hidden px-5 pb-3 pt-2 text-white">
           <div className="absolute inset-0 bg-[linear-gradient(180deg,#03102b_0%,#0b356d_48%,#4a79b7_78%,#ffffff_100%)]" />
