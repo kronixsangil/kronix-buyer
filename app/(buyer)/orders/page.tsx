@@ -128,27 +128,35 @@ function getServiceLabel(
 ) {
   const ot = String(orderType ?? "").trim().toUpperCase();
   const st = String(serviceType ?? "").trim().toUpperCase();
-  const sk = String(serviceKey ?? "").trim().toUpperCase();
+  const sk = String(serviceKey ?? "").trim();
 
-  if (ot === "STORE" || st === "STORE") return "Tienda en Línea";
+  // Tienda en Línea conserva su flujo independiente.
+  if (ot === "STORE" || st === "STORE") {
+    return "Tienda en Línea";
+  }
 
-  // En Servicios Dinámicos la fotografía inmutable es la primera fuente.
+  // 1. Fuente principal: fotografía inmutable del Servicio Dinámico.
   const definition = getSnapshotDefinition(serviceSnapshot);
+
   const dynamicName =
     String(definition?.shortName ?? "").trim() ||
     String(definition?.name ?? "").trim() ||
     String((serviceSnapshot as any)?.shortName ?? "").trim() ||
     String((serviceSnapshot as any)?.name ?? "").trim();
 
-  if (dynamicName) return dynamicName;
+  if (dynamicName) {
+    return dynamicName;
+  }
 
-  // Compatibilidad si una respuesta antigua todavía no incluye snapshot.
-  if (sk === "PACKAGE" || st === "PACKAGE") return "KroniX Envíos";
-  if (sk === "DELIVERY" || st === "DELIVERY") return "Domicilio";
-  if (sk === "TAXI" || st === "TAXI") return "Taxi";
-  if (sk === "MOTORCARGO" || st === "MOTORCARGO") return "Motocarga";
+  // 2. Si existe serviceKey, él identifica el servicio.
+  // No importa que serviceType internamente sea DELIVERY, TAXI, etc.
+  if (sk) {
+    return humanizeServiceKey(sk);
+  }
 
-  return humanizeServiceKey(serviceKey) || "Servicio KroniX";
+  // 3. Órdenes históricas que todavía no tienen identidad dinámica.
+  // No asignamos nombres de servicios específicos.
+  return "Servicio KroniX";
 }
 
 function hexToRgba(hex: string, alpha: number) {
