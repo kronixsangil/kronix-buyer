@@ -110,23 +110,45 @@ function getSnapshotDefinition(snapshot?: ApiServiceSnapshot) {
   return definition && typeof definition === "object" ? definition : snapshot;
 }
 
+function humanizeServiceKey(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  return raw
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function getServiceLabel(
   serviceType?: string | null,
   orderType?: string | null,
-  serviceSnapshot?: ApiServiceSnapshot
+  serviceSnapshot?: ApiServiceSnapshot,
+  serviceKey?: string | null
 ) {
   const ot = String(orderType ?? "").trim().toUpperCase();
   const st = String(serviceType ?? "").trim().toUpperCase();
+  const sk = String(serviceKey ?? "").trim().toUpperCase();
 
   if (ot === "STORE" || st === "STORE") return "Tienda en Línea";
-  if (st === "PACKAGE") return "KroniX Envíos";
 
+  // En Servicios Dinámicos la fotografía inmutable es la primera fuente.
   const definition = getSnapshotDefinition(serviceSnapshot);
-  return (
+  const dynamicName =
+    String(definition?.shortName ?? "").trim() ||
     String(definition?.name ?? "").trim() ||
-    String((serviceSnapshot as any)?.name ?? "").trim() ||
-    "Servicio"
-  );
+    String((serviceSnapshot as any)?.shortName ?? "").trim() ||
+    String((serviceSnapshot as any)?.name ?? "").trim();
+
+  if (dynamicName) return dynamicName;
+
+  // Compatibilidad si una respuesta antigua todavía no incluye snapshot.
+  if (sk === "PACKAGE" || st === "PACKAGE") return "KroniX Envíos";
+  if (sk === "DELIVERY" || st === "DELIVERY") return "Domicilio";
+  if (sk === "TAXI" || st === "TAXI") return "Taxi";
+  if (sk === "MOTORCARGO" || st === "MOTORCARGO") return "Motocarga";
+
+  return humanizeServiceKey(serviceKey) || "Servicio KroniX";
 }
 
 function hexToRgba(hex: string, alpha: number) {
@@ -410,12 +432,13 @@ const chip = flowChipFromFlowStatus(
   o.orderType
 );
             const svc = getServiceLabel(
-              o.serviceType ?? o.serviceKey,
+              o.serviceType,
               o.orderType,
-              o.serviceSnapshot
+              o.serviceSnapshot,
+              o.serviceKey
             );
             const svcStyle = serviceStyle(
-              o.serviceType ?? o.serviceKey,
+              o.serviceType,
               o.orderType,
               o.serviceSnapshot
             );
