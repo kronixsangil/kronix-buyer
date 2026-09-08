@@ -326,11 +326,12 @@ function StandardCard({
   onClick?: () => void;
 }) {
   const service = item.service;
+  const unavailable = service?.operationalAvailable === false;
   const leftImage = String(service?.cardImageLeft ?? "/branding/kronix/logoorder.png");
   const rightImage = String(service?.cardImageRight ?? "/branding/kronix/logoorder.png");
 
   const content = (
-    <div className="relative flex h-full items-center gap-2">
+    <div className={`relative flex h-full items-center gap-2 ${unavailable ? "grayscale opacity-55" : ""}`}>
       <div className="pointer-events-none absolute inset-x-4 top-1 h-8 rounded-full bg-white/35 blur-xl" />
       <ServiceCardLeftImage src={leftImage} title={item.title} />
 
@@ -346,9 +347,8 @@ function StandardCard({
 
       <ServiceCardRightImage src={rightImage} title={item.title} />
 
-      <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">
-        ›
-      </div>
+      {unavailable ? <div className="absolute right-3 top-2 rounded-full bg-slate-700 px-2 py-1 text-[9px] font-black text-white">SIN DISPONIBILIDAD</div> : null}
+      <div className="shrink-0 text-[28px] font-black text-slate-300 transition group-hover:translate-x-0.5">›</div>
     </div>
   );
 
@@ -362,6 +362,10 @@ function StandardCard({
       0.22
     ),
   };
+
+  if (unavailable) {
+    return <button type="button" onClick={() => window.alert("No hay trabajadores disponibles en este momento. Intenta nuevamente más tarde.")} className={cls} style={{ ...cardStyle, background: "#F1F5F9" }}>{content}</button>;
+  }
 
   if (onClick) {
     return (

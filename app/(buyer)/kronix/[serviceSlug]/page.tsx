@@ -62,5 +62,16 @@ export default function DynamicServiceRequestPage() {
     );
   }
 
+  if (service.operationalAvailable === false) {
+    return (
+      <div className="px-4 py-10">
+        <div className="rounded-3xl border border-slate-200 bg-slate-100 p-5 text-center text-sm font-semibold text-slate-700">
+          No hay trabajadores disponibles en este momento. Intenta nuevamente más tarde.
+        </div>
+        <button type="button" onClick={() => router.push("/")} className="mt-4 w-full rounded-2xl bg-slate-900 py-3 text-sm font-black text-white">Volver al inicio</button>
+      </div>
+    );
+  }
+
   return <GenericTransportServiceRequest config={service} />;
 }

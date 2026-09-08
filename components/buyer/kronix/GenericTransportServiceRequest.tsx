@@ -308,6 +308,7 @@ export default function GenericTransportServiceRequest({
 
   function requestService() {
     setTouched(true);
+    if (config.operationalAvailable === false) { setCreateError("No hay trabajadores disponibles en este momento. Intenta nuevamente más tarde."); return; }
     setCreateError(null);
 
     if (!authLoading && !isAuthed) {

@@ -62,6 +62,9 @@ export type DynamicTransportService = {
   isActive?: boolean;
   sortOrder?: number;
   cityOverrides?: Record<string, unknown> | null;
+  operationalAvailable?: boolean;
+  onlineWorkers?: number;
+  authorizedWorkers?: number;
 };
 
 type PublicServicesResponse = {
