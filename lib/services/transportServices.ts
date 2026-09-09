@@ -104,7 +104,7 @@ function normalizeDynamicServices(items: DynamicTransportService[]) {
 
 const dynamicServicesCache = createTwoLevelCatalogCache<DynamicTransportService[]>({
   namespace: "kronix:catalog:dynamic-services",
-  version: 1,
+  version: 2,
   normalize: normalizeDynamicServices,
 });
 

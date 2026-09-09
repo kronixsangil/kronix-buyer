@@ -813,8 +813,15 @@ email: prev.email || String(app?.email ?? ""),
 
     void revalidateServices();
 
+    // La disponibilidad operativa cambia durante el día aunque el catálogo no cambie.
+    // Revalidamos silenciosamente para atenuar/reactivar tarjetas sin recargar la Home.
+    const availabilityTimer = window.setInterval(() => {
+      void revalidateServices();
+    }, 15000);
+
     return () => {
       alive = false;
+      window.clearInterval(availabilityTimer);
     };
   }, [cityReady, citySlug]);
 
