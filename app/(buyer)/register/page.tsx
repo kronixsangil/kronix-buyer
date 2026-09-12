@@ -100,33 +100,16 @@ export default function BuyerRegisterPage() {
     Boolean(citySlug) &&
     !loading;
 
-  async function createPrimaryAddress() {
-    if (!citySlug) throw new Error("No se encontró ciudad activa.");
-
-    const geo = await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
-
-    if (!geo) {
-      throw new Error(
-        `No pudimos ubicar tu dirección principal en ${cityLabel}. Revisa que esté bien escrita e intenta de nuevo.`
-      );
+  async function resolvePrimaryAddressGeo() {
+    // La geocodificación ayuda, pero jamás debe impedir crear la cuenta.
+    // Si Nominatim no reconoce una dirección válida escrita por el cliente,
+    // conservamos la dirección textual y la ciudad; las coordenadas quedan
+    // pendientes para que puedan completarse posteriormente.
+    try {
+      return await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
+    } catch {
+      return null;
     }
-
-    await apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`, {
-      method: "POST",
-      suppressSessionExpiredEvent: true,
-      json: {
-        label: "Casa",
-        placeName: "Dirección principal",
-        address: cleanAddress,
-        reference: primaryReference.trim() || null,
-        contactName: name.trim() || null,
-        contactPhone: cleanPhone || null,
-        lat: geo.lat,
-        lng: geo.lng,
-        isDefault: true,
-        isFavorite: true,
-      },
-    } as any);
   }
 
   const handleSubmit = async () => {
@@ -156,6 +139,11 @@ export default function BuyerRegisterPage() {
     try {
       const termsVersion = await getCurrentBuyerTermsVersion();
 
+      // Intentamos geocodificar ANTES de crear la cuenta. Si no hay
+      // coincidencia, geo será null y el backend guardará igualmente la
+      // dirección y la ciudad con coordenadas pendientes.
+      const geo = await resolvePrimaryAddressGeo();
+
       await apiFetch("/auth/register", {
         method: "POST",
         json: {
@@ -165,11 +153,28 @@ export default function BuyerRegisterPage() {
           password: password.trim(),
           termsAccepted: true,
           termsVersion,
+
+          // Registro robusto: User + UserAddress se crean juntos en API.
+          citySlug,
+          primaryAddress: cleanAddress,
+          primaryReference: primaryReference.trim() || null,
+          primaryLat: geo?.lat ?? null,
+          primaryLng: geo?.lng ?? null,
         },
       });
 
-      await acceptBuyerTermsBackend(termsVersion);
-      await createPrimaryAddress();
+      // La cuenta y su dirección ya quedaron persistidas de forma atómica.
+      // La aceptación legal detallada se mantiene como hasta ahora. Si por
+      // una incidencia temporal falla este segundo registro, no destruimos
+      // ni bloqueamos una cuenta que ya fue creada correctamente.
+      try {
+        await acceptBuyerTermsBackend(termsVersion);
+      } catch (legalError) {
+        console.warn(
+          "[KroniX] Cuenta creada; aceptación legal detallada pendiente de reintento.",
+          legalError
+        );
+      }
 
       window.dispatchEvent(new Event("ct-auth-changed"));
       window.dispatchEvent(new Event("auth:changed"));
