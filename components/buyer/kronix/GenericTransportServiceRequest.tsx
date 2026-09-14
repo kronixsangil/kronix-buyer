@@ -7,7 +7,7 @@ import AuthRequiredModal from "@/components/buyer/AuthRequiredModal";
 import { useAuth } from "@/components/buyer/useAuth";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { apiFetch, type ApiError } from "@/lib/api";
-import { geocodeAddressOSMInCity, reverseGeocodeOSM } from "@/lib/geocode";
+import { geocodeAddressOSMInCity } from "@/lib/geocode";
 import type { DynamicTransportService } from "@/lib/services/transportServices";
 
 type AddressItem = {
@@ -108,7 +108,6 @@ export default function GenericTransportServiceRequest({
   const [reference, setReference] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
-  const [useGps, setUseGps] = useState(false);
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -122,8 +121,6 @@ export default function GenericTransportServiceRequest({
   const [createError, setCreateError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [showSavedAddressModal, setShowSavedAddressModal] = useState(false);
-  const [gpsAddressConfirmed, setGpsAddressConfirmed] = useState(false);
-  const [gpsAddressNeedsNumber, setGpsAddressNeedsNumber] = useState(false);
   const addressInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -192,9 +189,8 @@ export default function GenericTransportServiceRequest({
   const noteOk = noteSchema.required !== true || notes.trim().length >= 2;
 
   const ready = useMemo(() => {
-    const gpsOk = !useGps || gpsAddressConfirmed;
-    return addressOk && contactOk && noteOk && gpsOk && !!citySlug;
-  }, [addressOk, contactOk, noteOk, useGps, gpsAddressConfirmed, citySlug]);
+    return addressOk && contactOk && noteOk && !!citySlug;
+  }, [addressOk, contactOk, noteOk, citySlug]);
 
   function resetErrors() {
     setGeoError(null);
@@ -220,9 +216,6 @@ export default function GenericTransportServiceRequest({
         ? Number(selected.lng)
         : null
     );
-    setUseGps(false);
-    setGpsAddressConfirmed(false);
-    setGpsAddressNeedsNumber(false);
     setShowSavedAddressModal(false);
 
     setContactName(
@@ -230,66 +223,6 @@ export default function GenericTransportServiceRequest({
     );
     setContactPhone(
       cleanPhone(selected.contactPhone) || contactPhone || getUserPhone(user)
-    );
-  }
-
-  function useCurrentLocation() {
-    resetErrors();
-
-    if (!navigator?.geolocation) {
-      setGeoError("Tu navegador no permite usar ubicación actual.");
-      return;
-    }
-
-    setGeoLoading(true);
-    setGpsAddressConfirmed(false);
-    setGpsAddressNeedsNumber(false);
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const nextLat = Number(pos.coords.latitude);
-        const nextLng = Number(pos.coords.longitude);
-
-        setLat(nextLat);
-        setLng(nextLng);
-        setUseGps(true);
-        setTouched(false);
-
-        try {
-          const found = await reverseGeocodeOSM(nextLat, nextLng);
-
-          if (!found?.address) {
-            setPlaceName("Ubicación detectada");
-            setAddress("");
-            setGpsAddressNeedsNumber(true);
-            setGeoError(
-              "Encontramos tu ubicación, pero no pudimos identificar la dirección. Escríbela y confírmala antes de continuar."
-            );
-            return;
-          }
-
-          setPlaceName(found.placeName || "Mi ubicación actual");
-          setAddress(found.address);
-          setGpsAddressNeedsNumber(found.hasHouseNumber === false);
-          setReference((prev) => prev.trim());
-        } catch {
-          setPlaceName("Ubicación detectada");
-          setAddress("");
-          setGpsAddressNeedsNumber(true);
-          setGeoError(
-            "Encontramos tu ubicación, pero no pudimos identificar la dirección. Escríbela y confírmala antes de continuar."
-          );
-        } finally {
-          setGeoLoading(false);
-        }
-      },
-      () => {
-        setGeoError(
-          "No pudimos tomar tu ubicación. Revisa permisos del navegador o escribe la dirección manualmente."
-        );
-        setGeoLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
   }
 
@@ -398,7 +331,7 @@ const packageDescription = [
           address: address.trim(),
           lat: geo.lat,
           lng: geo.lng,
-          placeName: placeName.trim() || (useGps ? "Mi ubicación actual" : "Punto de inicio"),
+          placeName: placeName.trim() || "Punto de inicio",
           reference: reference.trim() || undefined,
           senderName: contactName.trim(),
           senderPhone: contactPhone.trim() || undefined,
@@ -408,7 +341,7 @@ const packageDescription = [
           address: address.trim(),
           lat: geo.lat,
           lng: geo.lng,
-          placeName: placeName.trim() || (useGps ? "Mi ubicación actual" : "Punto de inicio"),
+          placeName: placeName.trim() || "Punto de inicio",
           reference: reference.trim() || undefined,
           receiverName: contactName.trim(),
           receiverPhone: contactPhone.trim() || undefined,
@@ -494,90 +427,12 @@ const packageDescription = [
           </div>
         ) : null}
 
-        {schema.allowCurrentLocation !== false ? (
-        <button
-          type="button"
-          onClick={useCurrentLocation}
-          disabled={geoLoading}
-          className={[
-            "mt-2 h-12 w-full rounded-[16px] px-4 text-[14px] font-black text-white shadow-sm transition",
-            geoLoading
-              ? "cursor-not-allowed bg-slate-300"
-              : "hover:brightness-95",
-          ].join(" ")}
-          style={
-            geoLoading
-              ? undefined
-              : {
-                  background: `linear-gradient(90deg, ${servicePrimaryColor} 0%, ${hexToRgba(
-                    servicePrimaryColor,
-                    0.78
-                  )} 100%)`,
-                }
-          }
-        >
-          {geoLoading ? "Tomando ubicación..." : "📍 Usar mi ubicación actual"}
-        </button>
-        ) : null}
-
         {geoError ? (
           <div className="mt-2 rounded-[14px] border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700">
             {geoError}
           </div>
         ) : null}
 
-        {useGps && address.trim() ? (
-          <div className={[
-            "mt-2 rounded-[16px] border px-3 py-3",
-            gpsAddressConfirmed
-              ? "border-emerald-200 bg-emerald-50"
-              : "border-amber-200 bg-amber-50",
-          ].join(" ")}>
-            <div className="flex items-start gap-2">
-              <span className="mt-0.5 text-lg">{gpsAddressConfirmed ? "✅" : "📍"}</span>
-              <div className="min-w-0 flex-1">
-                <div className={[
-                  "text-[11px] font-extrabold uppercase tracking-[0.11em]",
-                  gpsAddressConfirmed ? "text-emerald-700" : "text-amber-700",
-                ].join(" ")}>
-                  {gpsAddressConfirmed ? "Dirección confirmada" : "Verifica tu dirección"}
-                </div>
-                <div className="mt-1 text-[13px] font-bold leading-5 text-slate-900">
-                  {address}
-                </div>
-                {gpsAddressNeedsNumber && !gpsAddressConfirmed ? (
-                  <div className="mt-2 rounded-xl border border-amber-200 bg-white/80 px-3 py-2 text-[11px] font-semibold leading-4 text-amber-900">
-                    OpenStreetMap identificó la vía, pero no el número exacto. Completa el número de la vivienda antes de confirmar.
-                  </div>
-                ) : null}
-                {!gpsAddressConfirmed ? (
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setGpsAddressConfirmed(true)}
-                      className="rounded-xl bg-emerald-600 px-3 py-2.5 text-[12px] font-extrabold text-white"
-                    >
-                      Sí, es correcta
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGpsAddressConfirmed(false);
-                        window.setTimeout(() => {
-                          addressInputRef.current?.focus();
-                          addressInputRef.current?.select();
-                        }, 50);
-                      }}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[12px] font-extrabold text-slate-700"
-                    >
-                      Editar
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
 
         <div className="mt-2 grid gap-1.5">
           <input
@@ -587,14 +442,10 @@ const packageDescription = [
             onChange={(e) => {
               resetErrors();
               setAddress(e.target.value);
-              setGpsAddressConfirmed(false);
-
-              // Si el punto proviene del GPS, editar el texto NO debe reemplazar
-              // las coordenadas exactas capturadas por el teléfono.
-              if (!useGps) {
-                setLat(null);
-                setLng(null);
-              }
+              // Una dirección digitada manualmente debe resolverse nuevamente
+              // dentro de la ciudad operativa activa.
+              setLat(null);
+              setLng(null);
             }}
             onBlur={() => setTouched(true)}
             placeholder={`${originSchema.addressLabel || "Dirección o ubicación de inicio"}${originSchema.required === false ? "" : " *"}`}
@@ -724,7 +575,7 @@ const packageDescription = [
       </button>
 
       {showSavedAddressModal ? (
-        <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-slate-950/45 p-3 backdrop-blur-[2px] sm:items-center">
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
           <button
             type="button"
             aria-label="Cerrar selector de direcciones"
@@ -732,7 +583,7 @@ const packageDescription = [
             onClick={() => setShowSavedAddressModal(false)}
           />
 
-          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[26px] border border-white/70 bg-[#f8fafc] shadow-[0_24px_70px_rgba(15,23,42,0.30)]">
+          <div className="relative z-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-[26px] border border-white/70 bg-[#f8fafc] shadow-[0_24px_70px_rgba(15,23,42,0.30)]">
             <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
               <div>
                 <div className="text-[17px] font-black text-slate-950">Selecciona una dirección</div>
@@ -747,7 +598,7 @@ const packageDescription = [
               </button>
             </div>
 
-            <div className="max-h-[62dvh] space-y-2 overflow-y-auto p-3">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
               {addresses.map((item) => {
                 const title = String(item.placeName ?? item.label ?? "Dirección guardada").trim();
                 const itemAddress = String(item.address ?? "").trim();

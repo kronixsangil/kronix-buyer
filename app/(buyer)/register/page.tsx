@@ -1,11 +1,9 @@
-// app/(buyer)/register/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { geocodeAddressOSMInCity } from "@/lib/geocode";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import BuyerTermsModal from "@/components/buyer/legal/BuyerTermsModal";
 import {
@@ -13,30 +11,19 @@ import {
   getCurrentBuyerTermsVersion,
 } from "@/components/buyer/legal/buyerLegal";
 
-function cx(...a: Array<string | false | null | undefined>) {
-  return a.filter(Boolean).join(" ");
-}
-
-function isValidKronixPassword(value: string) {
-  const clean = String(value ?? "").trim();
-  return clean.length >= 8 && /[a-zA-Z]/.test(clean) && /\d/.test(clean);
-}
-
-function passwordHint(value: string) {
-  const clean = String(value ?? "").trim();
-  if (!clean) return "Debe tener mínimo 8 caracteres y combinar letras y números.";
-  if (clean.length < 8) return "Faltan caracteres: mínimo 8.";
-  if (!/[a-zA-Z]/.test(clean)) return "Agrega al menos una letra.";
-  if (!/\d/.test(clean)) return "Agrega al menos un número.";
-  return "Contraseña válida.";
-}
-
-function formatPhone(value: string) {
-  return String(value ?? "").replace(/\D/g, "").slice(0, 15);
-}
-
 const inputClass =
   "w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-blue-300 focus:bg-white";
+
+const cx = (...values: Array<string | false | null | undefined>) =>
+  values.filter(Boolean).join(" ");
+
+const formatPhone = (value: string) =>
+  String(value ?? "").replace(/\D/g, "").slice(0, 15);
+
+const isValidKronixPassword = (value: string) => {
+  const clean = String(value ?? "").trim();
+  return clean.length >= 8 && /[a-zA-Z]/.test(clean) && /\d/.test(clean);
+};
 
 function FieldRow({
   label,
@@ -55,62 +42,50 @@ function FieldRow({
 
 export default function BuyerRegisterPage() {
   const router = useRouter();
-  const sp = useSearchParams();
-  const { citySlug, cityLabel, cityGeoLabel, cityReady } = useBuyerCity();
+  const { citySlug, cityLabel, cityReady } = useBuyerCity();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [primaryAddress, setPrimaryAddress] = useState("");
-  const [primaryReference, setPrimaryReference] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const [showPass, setShowPass] = useState(false);
-  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const next = useMemo(() => {
-    const n = String(sp.get("next") ?? "").trim();
-    if (!n || !n.startsWith("/")) return "/";
-    return n;
-  }, [sp]);
+  const [registeredPhone, setRegisteredPhone] = useState("");
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const passwordOk = isValidKronixPassword(password);
-
-  const passwordsMatch =
-    password.trim().length > 0 &&
-    confirmPassword.trim().length > 0 &&
-    password === confirmPassword;
-
+  const cleanName = name.trim();
   const cleanPhone = phone.trim();
-  const cleanAddress = primaryAddress.trim();
 
   const canSubmit =
+    cleanName.length >= 2 &&
     cleanPhone.length >= 7 &&
-    cleanAddress.length >= 8 &&
-    passwordOk &&
-    passwordsMatch &&
     termsAccepted &&
     cityReady &&
     Boolean(citySlug) &&
     !loading;
 
-  async function resolvePrimaryAddressGeo() {
-    // La geocodificación ayuda, pero jamás debe impedir crear la cuenta.
-    // Si Nominatim no reconoce una dirección válida escrita por el cliente,
-    // conservamos la dirección textual y la ciudad; las coordenadas quedan
-    // pendientes para que puedan completarse posteriormente.
-    try {
-      return await geocodeAddressOSMInCity(cleanAddress, cityGeoLabel);
-    } catch {
-      return null;
-    }
-  }
+  const newPasswordOk = isValidKronixPassword(newPassword);
+  const passwordsMatch =
+    newPassword.length > 0 &&
+    confirmPassword.length > 0 &&
+    newPassword === confirmPassword;
+
+  const canChangePassword =
+    newPasswordOk && passwordsMatch && !changingPassword;
+
+  const goHome = () => {
+    setShowWelcome(false);
+    setShowChangePassword(false);
+    router.replace("/");
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -118,89 +93,96 @@ export default function BuyerRegisterPage() {
     setError(null);
     setLoading(true);
 
-    if (!passwordOk) {
-      setError("La contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
-      setLoading(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.");
-      setLoading(false);
-      return;
-    }
-
-    if (cleanAddress.length < 8) {
-      setError("La dirección principal es obligatoria y debe estar más completa.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const termsVersion = await getCurrentBuyerTermsVersion();
-
-      // Intentamos geocodificar ANTES de crear la cuenta. Si no hay
-      // coincidencia, geo será null y el backend guardará igualmente la
-      // dirección y la ciudad con coordenadas pendientes.
-      const geo = await resolvePrimaryAddressGeo();
 
       await apiFetch("/auth/register", {
         method: "POST",
         json: {
-          name: name.trim() || "Usuario",
+          name: cleanName,
           phone: cleanPhone,
-          email: email.trim() || null,
-          password: password.trim(),
+          password: cleanPhone,
           termsAccepted: true,
           termsVersion,
-
-          // Registro robusto: User + UserAddress se crean juntos en API.
           citySlug,
-          primaryAddress: cleanAddress,
-          primaryReference: primaryReference.trim() || null,
-          primaryLat: geo?.lat ?? null,
-          primaryLng: geo?.lng ?? null,
         },
       });
 
-      // La cuenta y su dirección ya quedaron persistidas de forma atómica.
-      // La aceptación legal detallada se mantiene como hasta ahora. Si por
-      // una incidencia temporal falla este segundo registro, no destruimos
-      // ni bloqueamos una cuenta que ya fue creada correctamente.
       try {
         await acceptBuyerTermsBackend(termsVersion);
       } catch (legalError) {
         console.warn(
-          "[KroniX] Cuenta creada; aceptación legal detallada pendiente de reintento.",
+          "[KroniX] Cuenta creada; aceptación legal detallada pendiente.",
           legalError
         );
       }
 
       window.dispatchEvent(new Event("ct-auth-changed"));
       window.dispatchEvent(new Event("auth:changed"));
-
-      router.replace(next);
+      setRegisteredPhone(cleanPhone);
+      setShowWelcome(true);
     } catch (e: any) {
-      const raw = String(e?.message ?? "");
+      const raw = String(e?.message ?? "").trim();
       const msg = raw.toLowerCase();
 
-      if (
+      setError(
         msg.includes("phone_already_used") ||
-        (msg.includes("phone") && msg.includes("used"))
-      ) {
-        setError("Este teléfono ya está registrado.");
-      } else if (msg.includes("email_already_used")) {
-        setError("Este email ya está registrado.");
-      } else if (msg.includes("contraseña") || msg.includes("password")) {
-        setError("La contraseña debe tener mínimo 8 caracteres y combinar letras y números. No necesita símbolos.");
-      } else if (raw.trim()) {
-        setError(raw.trim());
-      } else {
-        setError("No pudimos crear tu cuenta. Revisa tus datos e intenta de nuevo.");
-      }
-
+          (msg.includes("phone") && msg.includes("used")) ||
+          msg.includes("teléfono ya está registrado") ||
+          msg.includes("telefono ya esta registrado")
+          ? "Este teléfono ya está registrado."
+          : raw ||
+              "No pudimos crear tu cuenta. Revisa tus datos e intenta de nuevo."
+      );
+    } finally {
       setLoading(false);
     }
+  };
+
+  const handleChangeInitialPassword = async () => {
+    setPasswordError(null);
+
+    if (!newPasswordOk) {
+      setPasswordError(
+        "La contraseña debe tener mínimo 8 caracteres y combinar letras y números."
+      );
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setPasswordError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      await apiFetch("/auth/change-password", {
+        method: "POST",
+        json: {
+          currentPassword: registeredPhone,
+          newPassword: newPassword.trim(),
+        },
+      });
+
+      window.dispatchEvent(new Event("ct-auth-changed"));
+      window.dispatchEvent(new Event("auth:changed"));
+      goHome();
+    } catch (e: any) {
+      setPasswordError(
+        String(e?.message ?? "").trim() ||
+          "No pudimos actualizar la contraseña. Intenta nuevamente."
+      );
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const closePasswordChange = () => {
+    setPasswordError(null);
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowChangePassword(false);
   };
 
   return (
@@ -210,16 +192,22 @@ export default function BuyerRegisterPage() {
           <div className="text-[11px] font-extrabold text-gray-500">KroniX</div>
           <div className="mt-1 text-lg font-extrabold text-gray-900">Crear cuenta</div>
           <div className="mt-1 text-xs font-semibold text-gray-600">
-            Regístrate para guardar pedidos, direcciones y tu historial.
+            Regístrate en segundos. Tu teléfono será tu usuario de acceso.
           </div>
+          {cityLabel ? (
+            <div className="mt-1 text-[11px] font-bold text-emerald-700">
+              Ciudad activa: {cityLabel}
+            </div>
+          ) : null}
         </div>
 
-        <div className="space-y-2 p-3">
+        <div className="space-y-3 p-3">
           <FieldRow label="Nombre">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Blass"
+              autoComplete="name"
               className={inputClass}
             />
           </FieldRow>
@@ -230,104 +218,13 @@ export default function BuyerRegisterPage() {
               onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="Ej: 3112461059"
               inputMode="tel"
+              autoComplete="tel"
               className={inputClass}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canSubmit) void handleSubmit();
+              }}
             />
           </FieldRow>
-
-          <FieldRow label="Email">
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Ej: tu@email.com"
-              autoComplete="email"
-              className={inputClass}
-            />
-          </FieldRow>
-
-          <FieldRow label="Dirección">
-            <textarea
-              value={primaryAddress}
-              onChange={(e) => setPrimaryAddress(e.target.value)}
-              placeholder={`Dirección principal en ${cityLabel || "tu ciudad"} *`}
-              rows={2}
-              className={`${inputClass} resize-none`}
-            />
-          </FieldRow>
-
-          <FieldRow label="Referencia">
-  <textarea
-    value={primaryReference}
-    onChange={(e) => setPrimaryReference(e.target.value)}
-    placeholder="Ej: Frente al parque, portón negro, apto 302..."
-    rows={2}
-    className={`${inputClass} resize-none`}
-  />
-</FieldRow>
-
-          <FieldRow label="Contraseña">
-            <div className="flex min-w-0 items-center gap-2">
-              <input
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="8 caracteres, letras y números"
-                autoComplete="new-password"
-                type={showPass ? "text" : "password"}
-                className={cx(
-                  "min-w-0 flex-1 rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:bg-white",
-                  password.length > 0 && !passwordOk
-                    ? "border-amber-300 bg-amber-50 focus:border-amber-400"
-                    : "border-slate-200 focus:border-blue-300"
-                )}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowPass((v) => !v)}
-                className="shrink-0 rounded-[18px] border border-gray-200 bg-white px-3 py-4 text-xs font-extrabold text-gray-800 hover:bg-gray-50"
-              >
-                {showPass ? "Ocultar" : "Ver"}
-              </button>
-            </div>
-          </FieldRow>
-
-          <div className={cx("pl-[92px] text-[11px] font-bold", passwordOk ? "text-emerald-600" : "text-gray-500")}>
-            {passwordHint(password)}
-          </div>
-
-          <FieldRow label="Confirmar">
-            <div className="flex min-w-0 items-center gap-2">
-              <input
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repite tu contraseña"
-                autoComplete="new-password"
-                type={showConfirmPass ? "text" : "password"}
-                className={cx(
-                  "min-w-0 flex-1 rounded-[20px] border bg-slate-50 px-4 py-4 text-[15px] font-semibold text-slate-900 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:bg-white",
-                  confirmPassword.length > 0 && !passwordsMatch
-                    ? "border-red-300 bg-red-50 focus:border-red-400"
-                    : "border-slate-200 focus:border-blue-300"
-                )}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && canSubmit) handleSubmit();
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setShowConfirmPass((v) => !v)}
-                className="shrink-0 rounded-[18px] border border-gray-200 bg-white px-3 py-4 text-xs font-extrabold text-gray-800 hover:bg-gray-50"
-              >
-                {showConfirmPass ? "Ocultar" : "Ver"}
-              </button>
-            </div>
-          </FieldRow>
-
-          {confirmPassword.length > 0 && !passwordsMatch ? (
-            <div className="pl-[92px] text-[11px] font-bold text-red-600">Las contraseñas no coinciden.</div>
-          ) : confirmPassword.length > 0 && passwordsMatch ? (
-            <div className="pl-[92px] text-[11px] font-bold text-emerald-600">Contraseñas coinciden correctamente.</div>
-          ) : null}
 
           {error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
@@ -343,7 +240,6 @@ export default function BuyerRegisterPage() {
                 onChange={(e) => setTermsAccepted(e.target.checked)}
                 className="mt-1 h-4 w-4 rounded border-gray-300"
               />
-
               <div className="text-[12px] leading-5 text-gray-700">
                 Acepto los{" "}
                 <button
@@ -360,7 +256,7 @@ export default function BuyerRegisterPage() {
 
           <button
             disabled={!canSubmit}
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             className={cx(
               "w-full rounded-2xl py-3 text-sm font-extrabold text-white",
               "bg-green-600 hover:bg-green-700 disabled:opacity-50"
@@ -384,6 +280,146 @@ export default function BuyerRegisterPage() {
         onClose={() => setShowTermsModal(false)}
         onAccepted={() => setTermsAccepted(true)}
       />
+
+      {showWelcome ? (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_26px_80px_rgba(15,23,42,0.35)]">
+            {!showChangePassword ? (
+              <div className="p-5">
+                <div className="text-center text-[30px]">🎉</div>
+                <div className="mt-1 text-center text-xl font-black text-slate-950">
+                  ¡Bienvenido a KroniX!
+                </div>
+                <div className="mt-2 text-center text-sm font-semibold leading-5 text-slate-600">
+                  Tu cuenta ya está lista para usar.
+                </div>
+
+                <div className="mt-5 space-y-2 rounded-[20px] border border-slate-200 bg-slate-50 p-4">
+                  <div className="text-xs font-bold text-slate-500">Tu usuario</div>
+                  <div className="break-all text-lg font-black text-slate-950">
+                    {registeredPhone}
+                  </div>
+                  <div className="pt-2 text-xs font-bold text-slate-500">Tu contraseña</div>
+                  <div className="break-all text-lg font-black text-slate-950">
+                    {registeredPhone}
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">
+                  Por seguridad, te recomendamos cambiar tu contraseña desde Perfil.
+                </div>
+
+                <div className="mt-4 grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasswordError(null);
+                      setShowChangePassword(true);
+                    }}
+                    className="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-green-700"
+                  >
+                    CAMBIAR CONTRASEÑA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goHome}
+                    className="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+                  >
+                    CONSERVAR CONTRASEÑA
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5">
+                <div className="text-lg font-black text-slate-950">Crear contraseña</div>
+                <div className="mt-1 text-xs font-semibold leading-5 text-slate-600">
+                  Usa mínimo 8 caracteres e incluye letras y números.
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {[
+                    {
+                      label: "Crear contraseña",
+                      value: newPassword,
+                      setValue: setNewPassword,
+                      visible: showNewPassword,
+                      setVisible: setShowNewPassword,
+                      placeholder: "Nueva contraseña",
+                    },
+                    {
+                      label: "Confirmar contraseña",
+                      value: confirmPassword,
+                      setValue: setConfirmPassword,
+                      visible: showConfirmPassword,
+                      setVisible: setShowConfirmPassword,
+                      placeholder: "Repite la contraseña",
+                    },
+                  ].map((field, index) => (
+                    <div key={field.label}>
+                      <div className="mb-1 text-xs font-extrabold text-slate-700">
+                        {field.label}
+                      </div>
+                      <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3">
+                        <input
+                          type={field.visible ? "text" : "password"}
+                          value={field.value}
+                          onChange={(e) => {
+                            setPasswordError(null);
+                            field.setValue(e.target.value);
+                          }}
+                          placeholder={field.placeholder}
+                          autoComplete="new-password"
+                          className="min-w-0 flex-1 bg-transparent py-3 text-sm font-semibold text-slate-900 outline-none"
+                          onKeyDown={(e) => {
+                            if (
+                              index === 1 &&
+                              e.key === "Enter" &&
+                              canChangePassword
+                            ) {
+                              void handleChangeInitialPassword();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => field.setVisible((v) => !v)}
+                          className="rounded-xl px-2 py-2 text-xs font-extrabold text-slate-600"
+                        >
+                          {field.visible ? "Ocultar" : "Ver"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {passwordError ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-xs font-bold text-red-700">
+                      {passwordError}
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    disabled={!canChangePassword}
+                    onClick={() => void handleChangeInitialPassword()}
+                    className="w-full rounded-2xl bg-green-600 px-4 py-3 text-sm font-black text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {changingPassword ? "GUARDANDO…" : "GUARDAR CONTRASEÑA"}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={changingPassword}
+                    onClick={closePasswordChange}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-700"
+                  >
+                    Volver
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
