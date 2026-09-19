@@ -92,6 +92,7 @@ export default function BottomNav() {
   const { items } = useCart();
   const tel = useTelAvailability();
   const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
+  const isLunch = pathname === "/almuerzos" || pathname.startsWith("/almuerzos/");
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -111,13 +112,26 @@ export default function BottomNav() {
       : "var(--kx-bottom-nav-inactive, #ffffff)",
   });
 
+  const lunchNavVars = isLunch
+    ? ({
+        "--kx-bottom-nav-bg": "#4f0aaa",
+        "--kx-bottom-nav-active": "#facc15",
+        "--kx-bottom-nav-inactive": "#ffffff",
+        "--kx-page-bg": "#F8EBFF",
+      } as React.CSSProperties)
+    : undefined;
+
   return (
-    <nav className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden">
+    <nav
+      className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden"
+      style={lunchNavVars}
+    >
       <div
         className="relative"
         style={{
-          background:
-            "linear-gradient(180deg, var(--kx-page-bg, #ffffff) 0%, color-mix(in srgb, var(--kx-bottom-nav-bg, #0a3566) 28%, var(--kx-page-bg, #ffffff)) 18%, var(--kx-bottom-nav-bg, #0a3566) 78%, #03102b 100%)",
+          background: isLunch
+            ? "linear-gradient(180deg, #F8EBFF 0%, #d9bdf4 13%, #7b2bd0 42%, #4f0aaa 76%, #2b045f 100%)"
+            : "linear-gradient(180deg, var(--kx-page-bg, #ffffff) 0%, color-mix(in srgb, var(--kx-bottom-nav-bg, #0a3566) 28%, var(--kx-page-bg, #ffffff)) 18%, var(--kx-bottom-nav-bg, #0a3566) 78%, #03102b 100%)",
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >

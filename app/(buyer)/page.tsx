@@ -79,6 +79,8 @@ type KronixOption = {
   subtitle: string;
   featured?: boolean;
   service?: DynamicTransportService;
+  kind?: "LUNCH";
+  lunchStoreName?: string;
 };
 
 const STORE_OPTION: KronixOption = {
@@ -288,6 +290,30 @@ function FeaturedCard({ item }: { item: KronixOption }) {
             ›
           </div>
         </div>
+      </div>
+    </Link>
+  );
+}
+
+
+function LunchServiceCard({ item }: { item: KronixOption }) {
+  return (
+    <Link
+      href={item.href}
+      className="group block h-[110px] w-full overflow-hidden rounded-[24px] border border-violet-300/70 bg-gradient-to-r from-amber-50 via-white to-violet-100 px-2 py-1 text-left shadow-[0_16px_34px_rgba(76,29,149,0.14)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_40px_rgba(76,29,149,0.20)] active:translate-y-[1px] active:scale-[0.985]"
+    >
+      <div className="flex h-full items-center gap-2">
+        <div className="relative h-[88px] w-[86px] shrink-0" aria-hidden>
+          <Image src="/lunch/Tarjeta/cardizq.png" alt="Almuerzo La Fortuna" fill className="object-contain drop-shadow-md" sizes="86px" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="whitespace-nowrap text-[20px] font-black leading-tight text-slate-950">{item.title}</div>
+          <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-[15px] text-slate-500">{item.subtitle}</div>
+        </div>
+        <div className="relative h-[92px] w-[96px] shrink-0" aria-hidden>
+          <Image src="/lunch/Tarjeta/cardder.png" alt="Restaurante La Fortuna" fill className="object-contain drop-shadow-md" sizes="96px" />
+        </div>
+        <div className="shrink-0 text-[26px] font-black text-violet-300 transition group-hover:translate-x-0.5">›</div>
       </div>
     </Link>
   );
@@ -628,6 +654,7 @@ export default function HomePage() {
     () => !initialServicesCache
   );
   const [servicesError, setServicesError] = useState<string | null>(null);
+  const [lunchOption, setLunchOption] = useState<KronixOption | null>(null);
   const previousServicesCityRef = useRef<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -825,8 +852,39 @@ email: prev.email || String(app?.email ?? ""),
     };
   }, [cityReady, citySlug]);
 
+  useEffect(() => {
+    let alive = true;
+    const cleanCitySlug = String(citySlug ?? "").trim();
+    if (!cityReady || !cleanCitySlug) {
+      setLunchOption(null);
+      return () => { alive = false; };
+    }
+
+    apiFetch<any>(`/lunch/public/menu?citySlug=${encodeURIComponent(cleanCitySlug)}`, {
+      suppressSessionExpiredEvent: true,
+      suppressActivityRefresh: true,
+    })
+      .then((result) => {
+        if (!alive || !result?.available || !result?.config) return;
+        const storeName = String(result?.config?.store?.name ?? "").trim();
+        setLunchOption({
+          href: "/almuerzos",
+          title: String(result?.config?.serviceTitle ?? "Pide un Almuerzo"),
+          subtitle: String(result?.config?.serviceSubtitle ?? "Pide un delicioso almuerzo al mejor restaurante"),
+          kind: "LUNCH",
+          lunchStoreName: storeName,
+        });
+      })
+      .catch(() => {
+        if (alive) setLunchOption(null);
+      });
+
+    return () => { alive = false; };
+  }, [cityReady, citySlug]);
+
   const options = useMemo<KronixOption[]>(() => {
     return [
+      ...(lunchOption ? [lunchOption] : []),
       ...(tel.enabled ? [STORE_OPTION] : []),
       ...dynamicServices.map((service) => ({
         href: dynamicServiceHref(service),
@@ -835,7 +893,7 @@ email: prev.email || String(app?.email ?? ""),
         service,
       })),
     ];
-  }, [dynamicServices, tel.enabled]);
+  }, [dynamicServices, lunchOption, tel.enabled]);
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -1420,7 +1478,9 @@ if (kronixPlusForm.address.trim().length < 8) {
                 </div>
               ) : null}
               {options.map((item) =>
-                item.featured ? (
+                item.kind === "LUNCH" ? (
+                  <LunchServiceCard key="lunch-service" item={item} />
+                ) : item.featured ? (
                   <FeaturedCard key={item.title} item={item} />
                 ) : (
                   <StandardCard

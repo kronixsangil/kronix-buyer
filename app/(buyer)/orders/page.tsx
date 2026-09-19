@@ -234,6 +234,11 @@ function EmptyOrders({ onGoHome }: { onGoHome: () => void }) {
   );
 }
 
+type LunchOrderLite = {
+  id:string; createdAt:string; updatedAt?:string; status:string; subtotalCOP:number; fulfillment:string; courierOrderId?:string|null;
+  store?:{id?:string;name?:string;address?:string;cel1?:string|null;cel2?:string|null}|null;
+};
+
 type BackendOrderLite = {
   id: string;
   orderType: ApiOrderType;
@@ -285,6 +290,7 @@ export default function OrdersPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [backendOrders, setBackendOrders] = useState<BackendOrderLite[]>([]);
   const [fallbackOrders, setFallbackOrders] = useState<Order[]>([]);
+  const [lunchOrders, setLunchOrders] = useState<LunchOrderLite[]>([]);
   const [usingFallback, setUsingFallback] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -331,6 +337,7 @@ export default function OrdersPage() {
         }
 
         setUsingFallback(false);
+        try { const lunches=await apiFetch<LunchOrderLite[]>("/lunch/orders",{method:"GET",cache:"no-store"} as any); if(alive)setLunchOrders(Array.isArray(lunches)?lunches:[]); } catch { if(alive)setLunchOrders([]); }
         setIsLoading(false);
       } catch {
         if (!alive) return;
@@ -353,6 +360,17 @@ export default function OrdersPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const customerId=getCurrentBuyerId(); if(!customerId)return;
+    const API=process.env.NEXT_PUBLIC_API||"http://localhost:3004";
+    const es=new EventSource(`${API}/events/stream?customerId=${encodeURIComponent(customerId)}`,{withCredentials:true});
+    es.onmessage=(event)=>{try{const e=JSON.parse(String(event.data||"{}")); if(e?.type==="customer.orders.changed"){
+      apiFetch<LunchOrderLite[]>("/lunch/orders",{method:"GET",cache:"no-store"} as any).then(x=>setLunchOrders(Array.isArray(x)?x:[])).catch(()=>{});
+      apiFetch<Array<any>>(`/orders?customerId=${encodeURIComponent(customerId)}`,{method:"GET",cache:"no-store"} as any).then(x=>setBackendOrders(normalizeBackendOrders(x))).catch(()=>{});
+    }}catch{}};
+    return()=>es.close();
+  },[]);
 
   const warmTracking = (orderId: string) => {
     router.prefetch(`/tracking/${orderId}`);
@@ -381,10 +399,11 @@ export default function OrdersPage() {
         serviceKey: (o as any).serviceKey ?? null,
         serviceSnapshot: (o as any).serviceSnapshot ?? null,
         status: (o as any).status ?? null,
+        isLunch:false, storePhone:null as string|null, storeName:null as string|null,
       }));
     }
 
-    return backendOrders.map((b) => ({
+    const regular=backendOrders.map((b) => ({
       id: b.id,
       createdAtMs: Number.isFinite(Date.parse(b.createdAt)) ? Date.parse(b.createdAt) : Date.now(),
       totalCOP: typeof b.totalCOP === "number" ? b.totalCOP : 0,
@@ -396,8 +415,19 @@ export default function OrdersPage() {
       serviceKey: b.serviceKey ?? null,
       serviceSnapshot: b.serviceSnapshot ?? null,
       status: b.status ?? null,
+      isLunch:false,
+      storePhone:null as string|null,
+      storeName:null as string|null,
     }));
-  }, [usingFallback, backendOrders, fallbackOrders]);
+    const lunches=lunchOrders.map((l)=>({
+      id:l.id, createdAtMs:Date.parse(l.createdAt)||Date.now(), totalCOP:Number(l.subtotalCOP||0),
+      flowStatus:(l.status==="COMPLETED"?"DELIVERED":l.status==="REJECTED"?"CANCELLED":l.status==="PREPARING"||l.status==="READY"?"PREPARING":l.status==="CONFIRMED"?"STORE_CONFIRMED":"WAITING_CONFIRMATION") as ApiOrderFlowStatus,
+      citySlug:null,cityLabel:null,orderType:"COURIER" as ApiOrderType,serviceType:"LUNCH",serviceKey:"LUNCH",
+      serviceSnapshot:{definition:{name:"Almuerzo",shortName:"Almuerzo",primaryColor:"#7C3AED",accentColor:"#F5F3FF"}},status:null,
+      isLunch:true,storePhone:String(l.store?.cel1||l.store?.cel2||"")||null,storeName:String(l.store?.name||"Restaurante")||"Restaurante",
+    }));
+    return [...regular,...lunches].sort((a,b)=>b.createdAtMs-a.createdAtMs);
+  }, [usingFallback, backendOrders, fallbackOrders, lunchOrders]);
 
   if (!authLoading && !isAuthed) {
     return (
@@ -434,11 +464,21 @@ export default function OrdersPage() {
     ? "ASSIGNED"
     : o.flowStatus;
 
-const chip = flowChipFromFlowStatus(
-  chipStatus as any,
-  o.serviceType,
-  o.orderType
-);
+const chip = o.isLunch
+  ? (o.flowStatus === "DELIVERED"
+      ? { text: "FINALIZADO", tone: "bg-green-50 text-green-700 ring-green-200" }
+      : o.flowStatus === "CANCELLED"
+      ? { text: "CANCELADO", tone: "bg-gray-50 text-gray-700 ring-gray-200" }
+      : o.flowStatus === "PREPARING"
+      ? { text: "PREPARANDO", tone: "bg-violet-50 text-violet-800 ring-violet-200" }
+      : o.flowStatus === "STORE_CONFIRMED"
+      ? { text: "CONFIRMADO", tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" }
+      : { text: "SOLICITADO", tone: "bg-emerald-50 text-emerald-700 ring-emerald-200" })
+  : flowChipFromFlowStatus(
+      chipStatus as any,
+      o.serviceType,
+      o.orderType
+    );
             const svc = getServiceLabel(
               o.serviceType,
               o.orderType,
@@ -454,10 +494,10 @@ const chip = flowChipFromFlowStatus(
             return (
               <Link
                 key={o.id}
-                href={`/tracking/${o.id}`}
-                onMouseEnter={() => warmTracking(o.id)}
-                onFocus={() => warmTracking(o.id)}
-                onTouchStart={() => warmTracking(o.id)}
+                href={o.isLunch?`/almuerzos/pedidos/${o.id}`:`/tracking/${o.id}`}
+                onMouseEnter={() => { if(!o.isLunch) warmTracking(o.id); }}
+                onFocus={() => { if(!o.isLunch) warmTracking(o.id); }}
+                onTouchStart={() => { if(!o.isLunch) warmTracking(o.id); }}
                 className="block rounded-2xl border border-gray-200 bg-white p-4 shadow-sm hover:bg-gray-50"
               >
                 <div className="flex items-center justify-between gap-3">

@@ -298,7 +298,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isPublicAuthRoute = isAuthRoute(pathname);
 
-  const hideGlobalHeader = pathname === "/";
+  const hideGlobalHeader = pathname === "/" || pathname === "/almuerzos";
   const hideBottomNav = isPublicAuthRoute;
 
   const topClass = hideGlobalHeader
