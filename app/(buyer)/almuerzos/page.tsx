@@ -2,7 +2,7 @@
 "use client";
 import Image from "next/image";
 import {
-  useEffect, useMemo, useState
+  useEffect, useMemo, useRef, useState
 }
 from "react";
 import {
@@ -20,6 +20,24 @@ from "@/lib/api";
 import { useAuth } from "@/components/buyer/useAuth";
 import { geocodeAddressOSMInCity } from "@/lib/geocode";
 const ICOPOR_PRICE_COP = 1500;
+const LUNCH_DRAFT_KEY = "kronix:lunch:draft:v1";
+const LUNCH_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+type LunchDraft = {
+  savedAt:number;
+  citySlug:string;
+  configId?:string;
+  step:Step;
+  cart:Record<string,number>;
+  fulfillment:"DELIVERY"|"PICKUP";
+  address:string;
+  reference:string;
+  deliveryLat:number|null;
+  deliveryLng:number|null;
+  selectedSavedAddressId:string;
+  payRef:string;
+  note:string;
+};
 type LunchItem = {
   id: string;
   category: string;
@@ -140,6 +158,71 @@ export default function LunchPage(){
   const [payRef,setPayRef]=useState("");
   const [note,setNote]=useState("");
   const [sending,setSending]=useState(false);
+  const draftRestoredRef=useRef(false);
+
+  // Conserva el pedido aunque el navegador/PWA pase a segundo plano o el cliente
+  // salga temporalmente a Nequi/DaviPlata. El borrador expira a las 24 horas.
+  useEffect(()=>{
+    if(!cityReady||!citySlug||draftRestoredRef.current)return;
+    draftRestoredRef.current=true;
+    try{
+      const raw=window.localStorage.getItem(LUNCH_DRAFT_KEY);
+      if(!raw)return;
+      const draft=JSON.parse(raw) as LunchDraft;
+      const expired=!draft?.savedAt||Date.now()-Number(draft.savedAt)>LUNCH_DRAFT_MAX_AGE_MS;
+      const wrongCity=String(draft?.citySlug??"")!==String(citySlug);
+      if(expired||wrongCity){window.localStorage.removeItem(LUNCH_DRAFT_KEY);return;}
+      setCart(draft.cart&&typeof draft.cart==="object"?draft.cart:{});
+      setFulfillment(draft.fulfillment==="PICKUP"?"PICKUP":"DELIVERY");
+      setAddress(String(draft.address??""));
+      setReference(String(draft.reference??""));
+      setDeliveryLat(draft.deliveryLat!=null&&Number.isFinite(Number(draft.deliveryLat))?Number(draft.deliveryLat):null);
+      setDeliveryLng(draft.deliveryLng!=null&&Number.isFinite(Number(draft.deliveryLng))?Number(draft.deliveryLng):null);
+      setSelectedSavedAddressId(String(draft.selectedSavedAddressId??""));
+      setPayRef(String(draft.payRef??""));
+      setNote(String(draft.note??""));
+      setStep(draft.step==="PAYMENT"?"PAYMENT":draft.step==="ORDER"?"ORDER":"MENU");
+    }catch{window.localStorage.removeItem(LUNCH_DRAFT_KEY);}
+  },[cityReady,citySlug]);
+
+  useEffect(()=>{
+    if(!draftRestoredRef.current||!citySlug)return;
+    const hasProgress=Object.values(cart).some(q=>Number(q)>0)||step!=="MENU"||Boolean(address.trim())||Boolean(reference.trim())||Boolean(payRef.trim())||Boolean(note.trim());
+    if(!hasProgress){window.localStorage.removeItem(LUNCH_DRAFT_KEY);return;}
+    const draft:LunchDraft={
+      savedAt:Date.now(),citySlug:String(citySlug),configId:data?.config?.id,step,cart,fulfillment,
+      address,reference,deliveryLat,deliveryLng,selectedSavedAddressId,payRef,note
+    };
+    try{window.localStorage.setItem(LUNCH_DRAFT_KEY,JSON.stringify(draft));}catch{}
+  },[citySlug,data?.config?.id,step,cart,fulfillment,address,reference,deliveryLat,deliveryLng,selectedSavedAddressId,payRef,note]);
+
+  useEffect(()=>{
+    const persistNow=()=>{
+      if(!draftRestoredRef.current||!citySlug)return;
+      const draft:LunchDraft={savedAt:Date.now(),citySlug:String(citySlug),configId:data?.config?.id,step,cart,fulfillment,address,reference,deliveryLat,deliveryLng,selectedSavedAddressId,payRef,note};
+      try{window.localStorage.setItem(LUNCH_DRAFT_KEY,JSON.stringify(draft));}catch{}
+    };
+    const onVisibility=()=>{if(document.visibilityState==="hidden")persistNow();};
+    window.addEventListener("pagehide",persistNow);
+    document.addEventListener("visibilitychange",onVisibility);
+    return()=>{window.removeEventListener("pagehide",persistNow);document.removeEventListener("visibilitychange",onVisibility);};
+  },[citySlug,data?.config?.id,step,cart,fulfillment,address,reference,deliveryLat,deliveryLng,selectedSavedAddressId,payRef,note]);
+
+  function openPaymentApp(app:"NEQUI"|"DAVIPLATA"){
+    // Android permite dirigir el intent a la app exacta. Si no está instalada,
+    // el navegador abre su ficha oficial en Google Play.
+    const isAndroid=/Android/i.test(navigator.userAgent);
+    const packageName=app==="NEQUI"?"com.nequi.MobileApp":"com.davivienda.daviplataapp";
+    const storeUrl=`https://play.google.com/store/apps/details?id=${packageName}`;
+    if(isAndroid){
+      const fallback=encodeURIComponent(storeUrl);
+      window.location.href=`intent://#Intent;package=${packageName};S.browser_fallback_url=${fallback};end`;
+      return;
+    }
+    // En iPhone/escritorio no asumimos un esquema privado no documentado.
+    // Abrimos la ficha oficial; al volver, el borrador conserva exactamente el flujo.
+    window.open(storeUrl,"_blank","noopener,noreferrer");
+  }
   useEffect(()=>{
     let alive=true;
     async function loadSavedAddresses(){
@@ -263,7 +346,11 @@ export default function LunchPage(){
         }
       }
       );
-      if(r?.id){if(fulfillment==="DELIVERY"&&geo)await saveUsedDeliveryAddress(geo);router.push(`/almuerzos/pedidos/${encodeURIComponent(String(r.id))}`)}
+      if(r?.id){
+        if(fulfillment==="DELIVERY"&&geo)await saveUsedDeliveryAddress(geo);
+        try{window.localStorage.removeItem(LUNCH_DRAFT_KEY);}catch{}
+        router.push(`/almuerzos/pedidos/${encodeURIComponent(String(r.id))}`)
+      }
     } catch(e){
       const err=e as ApiError;
       if(err.status===401||err.status===403){
@@ -737,6 +824,38 @@ export default function LunchPage(){
           <div className="mt-3 flex items-center justify-between rounded-2xl bg-gradient-to-r from-[#efe2ff] to-[#faf4ff] p-3 text-[#5b18c7]">
             <span className="text-[12px] font-black">Total a transferir</span>
             <span className="text-[21px] font-black">{money(total)}</span>
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-2 text-center text-[11px] font-bold text-slate-500">
+              Abre tu app de pago sin perder este pedido
+            </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={()=>openPaymentApp("NEQUI")}
+                className="flex min-h-[58px] items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-white px-3 py-2 shadow-sm transition active:scale-[0.98]"
+              >
+                <span className="relative h-8 w-[74px]">
+                  <Image src="/branding/payments/nequi.png" alt="Nequi" fill className="object-contain" sizes="74px" />
+                </span>
+                <span className="text-[11px] font-black text-[#35104f]">Abrir</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={()=>openPaymentApp("DAVIPLATA")}
+                className="flex min-h-[58px] items-center justify-center gap-2 rounded-2xl border border-red-100 bg-white px-3 py-2 shadow-sm transition active:scale-[0.98]"
+              >
+                <span className="relative h-10 w-10 shrink-0">
+                  <Image src="/branding/payments/logo-daviplata.png" alt="DaviPlata" fill className="object-contain" sizes="40px" />
+                </span>
+                <span className="text-[11px] font-black text-[#7f1018]">Abrir DaviPlata</span>
+              </button>
+            </div>
+            <div className="mt-2 text-center text-[10px] font-semibold leading-relaxed text-slate-400">
+              Al regresar a KroniX encontrarás el pedido exactamente donde lo dejaste.
+            </div>
           </div>
         </div>
 
