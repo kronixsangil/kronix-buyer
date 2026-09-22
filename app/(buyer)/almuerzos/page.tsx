@@ -17,6 +17,8 @@ import {
   apiFetch, type ApiError
 }
 from "@/lib/api";
+import { useAuth } from "@/components/buyer/useAuth";
+import { geocodeAddressOSMInCity } from "@/lib/geocode";
 const ICOPOR_PRICE_COP = 1500;
 type LunchItem = {
   id: string;
@@ -51,6 +53,7 @@ type LunchData = {
   }
 }
 ;
+type SavedAddressItem = { id:string; label?:string|null; placeName?:string|null; reference?:string|null; address:string; lat?:number|null; lng?:number|null; isDefault?:boolean; isFavorite?:boolean; };
 type Step = "MENU" | "ORDER" | "PAYMENT";
 const money=(v:number)=>`$ ${Number(v||0).toLocaleString("es-CO")}`;
 const categoryLabel=(c:string)=>c==="ESPECIALES"?"Especiales":money(Number(c));
@@ -113,9 +116,10 @@ function LunchFlowHeader({
 export default function LunchPage(){
   const router=useRouter();
   const {
-    citySlug,cityLabel
+    citySlug,cityLabel,cityReady,cityGeoLabel
   }
   =useBuyerCity();
+  const { isAuthed }=useAuth();
   const [data,setData]=useState<LunchData|null>(null);
   const [loading,setLoading]=useState(true);
   const [msg,setMsg]=useState("");
@@ -127,9 +131,42 @@ export default function LunchPage(){
   const [fulfillment,setFulfillment]=useState<"DELIVERY"|"PICKUP">("DELIVERY");
   const [address,setAddress]=useState("");
   const [reference,setReference]=useState("");
+  const [deliveryLat,setDeliveryLat]=useState<number|null>(null);
+  const [deliveryLng,setDeliveryLng]=useState<number|null>(null);
+  const [savedAddresses,setSavedAddresses]=useState<SavedAddressItem[]>([]);
+  const [savedAddressesLoading,setSavedAddressesLoading]=useState(false);
+  const [selectedSavedAddressId,setSelectedSavedAddressId]=useState("");
+  const [showSavedAddressModal,setShowSavedAddressModal]=useState(false);
   const [payRef,setPayRef]=useState("");
   const [note,setNote]=useState("");
   const [sending,setSending]=useState(false);
+  useEffect(()=>{
+    let alive=true;
+    async function loadSavedAddresses(){
+      if(!cityReady||!citySlug||!isAuthed){setSavedAddresses([]);return;}
+      setSavedAddressesLoading(true);
+      try{const rows=await apiFetch<SavedAddressItem[]>(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`,{suppressSessionExpiredEvent:true} as any);if(alive)setSavedAddresses(Array.isArray(rows)?rows:[]);}
+      catch{if(alive)setSavedAddresses([]);}
+      finally{if(alive)setSavedAddressesLoading(false);}
+    }
+    void loadSavedAddresses();
+    return()=>{alive=false};
+  },[cityReady,citySlug,isAuthed]);
+
+  function applySavedAddress(item:SavedAddressItem){
+    setAddress(String(item.address??"").trim());setReference(String(item.reference??"").trim());
+    setDeliveryLat(item.lat!=null&&Number.isFinite(Number(item.lat))?Number(item.lat):null);setDeliveryLng(item.lng!=null&&Number.isFinite(Number(item.lng))?Number(item.lng):null);
+    setSelectedSavedAddressId(item.id);setShowSavedAddressModal(false);setMsg("");
+  }
+  async function resolveDeliveryGeo(){
+    if(deliveryLat!=null&&deliveryLng!=null&&Number.isFinite(deliveryLat)&&Number.isFinite(deliveryLng))return {lat:deliveryLat,lng:deliveryLng};
+    return await geocodeAddressOSMInCity(address,cityGeoLabel);
+  }
+  async function saveUsedDeliveryAddress(geo:{lat:number;lng:number}){
+    if(!isAuthed||!citySlug||selectedSavedAddressId||address.trim().length<6)return;
+    try{await apiFetch(`/users/me/addresses?citySlug=${encodeURIComponent(citySlug)}`,{method:"POST",suppressSessionExpiredEvent:true,json:{label:null,placeName:"Pide un Almuerzo",address:address.trim(),reference:reference.trim()||null,contactName:null,contactPhone:null,lat:geo.lat,lng:geo.lng,isDefault:false,isFavorite:false}} as any);}catch{}
+  }
+
   useEffect(()=>{
     let alive=true;
     const slug=String(citySlug??"").trim();
@@ -215,16 +252,18 @@ export default function LunchPage(){
     setSending(true);
     setMsg("");
     try{
+      let geo:{lat:number;lng:number}|null=null;
+      if(fulfillment==="DELIVERY"){geo=await resolveDeliveryGeo();if(!geo){setMsg(`No pudimos ubicar con precisión la dirección en ${cityLabel}. Revisa la dirección e inténtalo de nuevo.`);setStep("ORDER");return;}}
       const r=await apiFetch<any>("/lunch/orders",{
         method:"POST",json:{
           configId:data.config.id,items:Object.entries(cart).filter(([,q])=>q>0).map(([itemId,qty])=>({
             itemId,qty
           }
-          )),fulfillment,deliveryAddress:fulfillment==="DELIVERY"?address.trim():undefined,deliveryReference:fulfillment==="DELIVERY"?reference.trim():undefined,paymentMethod:data.config.paymentMethodLabel,paymentReference:payRef.trim(),customerNote:note.trim()
+          )),fulfillment,deliveryAddress:fulfillment==="DELIVERY"?address.trim():undefined,deliveryReference:fulfillment==="DELIVERY"?reference.trim():undefined,deliveryLat:fulfillment==="DELIVERY"?geo?.lat:undefined,deliveryLng:fulfillment==="DELIVERY"?geo?.lng:undefined,paymentMethod:data.config.paymentMethodLabel,paymentReference:payRef.trim(),customerNote:note.trim()
         }
       }
       );
-      if(r?.id)router.push(`/almuerzos/pedidos/${encodeURIComponent(String(r.id))}`)
+      if(r?.id){if(fulfillment==="DELIVERY"&&geo)await saveUsedDeliveryAddress(geo);router.push(`/almuerzos/pedidos/${encodeURIComponent(String(r.id))}`)}
     } catch(e){
       const err=e as ApiError;
       if(err.status===401||err.status===403){
@@ -565,18 +604,17 @@ export default function LunchPage(){
         {fulfillment==="DELIVERY"?(
           <div className="mt-4">
             <h2 className="text-[17px] font-black">Dirección de entrega</h2>
-            <input
-              value={address}
-              onChange={e=>setAddress(e.target.value)}
-              placeholder="Dirección de entrega"
-              className="mt-2 w-full rounded-2xl border border-violet-100 bg-white p-3.5 outline-none transition focus:border-[#6b19d1]"
-            />
-            <input
-              value={reference}
-              onChange={e=>setReference(e.target.value)}
-              placeholder="Referencia (opcional)"
-              className="mt-2 w-full rounded-2xl border border-violet-100 bg-white p-3.5 outline-none transition focus:border-[#6b19d1]"
-            />
+            {isAuthed&&(savedAddresses.length>0||savedAddressesLoading)?(
+              <div className="mt-2 rounded-[16px] border border-violet-100 bg-gradient-to-r from-violet-50 to-fuchsia-50 p-2">
+                <div className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#5b18c7]">Usar dirección guardada</div>
+                <button type="button" disabled={savedAddressesLoading} onClick={()=>setShowSavedAddressModal(true)} className="flex h-11 w-full items-center justify-between rounded-[14px] border border-violet-100 bg-white px-3 text-left shadow-sm disabled:opacity-60">
+                  <span className="flex min-w-0 items-center gap-2"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-violet-50">📍</span><span className="truncate text-[13px] font-bold text-slate-700">{savedAddressesLoading?"Cargando direcciones...":"Seleccionar dirección"}</span></span><span className="text-lg font-black text-[#5b18c7]">›</span>
+                </button>
+              </div>
+            ):null}
+            <input value={address} onChange={e=>{setAddress(e.target.value);setSelectedSavedAddressId("");setDeliveryLat(null);setDeliveryLng(null)}} placeholder="Dirección de entrega" className="mt-2 w-full rounded-2xl border border-violet-100 bg-white p-3.5 outline-none transition focus:border-[#6b19d1]"/>
+            <input value={reference} onChange={e=>{setReference(e.target.value);setSelectedSavedAddressId("")}} placeholder="Referencia (opcional)" className="mt-2 w-full rounded-2xl border border-violet-100 bg-white p-3.5 outline-none transition focus:border-[#6b19d1]"/>
+            {!selectedSavedAddressId&&address.trim().length>=6?<div className="mt-1 px-1 text-[10px] font-semibold text-violet-700">Esta dirección se guardará automáticamente para futuros pedidos.</div>:null}
           </div>
         ):null}
 
@@ -750,5 +788,18 @@ export default function LunchPage(){
       </section>
     </>:null
   }
+  {showSavedAddressModal?(
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
+      <button type="button" aria-label="Cerrar selector de direcciones" className="absolute inset-0" onClick={()=>setShowSavedAddressModal(false)}/>
+      <div className="relative z-10 flex max-h-[84dvh] w-full max-w-md flex-col overflow-hidden rounded-[26px] border border-white/70 bg-[#f8fafc] shadow-[0_24px_70px_rgba(15,23,42,0.30)]">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3"><div><div className="text-[17px] font-black text-slate-950">Selecciona una dirección</div><div className="mt-0.5 text-[11px] font-semibold text-slate-500">Tus direcciones guardadas en {cityLabel}</div></div><button type="button" onClick={()=>setShowSavedAddressModal(false)} className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-xl font-black text-slate-600">×</button></div>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">{savedAddresses.map(item=>(
+          <button key={item.id} type="button" onClick={()=>applySavedAddress(item)} className="flex w-full items-start gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:border-violet-300 active:scale-[0.995]">
+            <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[14px] text-lg ${item.isDefault?"bg-emerald-50 ring-1 ring-emerald-200":item.isFavorite?"bg-rose-50 ring-1 ring-rose-200":"bg-violet-50 ring-1 ring-violet-100"}`}>{item.isDefault?"🏠":item.isFavorite?"❤️":"📍"}</span>
+            <span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-1.5"><span className="text-[14px] font-extrabold text-slate-900">{String(item.placeName??item.label??"Dirección guardada")}</span>{item.isDefault?<span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700 ring-1 ring-emerald-200">PRINCIPAL</span>:item.isFavorite?<span className="rounded-full bg-rose-50 px-2 py-0.5 text-[9px] font-extrabold text-rose-700 ring-1 ring-rose-200">FAVORITA</span>:null}</span><span className="mt-1 block break-words text-[13px] font-semibold leading-5 text-slate-700">{item.address}</span>{item.reference?<span className="mt-1 block text-[11px] leading-4 text-slate-500">Ref.: {item.reference}</span>:null}</span><span className="mt-2 text-lg font-black text-[#5b18c7]">›</span>
+          </button>))}</div>
+      </div>
+    </div>
+  ):null}
   </div>
 }
