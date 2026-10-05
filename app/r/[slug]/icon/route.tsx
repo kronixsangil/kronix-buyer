@@ -1,0 +1,2 @@
+import {ImageResponse} from 'next/og';
+export async function GET(){return new ImageResponse(<div style={{display:'flex',height:'100%',width:'100%',background:'#6b19d1',color:'white',alignItems:'center',justifyContent:'center',flexDirection:'column',fontSize:70,fontWeight:800}}><div style={{display:'flex'}}>La Fortuna</div><div style={{display:'flex',fontSize:38,marginTop:24}}>del Sabor</div></div>,{width:512,height:512});}

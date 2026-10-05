@@ -1,3 +1,4 @@
+@import "leaflet/dist/leaflet.css";
 /*app/globals.css*/
 @import "tailwindcss";
 
@@ -59,7 +60,7 @@ body > div:first-child {
   scrollbar-width: none; /* Firefox */
 }
 
-@import "leaflet/dist/leaflet.css";
+
 
 .buyer-app-shell {
   -webkit-tap-highlight-color: transparent;

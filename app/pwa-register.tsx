@@ -74,6 +74,7 @@ export default function PwaRegister() {
   const triesRef = useRef(0);
 
   useEffect(() => {
+    if(window.location.pathname.startsWith("/r/"))return;
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
