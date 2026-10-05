@@ -1,6 +1,7 @@
 //app\(buyer)\almuerzos\page.tsx
 "use client";
 import Image from "next/image";
+import RestaurantLoading from "./RestaurantLoading";
 import {
   useEffect, useMemo, useRef, useState
 }
@@ -246,6 +247,7 @@ export function LunchExperience({publicContext}:{publicContext?:any}){
       setSending(false)
     }
   }
+  if(loading && publicContext)return <RestaurantLoading/>;
   if(loading)return <div className="grid min-h-[70vh] place-items-center font-bold text-slate-500">Cargando almuerzos…</div>;
   if(!data?.available||!data.config)return <div className="p-6 text-center font-black">Almuerzos no disponible actualmente en {
     cityLabel
