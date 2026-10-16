@@ -1,5 +1,6 @@
 /** Presentation contract shared by native and web. Existing businesses keep their settings. */
 export function establishmentAppearance(p: any = {}) {
+p = p ?? {};
   const vibrant = p.theme === "VIBRANT";
   const valid = (v: any, fallback: string) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
   return {
