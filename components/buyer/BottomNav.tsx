@@ -45,19 +45,6 @@ function IconCart() {
   );
 }
 
-function IconWallet() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1h1a1 1 0 0 1 1 1v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <circle cx="17" cy="12" r="1.5" fill="currentColor" />
-    </svg>
-  );
-}
-
 function IconProfile() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -92,7 +79,7 @@ export default function BottomNav() {
   const { items } = useCart();
   const tel = useTelAvailability();
   const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
-  const isLunch = pathname === "/almuerzos" || pathname.startsWith("/almuerzos/");
+  const isCommerce = pathname === "/establecimientos" || pathname.startsWith("/establecimientos/");
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -112,7 +99,7 @@ export default function BottomNav() {
       : "var(--kx-bottom-nav-inactive, #ffffff)",
   });
 
-  const lunchNavVars = isLunch
+  const commerceNavVars = isCommerce
     ? ({
         "--kx-bottom-nav-bg": "#4f0aaa",
         "--kx-bottom-nav-active": "#facc15",
@@ -124,12 +111,12 @@ export default function BottomNav() {
   return (
     <nav
       className="absolute bottom-0 left-0 right-0 z-[1000] overflow-hidden"
-      style={lunchNavVars}
+      style={commerceNavVars}
     >
       <div
         className="relative"
         style={{
-          background: isLunch
+          background: isCommerce
             ? "linear-gradient(180deg, #F8EBFF 0%, #d9bdf4 13%, #7b2bd0 42%, #4f0aaa 76%, #2b045f 100%)"
             : "linear-gradient(180deg, var(--kx-page-bg, #ffffff) 0%, color-mix(in srgb, var(--kx-bottom-nav-bg, #0a3566) 28%, var(--kx-page-bg, #ffffff)) 18%, var(--kx-bottom-nav-bg, #0a3566) 78%, #03102b 100%)",
           paddingBottom: "env(safe-area-inset-bottom)",
@@ -167,13 +154,6 @@ export default function BottomNav() {
               <span className={labelClass(isActive("/cart"))} style={labelStyle(isActive("/cart"))}>Carrito</span>
             </Link>
           ) : null}
-
-          <Link className={itemClass(isActive("/wallet"))} href="/wallet">
-            <NavItemBox active={isActive("/wallet")}>
-              <IconWallet />
-            </NavItemBox>
-            <span className={labelClass(isActive("/wallet"))} style={labelStyle(isActive("/wallet"))}>Saldo</span>
-          </Link>
 
           <Link className={itemClass(isActive("/profile"))} href="/profile">
             <NavItemBox active={isActive("/profile")}>

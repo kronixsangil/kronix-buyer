@@ -1,9 +1,9 @@
 import Image from "next/image";
 export const ICOPOR_PRICE_COP = 1500;
-export const LUNCH_DRAFT_KEY = "kronix:lunch:draft:v1";
-export const LUNCH_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const COMMERCE_DRAFT_KEY = "kronix:commerce:draft:v1";
+export const COMMERCE_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-export type LunchDraft = {
+export type CommerceDraft = {
   savedAt:number;
   citySlug:string;
   configId?:string;
@@ -18,7 +18,7 @@ export type LunchDraft = {
   payRef:string;
   note:string;
 };
-export type LunchItem = {
+export type CommerceItem = {
   id: string;
   category: string;
   name: string;
@@ -26,7 +26,7 @@ export type LunchItem = {
   priceCOP: number
 }
 ;
-export type LunchData = {
+export type CommerceData = {
   available: boolean;
   isOpen?: boolean;
   closedPeriod?: "BEFORE_OPEN" | "AFTER_CLOSE" | null;
@@ -47,7 +47,7 @@ export type LunchData = {
   menu?:{
     title?:string;
     includedText?:string|null;
-    items?:LunchItem[]
+    items?:CommerceItem[]
   }
 }
 ;
@@ -65,7 +65,7 @@ export const plateDayNames=[
   "Sábado"
 ];
 
-export function LunchFlowHeader({
+export function CommerceFlowHeader({
   title,
   subtitle,
   onBack,
@@ -88,7 +88,7 @@ export function LunchFlowHeader({
       <div className="mx-auto flex min-h-[104px] max-w-[400px] items-center justify-center gap-3 pl-8">
         <div className="relative h-[82px] w-[126px] shrink-0">
           <Image
-            src="/lunch/Header/header.png"
+            src="/commerce/Header/header.png"
             alt="La Fortuna"
             fill
             className="object-contain"

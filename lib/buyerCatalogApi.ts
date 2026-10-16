@@ -61,7 +61,6 @@ export type ApiPublicStore = {
   rating?: number;
   ratingCount?: number;
 
-  themeId?: string | null;
   useCustomTheme?: boolean;
   customThemeJson?: any;
   theme?: ApiStoreTheme | null;

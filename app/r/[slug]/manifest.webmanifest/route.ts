@@ -1,1 +1,5 @@
-export async function GET(_req:Request,{params}:{params:Promise<{slug:string}>}){const {slug}=await params;return Response.json({id:`/r/${slug}/`,name:'La Fortuna del Sabor',short_name:'La Fortuna',start_url:`/r/${slug}`,scope:`/r/${slug}`,display:'standalone',background_color:'#ffffff',theme_color:'#6b19d1',icons:[{src:"/lunch/iconos/icono.png?v=2",sizes:'512x512',type:'image/png',purpose:'any'}]},{headers:{'Content-Type':'application/manifest+json'}});}
+import {restaurantBrand} from '@/lib/restaurant-brand';
+export async function GET(_req:Request,{params}:{params:Promise<{slug:string}>}){
+ const {slug}=await params,b=await restaurantBrand(slug),path=`/r/${encodeURIComponent(slug)}`;
+ return Response.json({id:`${path}/`,name:b.name,short_name:b.name.slice(0,24),start_url:path,scope:path,display:'standalone',background_color:b.background,theme_color:b.color,icons:[{src:`${path}/icon`,sizes:'512x512',type:'image/png',purpose:'any'}]},{headers:{'Content-Type':'application/manifest+json','Cache-Control':'no-store'}});
+}

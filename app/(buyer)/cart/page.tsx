@@ -1082,8 +1082,6 @@ export default function CartPage() {
           promoCOP: promo,
           tipCOP,
           totalCOP: totalWithTip,
-          paymentMethod,
-          useWallet: false,
           pickups,
           items: grouped.flatMap((g) =>
             g.items.map((it) => ({
