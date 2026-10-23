@@ -601,7 +601,7 @@ export default function AddressesPage() {
 
       {!authLoading && !isAuthed ? (
         <div className="mt-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          Inicia sesión para ver y guardar tus direcciones.
+          Puedes guardar tus datos al solicitar, sin registrarte. Para preparar tu dirección principal, visita <a className="font-bold underline" href="/profile/info">Mis datos</a>.
         </div>
       ) : null}
 

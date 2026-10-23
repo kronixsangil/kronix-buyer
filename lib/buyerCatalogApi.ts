@@ -263,13 +263,9 @@ export type TelAvailability = {
   message: string | null;
 };
 
-export async function publicGetTelAvailability(citySlug?: string): Promise<TelAvailability> {
-  const config = await publicGetBuyerHomeConfig(citySlug);
-  return {
-    enabled: config.telEnabled !== false,
-    showMessage: config.telShowMessage === true,
-    message: String(config.telMessage ?? "").trim() || null,
-  };
+// Compatibilidad con componentes antiguos: la tienda retirada nunca se habilita por ciudad.
+export async function publicGetTelAvailability(_citySlug?: string): Promise<TelAvailability> {
+  return { enabled: false, showMessage: false, message: null };
 }
 
 export async function publicGetBuyerHomeBanner(citySlug?: string) {

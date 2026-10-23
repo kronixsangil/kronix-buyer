@@ -254,7 +254,7 @@ export function useTrackingPage(): TrackingViewModel {
     if (!orderId || !fromApi) return;
 
     const API = process.env.NEXT_PUBLIC_API || "http://localhost:3004";
-    const es = new EventSource(`${API}/events/stream?orderId=${encodeURIComponent(orderId)}`);
+    const es = new EventSource(`/api/buyer/events/stream?orderId=${encodeURIComponent(orderId)}`, { withCredentials: true });
 
     es.onmessage = (evt) => {
       try {

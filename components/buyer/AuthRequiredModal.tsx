@@ -11,9 +11,9 @@ export default function AuthRequiredModal(props: {
 }) {
   const {
     open,
-    title = "Inicia sesión para continuar",
-    message = "Para proteger tus pedidos y tu información, necesitas iniciar sesión antes de continuar.",
-    confirmText = "Ir a iniciar sesión",
+    title = "Revisa el acceso a tu pedido",
+    message = "Los pedidos están vinculados a este navegador. Puedes revisar tus datos y el acceso desde Configuración, sin contraseña.",
+    confirmText = "Ir a Configuración",
     onConfirm,
     onClose,
   } = props;

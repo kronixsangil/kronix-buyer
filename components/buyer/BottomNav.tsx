@@ -3,8 +3,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCart } from "@/components/buyer/CartContext";
-import { useTelAvailability } from "@/components/buyer/TelAvailabilityContext";
 
 /**
  * BottomNav con fondo estilo BuyerHeader invertido.
@@ -31,16 +29,6 @@ function IconOrders() {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
       <path d="M7 3h10a2 2 0 0 1 2 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="2" />
       <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-}
-
-function IconCart() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path d="M6 7h15l-2 10H8L6 7Z" stroke="currentColor" strokeWidth="2" />
-      <path d="M6 7 5 4H2" stroke="currentColor" strokeWidth="2" />
-      <path d="M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
 }
@@ -76,9 +64,6 @@ function NavItemBox({ children, active }: { children: React.ReactNode; active: b
 
 export default function BottomNav() {
   const pathname = usePathname();
-  const { items } = useCart();
-  const tel = useTelAvailability();
-  const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
   const isCommerce = pathname === "/establecimientos" || pathname.startsWith("/establecimientos/");
 
   const isActive = (href: string) =>
@@ -137,23 +122,7 @@ export default function BottomNav() {
             <span className={labelClass(isActive("/orders"))} style={labelStyle(isActive("/orders"))}>Pedidos</span>
           </Link>
 
-          {tel.enabled ? (
-            <Link className={itemClass(isActive("/cart"))} href="/cart">
-              <span className="relative">
-                <NavItemBox active={isActive("/cart")}>
-                  <IconCart />
-                </NavItemBox>
 
-                {cartCount > 0 && (
-                  <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-extrabold"
-                    style={{ background: "var(--kx-primary, #16a34a)", color: "var(--kx-button-text, #ffffff)" }}>
-                    {cartCount}
-                  </span>
-                )}
-              </span>
-              <span className={labelClass(isActive("/cart"))} style={labelStyle(isActive("/cart"))}>Carrito</span>
-            </Link>
-          ) : null}
 
           <Link className={itemClass(isActive("/profile"))} href="/profile">
             <NavItemBox active={isActive("/profile")}>

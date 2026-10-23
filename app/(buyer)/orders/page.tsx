@@ -1,9 +1,11 @@
 // app/(buyer)/orders/page.tsx
 "use client";
 
+import DeviceRestaurantOrders from "@/components/buyer/DeviceRestaurantOrders";
 import Link from "next/link";
 import { applyDriverSyncEvents, loadOrders, type Order } from "@/components/buyer/OrdersStorage";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useBuyerCity } from "@/components/buyer/CityContext";
 import { useRouter } from "next/navigation";
 import { getCurrentBuyerId } from "@/lib/session";
 import { apiFetch } from "@/lib/api";
@@ -286,6 +288,7 @@ function normalizeBackendOrders(data: unknown): BackendOrderLite[] {
 
 export default function OrdersPage() {
   const router = useRouter();
+  const {citySlug} = useBuyerCity();
   const { isLoading: authLoading, isAuthed } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [backendOrders, setBackendOrders] = useState<BackendOrderLite[]>([]);
@@ -301,17 +304,21 @@ export default function OrdersPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthed) {
-      setShowAuthModal(true);
+      setShowAuthModal(false);
+      setIsLoading(false);
+      setBackendOrders([]); setCommerceOrders([]); setFallbackOrders([]);
     }
   }, [authLoading, isAuthed]);
 
   useEffect(() => {
+    if (authLoading || !isAuthed) return;
     let alive = true;
+    setBackendOrders([]); setCommerceOrders([]); setFallbackOrders([]);
 
     async function loadPrimaryFromBackend() {
       const customerId = getCurrentBuyerId();
-      const local = loadOrders();
-      const cached = getCachedBuyerOrders(customerId);
+      const local = loadOrders().filter(o=>o.citySlug === citySlug);
+      const cached = getCachedBuyerOrders(`${customerId}:${citySlug}`);
 
       setFallbackOrders(local);
       setUsingFallback(false);
@@ -322,9 +329,9 @@ export default function OrdersPage() {
       }
 
       try {
-        const result = await revalidateBuyerOrders(customerId, async () => {
+        const result = await revalidateBuyerOrders(`${customerId}:${citySlug}`, async () => {
           const data = await apiFetch<Array<any>>(
-            `/orders?customerId=${encodeURIComponent(customerId)}`,
+            `/orders?customerId=${encodeURIComponent(customerId)}&citySlug=${encodeURIComponent(citySlug)}`,
             { method: "GET", cache: "no-store" } as any
           );
           return normalizeBackendOrders(data);
@@ -337,7 +344,7 @@ export default function OrdersPage() {
         }
 
         setUsingFallback(false);
-        try { const commercees=await apiFetch<CommerceOrderLite[]>("/commerce/orders",{method:"GET",cache:"no-store"} as any); if(alive)setCommerceOrders(Array.isArray(commercees)?commercees:[]); } catch { if(alive)setCommerceOrders([]); }
+        try { const commercees=await apiFetch<CommerceOrderLite[]>(`/commerce/orders?citySlug=${encodeURIComponent(citySlug)}`,{method:"GET",cache:"no-store"} as any); if(alive)setCommerceOrders(Array.isArray(commercees)?commercees:[]); } catch { if(alive)setCommerceOrders([]); }
         setIsLoading(false);
       } catch {
         if (!alive) return;
@@ -359,18 +366,19 @@ export default function OrdersPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [citySlug, authLoading, isAuthed]);
 
   useEffect(() => {
+    if (authLoading || !isAuthed) return;
     const customerId=getCurrentBuyerId(); if(!customerId)return;
     const API=process.env.NEXT_PUBLIC_API||"http://localhost:3004";
-    const es=new EventSource(`${API}/events/stream?customerId=${encodeURIComponent(customerId)}`,{withCredentials:true});
+    const es=new EventSource(`/api/buyer/events/stream?customerId=${encodeURIComponent(customerId)}`,{withCredentials:true});
     es.onmessage=(event)=>{try{const e=JSON.parse(String(event.data||"{}")); if(e?.type==="customer.orders.changed"){
-      apiFetch<CommerceOrderLite[]>("/commerce/orders",{method:"GET",cache:"no-store"} as any).then(x=>setCommerceOrders(Array.isArray(x)?x:[])).catch(()=>{});
-      apiFetch<Array<any>>(`/orders?customerId=${encodeURIComponent(customerId)}`,{method:"GET",cache:"no-store"} as any).then(x=>setBackendOrders(normalizeBackendOrders(x))).catch(()=>{});
+      apiFetch<CommerceOrderLite[]>(`/commerce/orders?citySlug=${encodeURIComponent(citySlug)}`,{method:"GET",cache:"no-store"} as any).then(x=>setCommerceOrders(Array.isArray(x)?x:[])).catch(()=>{});
+      apiFetch<Array<any>>(`/orders?customerId=${encodeURIComponent(customerId)}&citySlug=${encodeURIComponent(citySlug)}`,{method:"GET",cache:"no-store"} as any).then(x=>setBackendOrders(normalizeBackendOrders(x))).catch(()=>{});
     }}catch{}};
     return()=>es.close();
-  },[]);
+  },[citySlug, authLoading, isAuthed]);
 
   const warmTracking = (orderId: string) => {
     router.prefetch(`/tracking/${orderId}`);
@@ -430,21 +438,13 @@ export default function OrdersPage() {
   }, [usingFallback, backendOrders, fallbackOrders, commerceOrders]);
 
   if (!authLoading && !isAuthed) {
-    return (
-      <div className="px-4 pb-6 pt-3">
-        <div className="text-lg font-extrabold text-gray-900">Historial de pedidos</div>
-
-        <AuthRequiredModal
-          open={showAuthModal}
-          onConfirm={() => router.replace(`/login?next=${encodeURIComponent("/orders")}`)}
-        />
-      </div>
-    );
+    return <div className="px-4 pb-6 pt-3"><h1 className="text-lg font-extrabold">Mis pedidos</h1><DeviceRestaurantOrders/><p className="mt-4 text-sm text-slate-600">Tus solicitudes aparecerán aquí cuando pidas desde este navegador.</p><button onClick={()=>router.push('/')} className="mt-4 rounded-xl bg-blue-700 p-3 font-bold text-white">Ver servicios</button></div>;
   }
 
   return (
     <div className="px-4 pb-6 pt-3">
       <div className="text-lg font-extrabold text-gray-900">Historial de pedidos</div>
+      <DeviceRestaurantOrders/>
 
       {!isLoading && usingFallback ? (
         <div className="mt-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

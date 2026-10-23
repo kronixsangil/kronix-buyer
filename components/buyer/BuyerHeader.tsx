@@ -228,6 +228,7 @@ export default function BuyerHeader() {
 
   const isShoppingHome = pathname === "/comprar";
   const showBack = !isShoppingHome;
+  const profileHeader = pathname === "/profile";
 
   const { query, setQuery } = useSearch();
   const { city } = useBuyerCity();
@@ -352,11 +353,11 @@ px-3 pt-2 pb-2
               {showBack ? (
                 <button
                   type="button"
-                  onClick={() => router.back()}
+                  onClick={() => profileHeader ? router.push("/") : router.back()}
                   
                   aria-label="Volver"
                 >
-                 <Image
+                 {profileHeader ? <svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#15546a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="ml-2 mt-3"><path d="M20 12H4m6-6-6 6 6 6"/></svg> : <Image
   src="/branding/kronix/arrow.png"
   alt="Volver"
   width={64}
@@ -368,7 +369,7 @@ px-3 pt-2 pb-2
     translate-x-[1px]
     translate-y-[1px]
   "
-/>
+/>}
                 </button>
               ) : (
                 <button
@@ -451,48 +452,13 @@ px-3 pt-2 pb-2
               <Link
                 href="/profile"
                 className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-slate-200/80 bg-white/70 shadow-sm backdrop-blur transition hover:bg-white"
-                aria-label="Ir a Perfil"
-                title="Perfil"
+                aria-label={profileHeader ? "Perfil" : "Configuración"}
+                title={profileHeader ? "Perfil" : "Configuración"}
               >
-                {isLoggedIn ? (
-                  profileImageUrl ? (
-                    <img
-                      src={profileImageUrl}
-                      alt="Foto de perfil"
-                      className="block h-full w-full object-cover"
-                    />
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-slate-200 to-slate-300" />
-                      <div className="relative z-10 grid h-full w-full place-items-center">
-                        <span className="text-sm font-extrabold text-slate-700">{initials}</span>
-                      </div>
-                    </>
-                  )
-                ) : (
-                  <div className="absolute inset-0 rounded-full bg-slate-200" />
-                )}
+                {profileHeader ? <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#eff7f9]"><svg aria-hidden="true" width="34" height="34" viewBox="0 0 48 48" fill="none" stroke="#087c98" strokeWidth="2.8"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="19" r="7"/><path d="M11 39c1-11 25-11 26 0"/></svg></span> : <img src="/branding/Header/gear.png" alt="Configuración" className="h-10 w-10 object-contain"/>}
               </Link>
 
-              <div className="mt-1 min-h-[28px] text-center leading-tight">
-                {isChecking ? (
-                  <span className="text-[11px] font-semibold text-slate-500">...</span>
-                ) : isLoggedIn ? (
-                  <div className="flex items-center justify-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                    <span className="text-[11px] font-extrabold text-slate-700">En Línea</span>
-                  </div>
-                ) : (
-                  <Link
-                    href="/login?next=/comprar"
-                    className="inline-block text-[10px] font-extrabold leading-tight text-slate-700 hover:underline"
-                  >
-                    Iniciar
-                    <br />
-                    sesión
-                  </Link>
-                )}
-              </div>
+              {!profileHeader && <div className="mt-1 text-center text-[10px] font-bold text-slate-700">Configuración</div>}
             </div>
           </div>
         </div>       
@@ -509,11 +475,7 @@ px-3 pt-2 pb-2
               <div className="relative overflow-hidden border-b border-slate-100 bg-white px-4 py-4 text-slate-900">
                 <div className="relative flex items-center gap-3">
                   <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-slate-100 font-extrabold text-slate-700 ring-1 ring-slate-200">
-                    {isLoggedIn && profileImageUrl ? (
-                      <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
-                    ) : (
-                      isLoggedIn ? initials : "KR"
-                    )}
+                    <img src="/branding/Header/gear.png" alt="" className="h-12 w-12 object-contain"/>
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -539,26 +501,25 @@ px-3 pt-2 pb-2
                 <MenuRow href="/orders" onClick={() => setMenuOpen(false)} label="Pedidos" subtitle="Tus órdenes y estados" icon={<KronixMenuImageIcon src="/icons/pedidos.png" alt="Tu información" scale={1.12} tx={0} ty={0} />} />
                 <MenuRow href="/cart" onClick={() => setMenuOpen(false)} label="Carrito" subtitle="Productos agregados" icon={<KronixMenuImageIcon src="/icons/carrito.png" alt="Tu información" scale={1.12} tx={0} ty={0} />} badge={cartCount > 0 ? String(cartCount) : null} />
                 <MenuRow href="/profile" onClick={() => setMenuOpen(false)} label="Perfil" subtitle="Cuenta y configuración" icon={<KronixMenuImageIcon src="/icons/perfil.png" alt="Tu información" scale={1.12} tx={0} ty={0} />} />
-                <MenuRow href="/profile/info" onClick={() => setMenuOpen(false)} label="Tu información" subtitle="Datos personales básicos" icon={<KronixMenuImageIcon src="/icons/informacion.png" alt="Tu información" scale={1.12} tx={0} ty={0} />} />
-                <MenuRow href="/profile/security" onClick={() => setMenuOpen(false)} label="Seguridad" subtitle="Contraseña y sesiones" icon={<KronixMenuImageIcon src="/icons/seguridad.png" alt="Seguridad" scale={1.12} tx={0} ty={0} />} />
-                <MenuRow href="/profile/cards" onClick={() => setMenuOpen(false)} label="Tarjetas" subtitle="Tus métodos de pago" icon={<KronixMenuImageIcon src="/icons/tarjetas.png" alt="Tarjetas" scale={1.1} tx={0} ty={0} />} />
+                <MenuRow href="/profile/info" onClick={() => setMenuOpen(false)} label="Mis datos" subtitle="Datos personales básicos" icon={<KronixMenuImageIcon src="/icons/informacion.png" alt="Tu información" scale={1.12} tx={0} ty={0} />} />
+                <MenuRow href="/profile/security" onClick={() => setMenuOpen(false)} label="Seguridad y Notificaciones" subtitle="Datos de este navegador" icon={<KronixMenuImageIcon src="/icons/seguridad.png" alt="Seguridad" scale={1.12} tx={0} ty={0} />} />
                 <MenuRow href="/profile/addresses" onClick={() => setMenuOpen(false)} label="Direcciones" subtitle="Se guardan con tus pedidos" icon={<KronixMenuImageIcon src="/icons/direcciones.png" alt="Direcciones" scale={1.12} tx={0} ty={0} />} />
                 <MenuRow href="/profile/privacy" onClick={() => setMenuOpen(false)} label="Privacidad" subtitle="Controla tu cuenta y datos" icon={<KronixMenuImageIcon src="/icons/privacidad.png" alt="Privacidad" scale={1.12} tx={0} ty={0} />} />
                 <MenuRow href="/profile/support" onClick={() => setMenuOpen(false)} label="Soporte" subtitle="Ayuda y contacto" icon={<KronixMenuImageIcon src="/icons/soporte.png" alt="Soporte" scale={1.12} tx={0} ty={0} />} />
 
                 {isLoggedIn ? (
                   <MenuRow
-                    onClick={handleLogout}
-                    label={loggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
-                    subtitle="Salir de tu cuenta actual"
+                    onClick={()=>router.push("/profile")}
+                    label="Datos y privacidad"
+                    subtitle="Administra los datos de este navegador"
                     icon={<KronixMenuImageIcon src="/icons/cerrarsesion.png" alt="Soporte" scale={1.12} tx={0} ty={0} />}
                   />
                 ) : (
                   <MenuRow
-                    href="/login?next=/comprar"
+                    href="/profile"
                     onClick={() => setMenuOpen(false)}
-                    label="Iniciar sesión"
-                    subtitle="Accede a tu cuenta"
+                    label="Mis datos"
+                    subtitle="Solicita sin contraseña"
                     icon={<span aria-hidden="true">👤</span>}
                   />
                 )}

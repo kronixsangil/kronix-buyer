@@ -54,7 +54,7 @@ function shouldRefreshActivity(path: string, opts: ApiFetchOptions) {
 
 function canRetryAfterRefresh(path: string, opts: ApiFetchOptions) {
   if (opts._retriedAfterRefresh) return false;
-  if (opts.suppressSessionExpiredEvent) return false;
+
   if (typeof window === "undefined") return false;
 
   const p = String(path || "");
@@ -73,23 +73,10 @@ async function emitRealSessionExpiredIfNeeded() {
   } catch {}
 }
 
+let renewFlight:Promise<boolean>|null=null;
 async function tryRefreshAccessToken() {
-  const base = getApiBase();
-  const refreshUrl = joinUrl(base, "/auth/refresh");
-
-  const res = await fetch(refreshUrl, {
-    method: "POST",
-    credentials: "include",
-    cache: "no-store",
-    headers: {
-      "x-ct-app": CT_APP,
-    },
-  });
-
-  if (!res.ok) return false;
-
-  lastActivityRefreshAt = Date.now();
-  return true;
+ if(!renewFlight)renewFlight=fetch(joinUrl(getApiBase(),'/auth/refresh'),{method:'POST',credentials:'include',cache:'no-store',headers:{'x-ct-app':'buyer'}}).then(async res=>{if(res.ok)return true;if(![400,401].includes(res.status))return false;const restored=await fetch('/api/buyer-device',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'restore'}),cache:'no-store'});return restored.ok;}).finally(()=>{renewFlight=null;});
+ return renewFlight;
 }
 
 async function refreshActivityIfNeeded(path: string, opts: ApiFetchOptions) {
@@ -123,7 +110,7 @@ async function refreshActivityIfNeeded(path: string, opts: ApiFetchOptions) {
       }
 
       if (res.status === 401 || res.status === 403) {
-        await emitRealSessionExpiredIfNeeded();
+        // Preserve the device session; caller can offer retry without a forced login.
       }
     })
     .catch(() => {})
@@ -164,7 +151,7 @@ export async function apiFetch<T = any>(
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
 
-    if ((res.status === 401 || res.status === 403) && canRetryAfterRefresh(path, opts)) {
+    if (res.status === 401 && canRetryAfterRefresh(path, opts)) {
       const refreshed = await tryRefreshAccessToken().catch(() => false);
 
       if (refreshed) {
@@ -176,13 +163,13 @@ export async function apiFetch<T = any>(
     }
 
     if (!opts.suppressSessionExpiredEvent && (res.status === 401 || res.status === 403)) {
-      await emitRealSessionExpiredIfNeeded();
+      // Preserve the device session; caller can offer retry without a forced login.
     }
 
     throw makeApiError(txt || `HTTP ${res.status}`, res.status, txt);
   }
 
-  await refreshActivityIfNeeded(path, opts);
+  // Authentication renews on 401; public browsing does not create or refresh identities.
 
   if (res.status === 204) return undefined as T;
 

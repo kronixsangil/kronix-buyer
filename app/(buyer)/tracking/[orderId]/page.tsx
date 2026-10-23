@@ -107,7 +107,7 @@ export default function TrackingPage() {
 
       <AuthRequiredModal
         open={vm.showAuthModal}
-        onConfirm={() => vm.router.push(`/login?next=${encodeURIComponent(vm.authNext)}`)}
+        onConfirm={() => vm.router.push("/profile/security")}
         onClose={() => vm.setShowAuthModal(false)}
       />
     </div>

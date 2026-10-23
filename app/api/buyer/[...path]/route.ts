@@ -77,6 +77,12 @@ async function proxy(req: NextRequest, context: { params: Promise<{ path: string
   });
 
   const responseHeaders = buildProxyHeaders(upstream.headers);
+  const isStream = String(upstream.headers.get('content-type') || '').includes('text/event-stream');
+  if (isStream) {
+    responseHeaders.set('Cache-Control','no-cache, no-transform');
+    responseHeaders.set('X-Accel-Buffering','no');
+    return new Response(upstream.body,{status:upstream.status,headers:responseHeaders});
+  }
   const responseBody = await upstream.arrayBuffer();
 
   const response = new NextResponse(responseBody, {

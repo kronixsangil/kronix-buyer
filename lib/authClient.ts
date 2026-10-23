@@ -9,6 +9,7 @@ export type AuthMePayload = {
     sub: string;
     role: "BUYER" | "DRIVER" | "STORE" | "ADMIN" | string;
     phone?: string | null;
+    isDeviceCustomer?:boolean;
     email?: string | null;
     storeId?: string | null;
     storeCode?: string | null;

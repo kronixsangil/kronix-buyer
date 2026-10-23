@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getMe } from "@/lib/authClient";
 import { apiFetch } from "@/lib/api";
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -18,7 +19,8 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-async function registerBuyerPush() {
+export async function registerBuyerPush(allowGuest=false) {
+  if(localStorage.getItem("kronix:buyer:notifications") === "off")return false;
   if (typeof window === "undefined") return false;
   if (!("serviceWorker" in navigator)) return false;
   if (!("PushManager" in window)) return false;
@@ -30,6 +32,9 @@ async function registerBuyerPush() {
     console.warn("[Buyer Push] Falta NEXT_PUBLIC_VAPID_PUBLIC_KEY");
     return false;
   }
+
+  const me=await getMe();
+  if(!me?.user?.sub && !allowGuest)return false;
 
   const registration = await navigator.serviceWorker.register("/sw.js");
   await navigator.serviceWorker.ready;
@@ -53,6 +58,8 @@ async function registerBuyerPush() {
       applicationServerKey: urlBase64ToUint8Array(vapidKey),
     });
   }
+
+  if(!me?.user?.sub)return true;
 
   await apiFetch("/push/subscribe", {
     method: "POST",
@@ -113,12 +120,17 @@ export default function PwaRegister() {
       }
     };
 
+    const onAuth=()=>{registeredRef.current=false;triesRef.current=0;void tryRegister();};
+    window.addEventListener("auth:changed",onAuth);
+    window.addEventListener("buyer:notifications-changed",onAuth);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       alive = false;
       if (timer) clearTimeout(timer);
+      window.removeEventListener("auth:changed",onAuth);
+      window.removeEventListener("buyer:notifications-changed",onAuth);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };

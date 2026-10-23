@@ -38,9 +38,11 @@ export default function PublicRestaurant({slug}:{slug:string}){
   void load();return()=>{alive=false;};
  },[slug,retry]);
  async function loadOrder(id:string){
-  try{const result=await apiFetch<any>(`/commerce/public/restaurants/${encodeURIComponent(slug)}/orders/${encodeURIComponent(id)}`,{...opts,headers:{'x-commerce-session':session.token},cache:'no-store'});setOrder(result);setError('');}catch(e){setError(restaurantError(e));throw e;}
+  try{const result=await apiFetch<any>(`/commerce/public/restaurants/${encodeURIComponent(slug)}/orders/${encodeURIComponent(id)}`,{...opts,headers:{'x-commerce-session':session.token},cache:'no-store'});setOrder(result);setError('');
+   try{const key='kronix:buyer:restaurant-orders:v2';const rows=JSON.parse(localStorage.getItem(key)||'[]');const local=new Date(Date.now()-5*3600000);const cutoff=Date.UTC(local.getUTCFullYear(),local.getUTCMonth()-1,1,5);localStorage.setItem(key,JSON.stringify([{id,slug,token:session.token,title,citySlug:data?.config?.store?.city?.slug,channel:session.channel,qrToken:session.qrToken,at:Date.now()},...rows.filter((x:any)=>x.id!==id&&x.at>=cutoff)].slice(0,100)));}catch{}}catch(e){setError(restaurantError(e));throw e;}
  }
  useEffect(()=>{if(!order||['COMPLETED','REJECTED'].includes(order.status))return;const t=setInterval(()=>void loadOrder(order.id).catch(()=>{}),15000);return()=>clearInterval(t);},[order?.id,order?.status,session?.token]);
+ useEffect(()=>{if(!session)return;const id=new URLSearchParams(window.location.search).get('pedido');if(id)void loadOrder(id).catch(()=>{});},[session?.token]);
  return <div className="relative mx-auto h-[100dvh] max-w-2xl overflow-y-auto overscroll-contain bg-white text-slate-900" style={{WebkitOverflowScrolling:'touch',paddingBottom:'env(safe-area-inset-bottom)'}}>
   {data&&(channel==='DINE_IN'||!installed)?<div className="absolute right-3 top-2 z-30 flex max-w-[85%] items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-white shadow-sm" style={{background:color}}>
    {channel==='PUBLIC_LINK'?<button onClick={async()=>{if(install){await install.prompt();setInstall(null);}else setInstallHelp(true);}}>Instalar {title}</button>:<><span className="truncate">{session?.locationLabel||'Elige tu mesa'}</span>{session?<button className="shrink-0 border-l border-white/30 pl-2 underline" onClick={()=>setError('Para cambiar de mesa, escanea el QR de la nueva ubicación.')}>Cambiar</button>:null}</>}

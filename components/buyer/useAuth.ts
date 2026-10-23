@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { logout } from "@/lib/authActions";
+import {writeCachedMe} from "@/lib/authClient";
 import { markSessionKnownActive } from "@/lib/sessionExpired";
 
 export type MeUser = {
@@ -52,7 +53,7 @@ export function useAuth() {
         return;
       }
 
-      if (me?.id) markSessionKnownActive();
+      if (me?.id) {markSessionKnownActive();writeCachedMe({user:{...me,sub:me.id}} as any);}
       setUser(me);
     } catch {
       setUser(null);

@@ -93,7 +93,7 @@ function normalizeServiceSlug(serviceSlug: string) {
 
 function normalizeDynamicServices(items: DynamicTransportService[]) {
   return (Array.isArray(items) ? items : [])
-    .filter((item) => item && item.isActive !== false)
+    .filter((item) => item && item.isActive !== false && item.serviceKey !== "STORE")
     .slice()
     .sort((a, b) => {
       const orderDifference = Number(a.sortOrder ?? 100) - Number(b.sortOrder ?? 100);

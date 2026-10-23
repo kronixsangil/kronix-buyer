@@ -1,6 +1,7 @@
 // app/(buyer)/page.tsx
 "use client";
 
+import CityChangeButton from '@/components/buyer/CityChangeButton';
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -8,8 +9,6 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useBuyerCity } from "@/components/buyer/CityContext";
 import { logout } from "@/lib/authActions";
-import { useCart } from "@/components/buyer/CartContext";
-import { useTelAvailability } from "@/components/buyer/TelAvailabilityContext";
 import {
   dynamicServiceHref,
   getCachedDynamicTransportServices,
@@ -79,13 +78,6 @@ type KronixOption = {
   subtitle: string;
   featured?: boolean;
   service?: DynamicTransportService;
-};
-
-const STORE_OPTION: KronixOption = {
-  href: "/comprar",
-  title: "Tienda en Línea",
-  subtitle: "Compra en nuestras tiendas afiliadas y te lo llevamos a donde quieras",
-  featured: true,
 };
 
 function dynamicServicesSignature(items: DynamicTransportService[]) {
@@ -610,10 +602,8 @@ function KronixPlusApplicationPanel({
 }
 
 export default function HomePage() {
-  const tel = useTelAvailability();
   const router = useRouter();
   const { city, citySlug, cityReady } = useBuyerCity();
-  const { items } = useCart();
 
   const initialServicesCache =
     cityReady && citySlug
@@ -651,7 +641,6 @@ contactName: "",
       notes: "",
     });
 
-  const cartCount = items.reduce((acc, it) => acc + it.qty, 0);
 
   async function refreshMe() {
     try {
@@ -827,7 +816,6 @@ email: prev.email || String(app?.email ?? ""),
 
   const options = useMemo<KronixOption[]>(() => {
     return [
-      ...(tel.enabled ? [STORE_OPTION] : []),
       ...dynamicServices.map((service) => ({
         href: dynamicServiceHref(service),
         title: service.name,
@@ -835,7 +823,7 @@ email: prev.email || String(app?.email ?? ""),
         service,
       })),
     ];
-  }, [dynamicServices, tel.enabled]);
+  }, [dynamicServices]);
 
   const displayName = useMemo(() => {
     const n = String((me as any)?.name ?? "").trim();
@@ -893,7 +881,7 @@ email: prev.email || String(app?.email ?? ""),
     setMenuOpen(false);
 
     if (!isLoggedIn) {
-      router.push("/login?next=/");
+      router.push("/profile/info");
       return;
     }
 
@@ -1089,13 +1077,9 @@ if (kronixPlusForm.address.trim().length < 8) {
           <Link
             href="/profile"
             className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-white/20 bg-white/10 text-sm font-black text-white shadow-sm backdrop-blur"
-            aria-label="Perfil"
+            aria-label="Configuración"
           >
-            {isLoggedIn && profileImageUrl ? (
-              <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
-            ) : (
-              initials
-            )}
+            <img src="/branding/Header/gear.png" alt="Configuración" className="h-11 w-11 object-contain"/>
           </Link>
         </div>
 
@@ -1106,6 +1090,8 @@ if (kronixPlusForm.address.trim().length < 8) {
             {cityDepartment ? ` - ${cityDepartment}` : ""}
           </span>
         </div>
+
+        <div className="relative z-10 flex justify-center"><CityChangeButton compact label="Cambiar"/></div>
 
         {menuOpen ? (
           <div className="absolute left-4 right-4 top-[96px] z-[120] overflow-hidden rounded-[26px] border border-gray-200 bg-white shadow-2xl">
@@ -1132,11 +1118,7 @@ if (kronixPlusForm.address.trim().length < 8) {
 
                 <div className="relative flex items-center gap-3">
                   <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-full bg-white/15 font-extrabold ring-1 ring-white/20 backdrop-blur-sm">
-                    {isLoggedIn && profileImageUrl ? (
-                      <img src={profileImageUrl} alt="Foto de perfil" className="block h-full w-full object-cover" />
-                    ) : (
-                      isLoggedIn ? initials : "KR"
-                    )}
+                    <img src="/branding/Header/gear.png" alt="" className="h-12 w-12 object-contain"/>
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -1172,23 +1154,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                     />
                   }
                 />
-                {tel.enabled ? (
-                <MenuRow
-                  href="/comprar"
-                  onClick={() => setMenuOpen(false)}
-                  label="Comprar algo"
-                  subtitle="Negocios y productos"
-                  icon={
-                    <KronixMenuImageIcon
-                      src="/icons/compraralgo.png"
-                      alt="Comprar algo"
-                      scale={1.12}
-                      tx={0}
-                      ty={0}
-                    />
-                  }
-                />
-                ) : null}
+
                 <MenuRow
                   href="/orders"
                   onClick={() => setMenuOpen(false)}
@@ -1204,24 +1170,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                     />
                   }
                 />
-                {tel.enabled ? (
-                <MenuRow
-                  href="/cart"
-                  onClick={() => setMenuOpen(false)}
-                  label="Carrito"
-                  subtitle="Productos agregados"
-                  icon={
-                    <KronixMenuImageIcon
-                      src="/icons/carrito.png"
-                      alt="Carrito"
-                      scale={1.12}
-                      tx={0}
-                      ty={0}
-                    />
-                  }
-                  badge={cartCount > 0 ? String(cartCount) : null}
-                />
-                ) : null}
+
                 <MenuRow
                   href="/profile"
                   onClick={() => setMenuOpen(false)}
@@ -1240,7 +1189,7 @@ if (kronixPlusForm.address.trim().length < 8) {
                 <MenuRow
                   href="/profile/info"
                   onClick={() => setMenuOpen(false)}
-                  label="Tu información"
+                  label="Mis datos"
                   subtitle="Datos personales básicos"
                   icon={
                     <KronixMenuImageIcon
@@ -1255,28 +1204,13 @@ if (kronixPlusForm.address.trim().length < 8) {
                 <MenuRow
                   href="/profile/security"
                   onClick={() => setMenuOpen(false)}
-                  label="Seguridad"
-                  subtitle="Contraseña y sesiones"
+                  label="Seguridad y Notificaciones"
+                  subtitle="Datos de este navegador"
                   icon={
                     <KronixMenuImageIcon
                       src="/icons/seguridad.png"
                       alt="Seguridad"
                       scale={1.12}
-                      tx={0}
-                      ty={0}
-                    />
-                  }
-                />
-                <MenuRow
-                  href="/profile/cards"
-                  onClick={() => setMenuOpen(false)}
-                  label="Tarjetas"
-                  subtitle="Tus métodos de pago"
-                  icon={
-                    <KronixMenuImageIcon
-                      src="/icons/tarjetas.png"
-                      alt="Tarjetas"
-                      scale={1.1}
                       tx={0}
                       ty={0}
                     />
@@ -1330,9 +1264,9 @@ if (kronixPlusForm.address.trim().length < 8) {
 
                 {isLoggedIn ? (
                   <MenuRow
-                    onClick={handleLogout}
-                    label={loggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
-                    subtitle="Salir de tu cuenta actual"
+                    onClick={()=>router.push("/profile")}
+                    label="Datos y privacidad"
+                    subtitle="Administra los datos de este navegador"
                     icon={
                     <KronixMenuImageIcon
                       src="/icons/cerrarsesion.png"
@@ -1345,10 +1279,10 @@ if (kronixPlusForm.address.trim().length < 8) {
                   />
                 ) : (
                   <MenuRow
-                    href="/login?next=/"
+                    href="/profile"
                     onClick={() => setMenuOpen(false)}
-                    label="Iniciar sesión"
-                    subtitle="Accede a tu cuenta"
+                    label="Mis datos"
+                    subtitle="Solicita sin contraseña"
                     icon={
                       <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gray-50 text-gray-700 ring-1 ring-gray-200">
                         <span aria-hidden="true">👤</span>
@@ -1407,11 +1341,7 @@ if (kronixPlusForm.address.trim().length < 8) {
               </div>
             ) : null}
 
-            {!tel.enabled && tel.showMessage && tel.message ? (
-              <div className="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-4 text-center text-sm font-bold leading-6 text-amber-900 shadow-sm">
-                {tel.message}
-              </div>
-            ) : null}
+
 
             <div className="mt-5 space-y-3">
               {servicesLoading ? (

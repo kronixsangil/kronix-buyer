@@ -32,66 +32,6 @@ function clearBuyerAuthCache() {
   } catch {}
 }
 
-export async function login(emailOrPhone: string, password: string) {
-  const body = {
-    emailOrPhone: String(emailOrPhone ?? "").trim(),
-    password: String(password ?? "").trim(),
-  };
-
-  clearSessionExpiredShown();
-
-  const res = await apiFetch<{
-    accessToken?: string;
-    user?: any;
-  }>("/auth/login", {
-    method: "POST",
-    json: body,
-    suppressSessionExpiredEvent: true,
-    suppressActivityRefresh: true,
-  });
-
-  // Después de login, pedimos /auth/me para validar rol y cachear userId
-  try {
-    const me = await apiFetch<any>("/auth/me", {
-      method: "GET",
-      suppressSessionExpiredEvent: true,
-      suppressActivityRefresh: true,
-    });
-
-    const role = String(me?.user?.role ?? "").toUpperCase();
-
-    if (role !== "BUYER" && role !== "DRIVER") {
-      try {
-        await apiFetch("/auth/logout", {
-          method: "POST",
-          suppressSessionExpiredEvent: true,
-          suppressActivityRefresh: true,
-        });
-      } catch {}
-
-      markVoluntaryLogout();
-      clearBuyerAuthCache();
-      notifyAuthChanged();
-      throw new Error(BUYER_ROLE_ERROR);
-    }
-
-    if (me?.user?.sub) {
-      writeCachedMe(me);
-      markSessionKnownActive();
-    }
-  } catch (e: any) {
-    if (String(e?.message ?? "") === BUYER_ROLE_ERROR) {
-      throw e;
-    }
-
-    throw new Error("No pudimos validar tu cuenta Buyer.");
-  }
-
-  clearSessionExpiredShown();
-  notifyAuthChanged();
-  return res;
-}
-
 export async function logout() {
   markVoluntaryLogout();
 
@@ -126,7 +66,7 @@ export async function logout() {
   notifyAuthChanged();
 
   if (typeof window !== "undefined") {
-    window.location.replace("/login?loggedOut=1");
+    window.location.replace("/");
   }
 
   return { ok: true };

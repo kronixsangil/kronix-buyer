@@ -1,6 +1,7 @@
 // components/buyer/kronix/GenericTransportServiceRequest.tsx
 "use client";
 
+import { readBuyerContact, submitBuyerOrder } from "@/lib/buyerDevice";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthRequiredModal from "@/components/buyer/AuthRequiredModal";
@@ -148,8 +149,11 @@ export default function GenericTransportServiceRequest({
   }, [servicePrimaryColor, serviceAccentColor]);
 
   useEffect(() => {
-    const profileName = getUserName(user);
-    const profilePhone = getUserPhone(user);
+    const saved=readBuyerContact();
+    const device=!!localStorage.getItem("kronix:buyer:device:v2");
+    const profileName = saved.name || (!device ? getUserName(user) : "");
+    const profilePhone = saved.phone || (!device ? getUserPhone(user) : "");
+    setAddress(prev=>prev || saved.address);
 
     setContactName((prev) => prev || profileName);
     setContactPhone((prev) => prev || profilePhone);
@@ -244,10 +248,7 @@ export default function GenericTransportServiceRequest({
     if (config.operationalAvailable === false) { setCreateError("No hay trabajadores disponibles en este momento. Intenta nuevamente más tarde."); return; }
     setCreateError(null);
 
-    if (!authLoading && !isAuthed) {
-      setShowAuthModal(true);
-      return;
-    }
+
 
     if (!ready) {
       setCreateError("Revisa ubicación y contacto antes de solicitar el servicio.");
@@ -263,10 +264,7 @@ export default function GenericTransportServiceRequest({
 
     if (!ready) return;
 
-    if (!user?.id) {
-      setCreateError("No pudimos identificar tu sesión. Vuelve a iniciar sesión.");
-      return;
-    }
+
 
     setSubmitting(true);
 
@@ -310,7 +308,7 @@ const packageDescription = [
         // Campos legacy temporales mientras Prisma conserva sus enums actuales.
         serviceType: serviceKey,
         requiredWorkerType: workerTypeKey,
-        customerId: user.id,
+        customerId: user?.id || "",
         citySlug,
 
         dropoffAddress: address.trim(),
@@ -348,10 +346,7 @@ const packageDescription = [
         },
       };
 
-      const created = await apiFetch<CreateServiceOrderResponse>("/orders", {
-        method: "POST",
-        json: payload,
-      });
+      const created = await submitBuyerOrder(payload,{name:contactName,phone:contactPhone,address:address.trim()});
 
       if (!created?.id) {
         throw new Error("La API no devolvió un id de orden válido.");
@@ -657,7 +652,7 @@ const packageDescription = [
       <AuthRequiredModal
         open={showAuthModal}
         onConfirm={() =>
-          router.push(`/login?next=${encodeURIComponent(loginNext)}`)
+          router.push("/profile/info")
         }
         onClose={() => setShowAuthModal(false)}
       />

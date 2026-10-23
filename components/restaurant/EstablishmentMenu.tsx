@@ -1,4 +1,5 @@
 'use client';
+import {readBuyerContact,saveBuyerContact} from '@/lib/buyerDevice';
 import ConfirmCustomerDetails from './ConfirmCustomerDetails';
 import {checkoutPaymentMethods} from '@/lib/payment-methods';
 import {establishmentAppearance} from '@/lib/establishment-appearance';
@@ -24,6 +25,8 @@ export default function EstablishmentMenu({data,session,onOrdered}:{data:any;ses
  const allowed:string[]=presentation.fulfillments??['DELIVERY','PICKUP'];
  const [fulfillment,setFulfillment]=useState(allowed[0]??'PICKUP'),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const requestId=useRef('');
+ const [remember,setRemember]=useState(false);
+ useEffect(()=>{const saved=readBuyerContact();if(saved.remember){setName(saved.name);setPhone(saved.phone);setAddress(saved.address);setRemember(true);}},[]);
  const [confirmOpen,setConfirmOpen]=useState(false);
  const color=(v:any,f:string)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:f;
  const appearance=establishmentAppearance(presentation),kronix=appearance.kronix;
@@ -59,6 +62,7 @@ export default function EstablishmentMenu({data,session,onOrdered}:{data:any;ses
    try{localStorage.setItem(key,JSON.stringify({at:Date.now(),cart,selections,name,phone,address,note,receiptId,paymentKind,fulfillment,checkout,payment,requestId:requestId.current}));}catch{}
    const result=await apiFetch<any>(`/commerce/public/restaurants/${encodeURIComponent(session.slug)}/orders`,{method:'POST',headers:{'x-commerce-session':session.token},suppressSessionExpiredEvent:true,suppressActivityRefresh:true,json:{requestId:requestId.current,contactName:name.trim(),contactPhone:phone,items:selected.map(i=>({itemId:i.id,qty:cart[i.id],selections:selections[i.id]??{}})),fulfillment:dine?'DINE_IN':fulfillment,deliveryAddress:!dine&&fulfillment==='DELIVERY'?address.trim():undefined,paymentReceiptId:transfer?receiptId:undefined,paymentMethod:transfer?selectedMethod?.kind:undefined,customerNote:note.trim()}});
    if(!result?.id)throw new Error('No recibimos la confirmación. Inténtalo nuevamente.');
+   if(!dine)saveBuyerContact({name:name.trim(),phone:phone.trim(),address:address.trim(),remember});
    await onOrdered(result.id);setCart({});setSelections({});setCheckout(false);setPayment(false);setReceiptId('');setReceiptPreview('');requestId.current='';localStorage.removeItem(key);
   }catch(e){setError(restaurantError(e));}finally{setBusy(false);setConfirmOpen(false);}
  }
@@ -107,6 +111,7 @@ export default function EstablishmentMenu({data,session,onOrdered}:{data:any;ses
      {!dine?<>
       {allowed.length>1?<label className="block text-sm">Entrega<select className="ml-2 rounded-lg border bg-white p-1 text-slate-900" value={fulfillment} onChange={e=>setFulfillment(e.target.value)}>{allowed.map(f=><option key={f} value={f}>{f==='DELIVERY'?'Domicilio':'Recoger'}</option>)}</select></label>:null}
       {fulfillment==='DELIVERY'?<label className="block rounded-xl bg-white p-3 text-sm font-bold">Ubicación<input className="mt-1 block w-full rounded-xl border bg-white p-2 text-slate-900" value={address} onChange={e=>setAddress(e.target.value)} placeholder={`Dirección en ${config.store.city?.name||'tu ciudad'}`}/></label>:null}
+      <label className="flex gap-2 rounded-xl bg-white p-3 text-sm"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/>Recordar mis datos en este navegador</label>
       <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-3"><label className="text-sm font-bold">Tu nombre<input className="mt-1 block w-full rounded-xl border bg-white p-2 text-slate-900" value={name} onChange={e=>setName(e.target.value)} autoComplete="name"/></label><label className="text-sm font-bold">Celular<input type="tel" className="mt-1 block w-full rounded-xl border bg-white p-2 text-slate-900" value={phone} onChange={e=>setPhone(e.target.value)} autoComplete="tel"/></label></div>
      </>:null}
      <label className="block rounded-xl bg-white p-3 text-sm font-bold">Nota (opcional)<textarea className="mt-1 block w-full rounded-xl border bg-white p-2 text-slate-900" rows={2} maxLength={1000} value={note} onChange={e=>setNote(e.target.value)}/></label>
