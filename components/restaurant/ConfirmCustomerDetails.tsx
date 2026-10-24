@@ -1,11 +1,12 @@
 'use client';
 import {useEffect,useRef} from 'react';
+import styles from './BoutiqueMenu.module.css';
 
 type Props={boutique?:boolean;open:boolean;busy:boolean;name:string;phone:string;address:string;pickup:boolean;count:number;total:string;primary:string;buttonText:string;onEdit:()=>void;onConfirm:()=>void};
 export default function ConfirmCustomerDetails(p:Props){
  const dialog=useRef<HTMLDialogElement>(null),confirm=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const d=dialog.current;if(!d)return;if(!p.open){if(d.open)d.close();return;}const previous=document.activeElement as HTMLElement|null;const overflow=document.body.style.overflow;document.body.style.overflow='hidden';d.showModal();confirm.current?.focus();return()=>{if(d.open)d.close();document.body.style.overflow=overflow;previous?.focus();};},[p.open]);
- return <dialog ref={dialog} aria-labelledby="confirm-contact-title" aria-describedby="confirm-contact-description" onCancel={e=>{e.preventDefault();if(!p.busy)p.onEdit();}} onClick={e=>{if(e.target===dialog.current&&!p.busy)p.onEdit();}} className="fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-[440px] overflow-hidden rounded-[28px] border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/65 backdrop:backdrop-blur-sm">
+ return <dialog ref={dialog} aria-labelledby="confirm-contact-title" aria-describedby="confirm-contact-description" onCancel={e=>{e.preventDefault();if(!p.busy)p.onEdit();}} onClick={e=>{if(e.target===dialog.current&&!p.busy)p.onEdit();}} className={`${p.boutique?styles.contactDialog:''} fixed inset-0 m-auto w-[calc(100%-2rem)] max-w-[440px] overflow-hidden rounded-[28px] border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/65 backdrop:backdrop-blur-sm`}>
   <div className="max-h-[90dvh] overflow-y-auto">
    <header className={p.boutique?"relative overflow-hidden px-5 py-4 text-white":"relative overflow-hidden px-6 pb-6 pt-7 text-white"} style={{background:p.boutique?'#211A14':`linear-gradient(135deg, ${p.primary}, #18152f)`}}>
     <div aria-hidden className="absolute -right-6 -top-8 h-36 w-36 rounded-full border-[20px] border-white/10"/>
