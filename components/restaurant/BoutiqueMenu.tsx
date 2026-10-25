@@ -9,7 +9,7 @@ export default function BoutiqueMenu({v}: {v:any}){
  const infoDialog=useRef<HTMLDialogElement>(null),infoClose=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const d=infoDialog.current;if(!info||!d)return;const previous=document.activeElement as HTMLElement|null;d.showModal();infoClose.current?.focus();return()=>{if(d.open)d.close();previous?.focus();};},[info]);
  const firstCategory=categories[0]??'',activeCategory=category||firstCategory;
- const goBack=()=>{v.setError('');if(payment)v.setPayment(false);else if(checkout)v.setCheckout(false);else if(window.history.length>1)window.history.back();else window.location.assign('/establecimientos');};
+ const goBack=()=>{v.setError('');if(payment)v.setPayment(false);else if(checkout)v.setCheckout(false);v.scrollTop();};
  const image=presentation.heroImage||config.store.coverImage;
  const tagline=presentation.headerText||'Buen café, sin importar la hora.';
  const shortDescription=(item:any)=>item.description?.match(/Presentación de (\d+\s*ml)/i)?.[1]||item.description?.match(/\b\d+\s*ml\b/i)?.[0]||'';
@@ -18,7 +18,7 @@ export default function BoutiqueMenu({v}: {v:any}){
  const vars={'--boutique-ink':appearance.primary,'--boutique-gold':appearance.accent,'--boutique-paper':appearance.background,'--boutique-text':appearance.text} as CSSProperties;
  const totals=<div className={styles.totals}>{packaging>0?<p><span>Empaque</span><span>{money(packaging)}</span></p>:null}{offer.discountCOP>0?<p><span>Descuento</span><span>−{money(offer.discountCOP)}</span></p>:null}<p className={styles.total}><span>{payment?'Total a pagar':'Total del pedido'}</span><strong>{money(total)}</strong></p></div>;
  return <main className={`${styles.page} ${checkout?styles.checkout:''}`} style={vars} data-catalog-style="CAFE_BOUTIQUE">
-  <header className={styles.header}><button className={styles.back} onClick={goBack} disabled={busy} aria-label={payment?'Volver a ver pedido':checkout?'Volver al menú':'Volver'}><Icon name="back"/></button><div className={styles.brand}>{config.store.image?<img src={config.store.image} alt={config.store.name}/>:<strong>{config.store.name}</strong>}</div><button className={styles.bag} aria-label={`Ver pedido, ${count} productos`} disabled={busy||!count} onClick={()=>{v.setCheckout(true);v.setPayment(false);v.scrollTop();}}><Icon name="bag" size={29}/>{count>0?<b>{count}</b>:null}</button></header>
+  <header className={styles.header}>{checkout||payment?<button className={styles.back} onClick={goBack} disabled={busy} aria-label={payment?'Volver a ver pedido':checkout?'Volver al menú':'Volver'}><Icon name="back"/></button>:<span aria-hidden="true"/>}<div className={styles.brand}>{config.store.image?<img src={config.store.image} alt={config.store.name}/>:<strong>{config.store.name}</strong>}</div><button className={styles.bag} aria-label={`Ver pedido, ${count} productos`} disabled={busy||!count} onClick={()=>{v.setCheckout(true);v.setPayment(false);v.scrollTop();}}><Icon name="bag" size={29}/>{count>0?<b>{count}</b>:null}</button></header>
   {!checkout&&v.installControl?<div className={styles.installBar}><span>Tu café, a un toque</span>{v.installControl}</div>:null}
   {dine?<div className={styles.locationBadge}><Icon name="pin" size={15}/><span>Estás en <strong>{session.locationLabel}</strong></span></div>:null}
   {!checkout?<>

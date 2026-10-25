@@ -78,7 +78,7 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
  return <main className="min-h-full p-4 pb-28" style={{background:bg,color:text}}>
   {kronix?<>
    <header className="relative -mx-4 -mt-4 overflow-hidden px-4 pb-3 pt-8" style={{background:`linear-gradient(180deg, ${appearance.secondary} 0%, ${primary} 48%, ${bg} 100%)`}}>
-    <button aria-label="Volver" onClick={()=>{if(payment)setPayment(false);else if(checkout)setCheckout(false);else if(window.history.length>1)window.history.back();}} className="absolute left-3 top-4 grid h-9 w-9 place-items-center rounded-full bg-black/20 text-xl text-white">‹</button>
+    {checkout||payment?<button aria-label="Volver" onClick={()=>{if(payment)setPayment(false);else if(checkout)setCheckout(false);}} className="absolute left-3 top-4 grid h-9 w-9 place-items-center rounded-full bg-black/20 text-xl text-white">‹</button>:null}
     <div className="grid min-h-[106px] grid-cols-[1.08fr_.70fr_.95fr] items-center gap-1 pl-8">
      <div className="flex h-[106px] min-w-0 items-center">{config.store.image?<img src={config.store.image} alt={config.store.name} className="h-full w-full object-contain object-left"/>:<b className="text-xl text-white">{config.store.name}</b>}</div>
      <p className="px-1 text-center text-[22px] font-black leading-tight" style={{color:appearance.accent}}>{appearance.headline === "Haz tu pedido" ? <><span className="text-[18px] text-white">Haz tu<br/></span>pedido</> : appearance.headline}</p>
