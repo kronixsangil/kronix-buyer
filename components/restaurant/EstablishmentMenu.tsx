@@ -32,7 +32,7 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
  useEffect(()=>{const saved=readBuyerContact();if(saved.remember){setSavedRemember(true);setName(saved.name);setPhone(saved.phone);setAddress(saved.address);setRemember(true);}},[]);
  const [confirmOpen,setConfirmOpen]=useState(false);
  const color=(v:any,f:string)=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)?v:f;
- const appearance=establishmentAppearance(presentation),kronix=appearance.kronix,boutique=presentation.style==='CAFE_BOUTIQUE';
+ const appearance=establishmentAppearance(presentation),kronix=appearance.kronix,boutique=['CAFE_BOUTIQUE','ICE_CREAM_RETRO'].includes(presentation.style);
  const primary=appearance.primary, bg=appearance.background, text=appearance.text;
  const title=config.serviceTitle||config.store.name;
  const categoryLabel=appearance.categoryLabel;
@@ -45,12 +45,12 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
  const offer=bestPromotion(presentation.promotions,foodTotal),total=foodTotal+packaging-offer.discountCOP;
  const key=`restaurant-cart:${session.slug}:${session.channel}:${session.locationLabel??''}`;
  const [restored,setRestored]=useState(false);
- useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'null');if(saved&&Date.now()-saved.at<86400000){setCart(saved.cart??{});setSelections(saved.selections??{});setName(saved.name??'');setPhone(saved.phone??'');setAddress(saved.address??'');setNote(saved.note??'');setReceiptId(saved.receiptId??'');if(methods.some(m=>m.kind===saved.paymentKind))setPaymentKind(saved.paymentKind);if(allowed.includes(saved.fulfillment))setFulfillment(saved.fulfillment);setCheckout(!!saved.checkout);setPayment(!!saved.payment&&(transfer||presentation.style==='CAFE_BOUTIQUE'));if(typeof saved.requestId==='string')requestId.current=saved.requestId;}}catch{}setRestored(true);},[key]);
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'null');if(saved&&Date.now()-saved.at<86400000){setCart(saved.cart??{});setSelections(saved.selections??{});setName(saved.name??'');setPhone(saved.phone??'');setAddress(saved.address??'');setNote(saved.note??'');setReceiptId(saved.receiptId??'');if(methods.some(m=>m.kind===saved.paymentKind))setPaymentKind(saved.paymentKind);if(allowed.includes(saved.fulfillment))setFulfillment(saved.fulfillment);setCheckout(!!saved.checkout);setPayment(!!saved.payment&&(transfer||['CAFE_BOUTIQUE','ICE_CREAM_RETRO'].includes(presentation.style)));if(typeof saved.requestId==='string')requestId.current=saved.requestId;}}catch{}setRestored(true);},[key]);
  useEffect(()=>{if(restored)try{localStorage.setItem(key,JSON.stringify({at:Date.now(),cart,selections,name,phone,address,note,receiptId,paymentKind,fulfillment,checkout,payment,requestId:requestId.current}));}catch{}},[cart,selections,name,phone,address,note,receiptId,paymentKind,fulfillment,checkout,payment,restored,key]);
  function toggle(itemId:string,g:any,id:string){setSelections(old=>{const prev=old[itemId]?.[g.id]??[];const next=prev.includes(id)?prev.filter(x=>x!==id):g.max===1?[id]:[...prev,id];if(next.length>g.max)return old;return {...old,[itemId]:{...old[itemId],[g.id]:next}};});requestId.current='';}
  function change(id:string,d:number){setReceiptId('');setReceiptPreview('');setCart(c=>({...c,[id]:Math.max(0,Math.min(20,(c[id]??0)+d))}));requestId.current='';}
  async function send(confirmed=false){
-  if(busy||!count)return;setError('');
+  if(busy||!count)return;setError('');if(presentation.catalogOnly===true){setError('Este catálogo todavía no recibe pedidos.');return;}
   if(!dine&&(name.trim().length<2||phone.replace(/\D/g,'').length<10)){setError('Escribe tu nombre y un teléfono válido.');return;}
   for(const i of selected)for(const g of i.options??[]){const ids=selections[i.id]?.[g.id]??[];if(ids.length<g.min||ids.length>g.max){setError(`Revisa ${g.label} en ${i.name}.`);return;}}
   if(!dine&&presentation.paymentMode!=='DIRECT'&&!receiptId){setError('Adjunta el comprobante de pago.');return;}

@@ -1,15 +1,16 @@
 /** Presentation contract shared by native and web. Existing businesses keep their settings. */
 export function establishmentAppearance(p: any = {}) {
 p = p ?? {};
+  const retro = p.style === "ICE_CREAM_RETRO" || p.themePresetId === "VANILLA_STRAWBERRY";
   const vibrant = p.theme === "VIBRANT";
   const valid = (v: any, fallback: string) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback;
   return {
     kronix: p.style === "KRONIX",
-    primary: valid(p.primaryColor, vibrant ? "#6415C5" : "#008C99"),
-    secondary: valid(p.secondaryColor, vibrant ? "#350071" : "#0A3566"),
-    background: valid(p.backgroundColor, vibrant ? "#F8EBFF" : "#F8FAFC"),
-    text: valid(p.textColor, vibrant ? "#11142D" : "#0F172A"),
-    accent: valid(p.accentColor, vibrant ? "#FDE047" : "#FFFFFF"),
+    primary: valid(p.primaryColor, retro ? "#A6071B" : vibrant ? "#6415C5" : "#008C99"),
+    secondary: valid(p.secondaryColor, retro ? "#F4B7A5" : vibrant ? "#350071" : "#0A3566"),
+    background: valid(p.backgroundColor, retro ? "#FFF3D9" : vibrant ? "#F8EBFF" : "#F8FAFC"),
+    text: valid(p.textColor, retro ? "#491613" : vibrant ? "#11142D" : "#0F172A"),
+    accent: valid(p.accentColor, retro ? "#BF1029" : vibrant ? "#FDE047" : "#FFFFFF"),
     categoryLabel: (key: string) => (Object.prototype.hasOwnProperty.call(p.categoryLabels??{},key) && typeof p.categoryLabels[key] === "string" && p.categoryLabels[key].trim() ? p.categoryLabels[key] : "") || (/^\d+$/.test(key) ? new Intl.NumberFormat("es-CO", {style:"currency",currency:"COP",maximumFractionDigits:0}).format(Number(key)) : key === "ESPECIALES" ? "Especiales" : key),
     title: p.menuTitle || "",
     headline: p.headerText || "Haz tu pedido",
