@@ -1,15 +1,13 @@
 'use client';
 import {useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import styles from './BoutiqueMenu.module.css';
-import RetroHero,{RetroMenuTitle} from './RetroHero';
+import RetroHero from './RetroHero';
 const money=(n:number)=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n);
 function Icon({name,size=22}:{name:'back'|'bag'|'pin'|'arrow'|'upload'|'check';size?:number}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{name==='back'?<path d="m14 6-6 6 6 6"/>:name==='arrow'?<path d="m9 6 6 6-6 6"/>:name==='bag'?<><path d="M5 7h14l1 14H4L5 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></>:name==='pin'?<><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></>:name==='check'?<path d="m5 12 4 4L19 6"/>:<><path d="M12 16V3m-4 4 4-4 4 4"/><path d="M4 15v5h16v-5"/></>}</svg>}
 export default function BoutiqueMenu({v}: {v:any}){
  const {config,presentation,appearance,items,selected,cart,count,total,foodTotal,packaging,offer,category,categories,categoryLabel,checkout,payment,dine,session,busy,error,methods,selectedMethod,receiptId,receiptPreview,receiptInput,allowed,fulfillment,name,phone,address,note,remember}=v;
  const retro=presentation.style==='ICE_CREAM_RETRO',catalogOnly=presentation.catalogOnly===true;
  const [info,setInfo]=useState<any>(null);
- const [menuPage,setMenuPage]=useState(0);
- useEffect(()=>setMenuPage(0),[category,config.id]);
  const photoSrc=(src:string)=>retro&&src?.startsWith('/establecimientos/caseritos/productos/')?`${src}${src.includes('?')?'&':'?'}v=retro2`:src;
  const infoDialog=useRef<HTMLDialogElement>(null),infoClose=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const d=infoDialog.current;if(!info||!d)return;const previous=document.activeElement as HTMLElement|null;d.showModal();infoClose.current?.focus();return()=>{if(d.open)d.close();previous?.focus();};},[info]);
@@ -25,9 +23,8 @@ export default function BoutiqueMenu({v}: {v:any}){
  const filteredItems=items.filter((i:any)=>!appearance.showCategories||!activeCategory||i.category===activeCategory);
  const favorites=['Lulo','Maracumango','Oreo','Fresas con crema'];
  const orderedItems=retro&&!activeCategory?[...filteredItems].sort((a:any,b:any)=>{const ai=favorites.indexOf(a.name),bi=favorites.indexOf(b.name);return (ai<0?999:ai)-(bi<0?999:bi);}):filteredItems;
- const pageCount=Math.max(1,Math.ceil(orderedItems.length/4)),currentPage=Math.min(menuPage,pageCount-1);
- const visibleItems=retro?orderedItems.slice(currentPage*4,currentPage*4+4):orderedItems;
- const menuIntro=<section className={styles.menuIntro}>{retro?<RetroMenuTitle title={presentation.menuTitle||'Hechos para enamorar'}/>:<><h2>{presentation.menuTitle||'Hechas al momento'}</h2><img className={styles.foliage} src="/establecimientos/3AM/ramitas-boutique.png" alt="" aria-hidden="true"/></>}</section>;
+ const visibleItems=orderedItems;
+ const menuIntro=<section className={styles.menuIntro}><h2>{presentation.menuTitle||'Hechas al momento'}</h2><img className={styles.foliage} src="/establecimientos/3AM/ramitas-boutique.png" alt="" aria-hidden="true"/></section>;
  const addressLine=<p className={styles.address}><Icon name="pin" size={16}/><span>{retro?String(config.store.address||'').replace(/,?\s*Granada(?:,?\s*Meta)?\s*$/i,'').trim():config.store.address}</span></p>;
  const totals=<div className={styles.totals}>{packaging>0?<p><span>Empaque</span><span>{money(packaging)}</span></p>:null}{offer.discountCOP>0?<p><span>Descuento</span><span>−{money(offer.discountCOP)}</span></p>:null}<p className={styles.total}><span>{payment?'Total a pagar':'Total del pedido'}</span><strong>{money(total)}</strong></p></div>;
  return <main className={`${styles.page} ${checkout?styles.checkout:''} ${retro?styles.retro:''}`} style={vars} data-catalog-style={retro?'ICE_CREAM_RETRO':'CAFE_BOUTIQUE'}>
@@ -38,14 +35,12 @@ export default function BoutiqueMenu({v}: {v:any}){
   {!checkout?<>
    {retro?<>{addressLine}<RetroHero image={image} title={presentation.heroTitle||'Un clásico,'} accent={presentation.heroAccent||'para sonreír.'}/></>:<><section className={styles.hero} aria-label={tagline}>{image?<img src={image} alt="" fetchPriority="high"/>:null}<div className={styles.heroShade}/><div className={styles.heroCopy}><h1>{presentation.heroTitle||'Tu pausa'}<br/><em>{presentation.heroAccent||'favorita.'}</em></h1><p>{tagline}</p></div></section>{addressLine}{menuIntro}</>}
    {appearance.showCategories?<nav className={styles.categories} aria-label="Categorías">{retro?<button aria-pressed={!activeCategory} onClick={()=>v.setCategory('')}>Todos</button>:null}{categories.map((c:string)=><button key={c} aria-pressed={activeCategory===c} onClick={()=>v.setCategory(c)}>{categoryLabel(c)}</button>)}</nav>:null}
-   {retro?menuIntro:null}
-   {catalogOnly?<p className={styles.notice} role="status">Vista previa · Los pedidos aún no están habilitados.</p>:null}
+   {catalogOnly&&!retro?<p className={styles.notice} role="status">Vista previa · Los pedidos aún no están habilitados.</p>:null}
    {dataClosed(v)?<p className={styles.notice}>Estamos cerrados · {config.openTime} – {config.closeTime}</p>:<div className={styles.grid}>{visibleItems.map((i:any)=><article key={i.id} className={styles.card} data-selected={!!cart[i.id]}>
-    <div className={styles.photo}><button type="button" className={styles.photoInfo} aria-label={`Ver detalles de ${i.name}`} onClick={()=>setInfo(i)}>{i.image?<img src={photoSrc(i.image)} alt={i.name} className={styles.photoMain} loading="lazy"/>:<span className={styles.noPhoto}>{retro?config.store.name:'3AM'}</span>}</button><button className={styles.infoButton} aria-label={`Ver información de ${i.name}`} onClick={()=>setInfo(i)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"/></svg></button>{cart[i.id]>0?<span className={styles.quantityBadge}>{cart[i.id]}</span>:null}</div>
+    <div className={styles.photo}><button type="button" className={styles.photoInfo} style={retro&&i.image?{backgroundImage:`url(${JSON.stringify(photoSrc(i.image))})`}:undefined} aria-label={`Ver detalles de ${i.name}`} onClick={()=>setInfo(i)}>{i.image?<img src={photoSrc(i.image)} alt={i.name} className={styles.photoMain} loading="lazy"/>:<span className={styles.noPhoto}>{retro?config.store.name:'3AM'}</span>}</button><button className={styles.infoButton} aria-label={`Ver información de ${i.name}`} onClick={()=>setInfo(i)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"/></svg></button>{cart[i.id]>0?<span className={styles.quantityBadge}>{cart[i.id]}</span>:null}</div>
     <div className={styles.cardBody}><h3>{i.name}</h3><p>{shortDescription(i)}</p><div className={styles.cardBottom}><strong>{money(i.priceCOP+v.extra(i))}</strong><div className={styles.quantity}>{cart[i.id]>0?<><button disabled={busy} aria-label={`Quitar ${i.name}`} onClick={()=>v.change(i.id,-1)}>−</button><b>{cart[i.id]}</b></>:null}<button className={styles.plus} disabled={busy||catalogOnly||cart[i.id]>=20} aria-label={`Agregar ${i.name}`} onClick={()=>v.change(i.id,1)}>+</button></div></div>
     {(i.options??[]).map((g:any)=><details className={styles.options} key={g.id}><summary>{g.label}{g.min>0?' · obligatorio':''}</summary>{g.choices.filter((c:any)=>c.isActive!==false).map((c:any)=><label key={c.id}><input type="checkbox" disabled={busy} checked={(v.selections[i.id]?.[g.id]??[]).includes(c.id)} onChange={()=>v.toggle(i.id,g,c.id)}/>{c.label}{c.priceCOP?` + ${money(c.priceCOP)}`:''}</label>)}</details>)}</div>
    </article>)}</div>}
-   {retro&&!dataClosed(v)&&pageCount>1?<nav className={styles.menuPager} aria-label="Páginas de sabores"><button disabled={currentPage===0} aria-label="Sabores anteriores" onClick={()=>setMenuPage(currentPage-1)}>←</button><span aria-live="polite">{currentPage*4+1}–{Math.min((currentPage+1)*4,orderedItems.length)} de {orderedItems.length} sabores</span><button disabled={currentPage===pageCount-1} aria-label="Más sabores" onClick={()=>setMenuPage(currentPage+1)}>Más sabores →</button></nav>:null}
    {!items.length&&!dataClosed(v)?<p className={styles.notice}>La carta estará disponible pronto.</p>:null}
   </>:<>
    <div className={styles.steps}><span>01 · Tu pedido</span><i/><span data-current={payment}>02 · {dine?'Confirmación':'Pago'}</span></div>

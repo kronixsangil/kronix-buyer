@@ -61,10 +61,10 @@
 .retro .quantity .plus:disabled{opacity:.45}
 .retro .quantity>b{font-size:11px}
 .retro .notice{padding:3px 7px;margin:0 0 5px;background:#ffe4cb80;color:#8b2933;border:0;border-radius:7px;font-size:10px;line-height:1.35;text-align:center}
-.menuPager{display:flex;align-items:center;justify-content:space-between;gap:5px;margin:8px 0 0;min-height:33px;color:var(--boutique-text)}
-.menuPager span{font-size:10px;white-space:nowrap}
-.menuPager button{border:1px solid #ca7d6b66;background:#ffe2ca;border-radius:18px;min-height:32px;padding:6px 10px;color:var(--boutique-ink);font-size:11px;font-weight:700}
-.menuPager button:disabled{opacity:.35}
+
+
+
+
 .retro .fixedAction{padding:6px 12px calc(8px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--boutique-paper) 85%,transparent)}
 .retro .cartBar{min-height:52px;padding:7px 10px;background:var(--boutique-ink);border-radius:15px;box-shadow:none}
 .retro .cartNext{background:#fff2d9;color:var(--boutique-ink);font-family:'Caseritos Display',Georgia,serif;font-weight:900;padding:10px 13px}
@@ -81,8 +81,8 @@
 .retro .infoPhoto{width:100%;height:auto;max-height:230px;aspect-ratio:1.5;object-fit:contain;background:#efbfaa}
 .retro .infoContent h2{font-family:'Caseritos Display',Georgia,serif;font-weight:900;color:var(--boutique-ink)}
 .retro .infoContent .send{background:var(--boutique-ink)}
-@media(min-width:560px){.retro{padding-left:18px;padding-right:18px}.awning{height:39px;margin-left:-18px;margin-right:-18px;background-size:110px 40px}.retro .header,.retro.checkout .header{height:105px}.retro .brand img,.retro.checkout .brand img{width:245px;height:117px}.retro .address{font-size:13px;padding:5px 17px}.retroHero{margin-left:-18px;margin-right:-18px;aspect-ratio:2.85}.retro .retroInstall{top:80px;left:18px}.retro .categories button{font-size:18px;min-height:37px}.retro .grid{gap:10px}.retro .cardBody h3{font-size:20px;min-height:2.1em}.retro .cardBody{padding:5px 7px 8px}.retro .cardBottom>strong{font-size:26px}.retro .quantity .plus{width:34px;height:34px}.retro .menuIntro{margin:3px 0 7px}.retro .notice{font-size:11px}.menuPager span{font-size:12px}.menuPager button{font-size:12px}}
-@media(max-width:359px){.retro{padding-left:9px;padding-right:9px}.awning{margin-left:-9px;margin-right:-9px;height:26px;background-size:76px 28px}.retro .header,.retro.checkout .header{height:82px}.retro .brand img,.retro.checkout .brand img{width:180px;height:86px}.retro .retroInstall{left:9px;top:51px}.retro .retroInstall button{padding:4px;min-width:40px}.retroInstall button::after{font-size:9px}.retro .bag{width:36px;height:36px}.retro .address{font-size:10px}.retroHero{margin-left:-9px;margin-right:-9px;aspect-ratio:2.6}.retro .categories{gap:3px}.retro .categories button{font-size:11px}.retro .cardBody h3{font-size:12.5px}.retro .cardBottom>strong{font-size:16px}.retro .quantity .plus{width:25px;min-width:25px;height:27px;min-height:27px}.retro .quantity button{min-width:21px}.retro .quantity{gap:2px}.retro .infoButton{width:25px;height:25px}.menuPager button{padding:6px 8px;font-size:10px}.menuPager span{font-size:9px}}
+@media(min-width:560px){.retro{padding-left:18px;padding-right:18px}.awning{height:39px;margin-left:-18px;margin-right:-18px;background-size:110px 40px}.retro .header,.retro.checkout .header{height:105px}.retro .brand img,.retro.checkout .brand img{width:245px;height:117px}.retro .address{font-size:13px;padding:5px 17px}.retroHero{margin-left:-18px;margin-right:-18px;aspect-ratio:2.85}.retro .retroInstall{top:80px;left:18px}.retro .categories button{font-size:18px;min-height:37px}.retro .grid{gap:10px}.retro .cardBody h3{font-size:20px;min-height:2.1em}.retro .cardBody{padding:5px 7px 8px}.retro .cardBottom>strong{font-size:26px}.retro .quantity .plus{width:34px;height:34px}.retro .menuIntro{margin:3px 0 7px}.retro .notice{font-size:11px}}
+@media(max-width:359px){.retro{padding-left:9px;padding-right:9px}.awning{margin-left:-9px;margin-right:-9px;height:26px;background-size:76px 28px}.retro .header,.retro.checkout .header{height:82px}.retro .brand img,.retro.checkout .brand img{width:180px;height:86px}.retro .retroInstall{left:9px;top:51px}.retro .retroInstall button{padding:4px;min-width:40px}.retroInstall button::after{font-size:9px}.retro .bag{width:36px;height:36px}.retro .address{font-size:10px}.retroHero{margin-left:-9px;margin-right:-9px;aspect-ratio:2.6}.retro .categories{gap:3px}.retro .categories button{font-size:11px}.retro .cardBody h3{font-size:12.5px}.retro .cardBottom>strong{font-size:16px}.retro .quantity .plus{width:25px;min-width:25px;height:27px;min-height:27px}.retro .quantity button{min-width:21px}.retro .quantity{gap:2px}.retro .infoButton{width:25px;height:25px}}
 /* Final sizing: readable names without reserving an unused second line. */
 .retro .card{display:flex;flex-direction:column}
 .retro .photo{flex-shrink:0}
@@ -94,3 +94,26 @@
 /* Keep flavour navigation above the cart on typical phone screens. */
 @media(max-width:559px){.retro .header,.retro.checkout .header{height:84px}.retro .brand img,.retro.checkout .brand img{height:90px}.retroHero{aspect-ratio:3}.retro .photo{aspect-ratio:1.6}}
 @media(max-width:559px) and (max-height:780px){.retro .header,.retro.checkout .header{height:74px}.retro .brand img,.retro.checkout .brand img{height:80px}.retroHero{aspect-ratio:3.3}.retro .photo{aspect-ratio:1.8}.retro .menuIntro{margin-bottom:2px}}
+/* Approved final layout: continuous catalogue and smaller cards. */
+.awning{height:46px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='264' height='48' viewBox='0 0 264 48'%3E%3Cpath d='M0 0h44v23a22 22 0 0 1-44 0z' fill='%23d95162'/%3E%3Cpath d='M44 0h44v17a22 22 0 0 1-44 0z' fill='%23ffe8be'/%3E%3Cpath d='M88 0h44v11a22 22 0 0 1-44 0z' fill='%23d95162'/%3E%3Cpath d='M132 0h44v8a22 22 0 0 1-44 0z' fill='%23ffe8be'/%3E%3Cpath d='M176 0h44v15a22 22 0 0 1-44 0z' fill='%23d95162'/%3E%3Cpath d='M220 0h44v22a22 22 0 0 1-44 0z' fill='%23ffe8be'/%3E%3C/svg%3E");background-size:264px 48px}
+.retro .header,.retro.checkout .header{height:86px}
+.retro .brand img,.retro.checkout .brand img{width:205px;height:82px}
+.retro .retroInstall{top:72px}
+.retro .address{margin-top:2px;margin-bottom:0}
+.retroHero{margin-bottom:3px;aspect-ratio:3.1}
+.retro .categories{margin:3px 0 8px}
+.retro .grid{gap:7px}
+.retro .photo{aspect-ratio:2}
+.retro .cardBody{padding:2px 4px 4px}
+.retro .cardBody h3{font-size:clamp(14px,3.9vw,20px);line-height:1.05}
+.retro .cardBottom{padding-top:2px}
+.retro .quantity .plus{width:26px;min-width:26px;height:26px;min-height:26px;font-size:23px}
+.retro .infoButton{width:24px;height:24px;top:4px;right:4px}
+.retro .infoButton svg{width:17px;height:17px}
+@media(min-width:560px){.awning{height:53px;background-size:300px 55px}.retro .header,.retro.checkout .header{height:100px}.retro .brand img,.retro.checkout .brand img{width:235px;height:96px}.retro .retroInstall{top:90px}.retro .cardBody h3{font-size:19px}.retro .cardBody{padding:3px 5px 5px}.retro .quantity .plus{width:29px;height:29px}.retroHero{aspect-ratio:3.1}}
+@media(max-width:359px){.awning{height:39px;background-size:230px 42px}.retro .header,.retro.checkout .header{height:78px}.retro .brand img,.retro.checkout .brand img{width:185px;height:74px}.retro .retroInstall{top:63px}.retro .cardBody h3{font-size:13px}.retro .quantity .plus{width:24px;min-width:24px;height:24px;min-height:24px}.retro .grid{gap:6px}}
+
+/* Extend the photo background into the sides; keep the entire product sharp. */
+.retro .photoInfo{position:relative;isolation:isolate;background-size:cover;background-position:center}
+.retro .photoInfo::before{content:'';position:absolute;inset:-8px;background-image:inherit;background-size:cover;background-position:center;filter:blur(9px);z-index:0}
+.retro .photoMain{position:relative;z-index:1}
