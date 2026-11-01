@@ -117,3 +117,16 @@
 .retro .photoInfo{position:relative;isolation:isolate;background-size:cover;background-position:center}
 .retro .photoInfo::before{content:'';position:absolute;inset:-8px;background-image:inherit;background-size:cover;background-position:center;filter:blur(9px);z-index:0}
 .retro .photoMain{position:relative;z-index:1}
+/* One compact masthead: logo, controls and address overlay the banner. */
+.retroMasthead{position:relative;aspect-ratio:2.05;margin:0 -12px 4px;isolation:isolate}
+.retroMasthead .retroHero{position:absolute;inset:0;aspect-ratio:auto;margin:0;overflow:hidden}
+.retroMasthead .retroHero>img{top:auto;bottom:0;height:70%;object-fit:cover;object-position:center}
+.retroMasthead .header{position:absolute;top:0;left:12px;right:12px;height:82px;z-index:2}
+.retroMasthead .brand img{height:80px;width:205px}
+.retroMasthead .retroInstall{position:absolute;top:29px;left:12px;z-index:3}
+.retroMasthead .address{position:absolute;bottom:3px;left:12px;margin:0;padding:3px 7px;min-height:18px;max-width:56%;font-size:9px;line-height:1.2;z-index:2;background:#f8d3b9d9}
+.retroMasthead .address svg{width:11px;height:11px}
+.retroMasthead .retroLettering{top:auto;bottom:16px;left:3%;height:56%;width:53%}
+.retroMasthead .retroCustomTitle{top:43%;font-size:clamp(20px,5.5vw,34px)}
+@media(min-width:560px){.retroMasthead{margin-left:-18px;margin-right:-18px;aspect-ratio:2.25}.retroMasthead .header{left:18px;right:18px;height:100px}.retroMasthead .brand img{height:97px;width:235px}.retroMasthead .retroInstall{top:35px;left:18px}.retroMasthead .address{left:18px;bottom:5px;font-size:11px;padding:4px 10px}.retroMasthead .retroLettering{bottom:24px}}
+@media(max-width:359px){.retroMasthead{margin-left:-9px;margin-right:-9px;aspect-ratio:1.95}.retroMasthead .header{left:9px;right:9px;height:75px}.retroMasthead .brand img{height:72px;width:185px}.retroMasthead .retroInstall{left:9px;top:26px}.retroMasthead .address{left:9px;font-size:8px;max-width:60%}}
