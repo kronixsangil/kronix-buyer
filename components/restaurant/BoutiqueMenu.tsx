@@ -2,12 +2,24 @@
 import {useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import styles from './BoutiqueMenu.module.css';
 import RetroHero from './RetroHero';
+import cafeStyles from './CafeSelector.module.css';
+import { cafeSections, cafeSectionFor } from './cafe-sections';
 const money=(n:number)=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(n);
 function Icon({name,size=22}:{name:'back'|'bag'|'pin'|'arrow'|'upload'|'check';size?:number}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{name==='back'?<path d="m14 6-6 6 6 6"/>:name==='arrow'?<path d="m9 6 6 6-6 6"/>:name==='bag'?<><path d="M5 7h14l1 14H4L5 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></>:name==='pin'?<><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></>:name==='check'?<path d="m5 12 4 4L19 6"/>:<><path d="M12 16V3m-4 4 4-4 4 4"/><path d="M4 15v5h16v-5"/></>}</svg>}
 export default function BoutiqueMenu({v}: {v:any}){
  const {config,presentation,appearance,items,selected,cart,count,total,foodTotal,packaging,offer,category,categories,categoryLabel,checkout,payment,dine,session,busy,error,methods,selectedMethod,receiptId,receiptPreview,receiptInput,allowed,fulfillment,name,phone,address,note,remember}=v;
  const retro=presentation.style==='ICE_CREAM_RETRO',catalogOnly=presentation.catalogOnly===true;
  const [info,setInfo]=useState<any>(null);
+ const [cafeSection,setCafeSection]=useState<string | null>(null);
+ const cafeSelector=!retro && session.slug==='3am' && appearance.showCategories;
+ const showSelector=cafeSelector && cafeSection===null;
+ const sectionFor=(item: {name:string; category:string})=>cafeSectionFor(item,categoryLabel(item.category));
+ const availableSections=new Set(items.map(sectionFor));
+ const chooseSection=(section:string | null)=>{
+   setCafeSection(section);
+   v.setCategory('');
+   v.scrollTop();
+ };
  const photoSrc=(src:string)=>retro&&src?.startsWith('/establecimientos/caseritos/productos/')?`${src}${src.includes('?')?'&':'?'}v=retro2`:src;
  const infoDialog=useRef<HTMLDialogElement>(null),infoClose=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const d=infoDialog.current;if(!info||!d)return;const previous=document.activeElement as HTMLElement|null;d.showModal();infoClose.current?.focus();return()=>{if(d.open)d.close();previous?.focus();};},[info]);
@@ -20,7 +32,7 @@ export default function BoutiqueMenu({v}: {v:any}){
  const actionLabel=dine?'Enviar a preparación':payment?'Confirmar y enviar':'Continuar con el pago';
  const next=()=>{v.setError('');if(dine||payment){void v.send();return;}if(name.trim().length<2||phone.replace(/\D/g,'').length!==10){v.setError('Escribe tu nombre y un celular de 10 dígitos.');return;}for(const i of selected)for(const g of i.options??[]){const ids=v.selections[i.id]?.[g.id]??[];if(ids.length<g.min||ids.length>g.max){v.setError(`Revisa ${g.label} en ${i.name}.`);return;}}if(v.transfer&&!methods.length){v.setError('El negocio aún no tiene datos de transferencia.');return;}v.setPayment(true);v.scrollTop();};
  const vars={'--boutique-ink':appearance.primary,'--boutique-gold':appearance.accent,'--boutique-paper':appearance.background,'--boutique-text':appearance.text} as CSSProperties;
- const filteredItems=items.filter((i:any)=>!appearance.showCategories||!activeCategory||i.category===activeCategory);
+ const filteredItems=cafeSelector ? items.filter((i:any)=>cafeSection==="all" || sectionFor(i)===cafeSection) : items.filter((i:any)=>!appearance.showCategories||!activeCategory||i.category===activeCategory);
  const favorites=['Lulo','Maracumango','Oreo','Fresas con crema'];
  const orderedItems=retro&&!activeCategory?[...filteredItems].sort((a:any,b:any)=>{const ai=favorites.indexOf(a.name),bi=favorites.indexOf(b.name);return (ai<0?999:ai)-(bi<0?999:bi);}):filteredItems;
  const visibleItems=orderedItems;
@@ -38,8 +50,20 @@ export default function BoutiqueMenu({v}: {v:any}){
   </div>:<>{header}{!checkout&&v.installControl?<div className={styles.installBar}><span>Tu café, a un toque</span>{v.installControl}</div>:null}</>}
   {dine?<div className={styles.locationBadge}><Icon name="pin" size={15}/><span>Estás en <strong>{session.locationLabel}</strong></span></div>:null}
   {!checkout?<>
+   {showSelector?<section className={cafeStyles.selector} aria-labelledby="cafe-category-title">
+    <h1 id="cafe-category-title">{presentation.menuTitle||'Hechas al momento'}</h1>
+    <div className={cafeStyles.tiles}>{cafeSections.map(section=><button
+      type="button" key={section.id} className={cafeStyles.tile}
+      disabled={!availableSections.has(section.id)} onClick={()=>chooseSection(section.id)}>
+      <img src={`/establecimientos/3AM/categorias/${section.id}.jpg`} alt="" />
+      <span>{section.label}</span><small aria-hidden="true">― ❧ ―</small>
+    </button>)}</div>
+    {items.length>0?<button type="button" className={cafeStyles.all} onClick={()=>chooseSection('all')}>Ver toda la carta</button>:null}
+    {dataClosed(v)?<p className={styles.notice}>Estamos cerrados · {config.openTime} – {config.closeTime}</p>:null}
+   </section>:<>
+   {cafeSelector?<button type="button" className={cafeStyles.return} onClick={()=>chooseSection(null)}>‹ Categorías</button>:null}
    {retro?null:<><section className={styles.hero} aria-label={tagline}>{image?<img src={image} alt="" fetchPriority="high"/>:null}<div className={styles.heroShade}/><div className={styles.heroCopy}><h1>{presentation.heroTitle||'Tu pausa'}<br/><em>{presentation.heroAccent||'favorita.'}</em></h1><p>{tagline}</p></div></section>{addressLine}{menuIntro}</>}
-   {appearance.showCategories?<nav className={styles.categories} aria-label="Categorías">{retro?<button aria-pressed={!activeCategory} onClick={()=>v.setCategory('')}>Todos</button>:null}{categories.map((c:string)=><button key={c} aria-pressed={activeCategory===c} onClick={()=>v.setCategory(c)}>{categoryLabel(c)}</button>)}</nav>:null}
+   {cafeSelector?<h2 className={cafeStyles.sectionTitle}>{cafeSections.find(section=>section.id===cafeSection)?.label??"Toda la carta"}</h2>:null}{!cafeSelector&&appearance.showCategories?<nav className={styles.categories} aria-label="Categorías">{retro?<button aria-pressed={!activeCategory} onClick={()=>v.setCategory('')}>Todos</button>:null}{categories.map((c:string)=><button key={c} aria-pressed={activeCategory===c} onClick={()=>v.setCategory(c)}>{categoryLabel(c)}</button>)}</nav>:null}
    {catalogOnly&&!retro?<p className={styles.notice} role="status">Vista previa · Los pedidos aún no están habilitados.</p>:null}
    {dataClosed(v)?<p className={styles.notice}>Estamos cerrados · {config.openTime} – {config.closeTime}</p>:<div className={styles.grid}>{visibleItems.map((i:any)=><article key={i.id} className={styles.card} data-selected={!!cart[i.id]}>
     <div className={styles.photo}><button type="button" className={styles.photoInfo} style={retro&&i.image?{backgroundImage:`url(${JSON.stringify(photoSrc(i.image))})`}:undefined} aria-label={`Ver detalles de ${i.name}`} onClick={()=>setInfo(i)}>{i.image?<img src={photoSrc(i.image)} alt={i.name} className={styles.photoMain} loading="lazy"/>:<span className={styles.noPhoto}>{retro?config.store.name:'3AM'}</span>}</button><button className={styles.infoButton} aria-label={`Ver información de ${i.name}`} onClick={()=>setInfo(i)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7" r="1" fill="currentColor" stroke="none"/></svg></button>{cart[i.id]>0?<span className={styles.quantityBadge}>{cart[i.id]}</span>:null}</div>
@@ -47,6 +71,7 @@ export default function BoutiqueMenu({v}: {v:any}){
     {(i.options??[]).map((g:any)=><details className={styles.options} key={g.id}><summary>{g.label}{g.min>0?' · obligatorio':''}</summary>{g.choices.filter((c:any)=>c.isActive!==false).map((c:any)=><label key={c.id}><input type="checkbox" disabled={busy} checked={(v.selections[i.id]?.[g.id]??[]).includes(c.id)} onChange={()=>v.toggle(i.id,g,c.id)}/>{c.label}{c.priceCOP?` + ${money(c.priceCOP)}`:''}</label>)}</details>)}</div>
    </article>)}</div>}
    {!items.length&&!dataClosed(v)?<p className={styles.notice}>La carta estará disponible pronto.</p>:null}
+   </>}
   </>:<>
    <div className={styles.steps}><span>01 · Tu pedido</span><i/><span data-current={payment}>02 · {dine?'Confirmación':'Pago'}</span></div>
    <div className={styles.checkoutTitle}><h1>{payment?'Un último paso.':(retro?'Tu antojo, a tu gusto.':'Tu pausa, a tu gusto.')}</h1><p>{payment?'Confirma la entrega y realiza el pago.':dine?'Revisa tu selección. La llevamos a tu punto.':'Revisa tu selección y cuéntanos quién eres.'}</p></div>
