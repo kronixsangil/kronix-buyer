@@ -52,9 +52,9 @@ export default function BoutiqueMenu({v}: {v:any}){
   {!checkout?<>
    {showSelector?<section className={cafeStyles.selector} aria-labelledby="cafe-category-title">
     <h1 id="cafe-category-title">{presentation.menuTitle||'Hechas al momento'}</h1>
-    <div className={cafeStyles.tiles}>{cafeSections.map(section=><button
+    <div className={cafeStyles.tiles}>{cafeSections.filter(section=>availableSections.has(section.id)).map(section=><button
       type="button" key={section.id} className={cafeStyles.tile}
-      disabled={!availableSections.has(section.id)} onClick={()=>chooseSection(section.id)}>
+      onClick={()=>chooseSection(section.id)}>
       <img src={`/establecimientos/3AM/categorias/${section.id}.jpg`} alt="" />
       <span>{section.label}</span><small aria-hidden="true">― ❧ ―</small>
     </button>)}</div>

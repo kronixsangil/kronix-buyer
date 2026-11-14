@@ -6,7 +6,7 @@ export const cafeSections = [
   { id: 'granizados', label: 'Granizados y smoothies' },
   { id: 'proteina', label: 'Jugos y proteína' },
   { id: 'cocteles', label: 'Cócteles con café' },
-  { id: 'comidas', label: 'Desayunos y comidas' },
+  { id: 'comidas', label: 'Comidas' },
   { id: 'postres', label: 'Repostería y postres' },
 ] as const;
 
@@ -33,7 +33,7 @@ export function cafeSectionFor(item: { name: string; category: string }, categor
   if (/^(granizado|smooth?ie|smothie|mango sunrise|mango beach)\b/.test(name)) return 'granizados';
   if (/^(soda|limonada|beso rosa|paraiso rosa|rubi berry|vitamina c|atardecer tropical)\b/.test(name)) return 'sodas';
   if (/^(jugo verde|proteina)\b/.test(name)) return 'proteina';
-  if (/^((?:latte|americano) en las rocas|blueberry latte|cold brew|aerocano|expreso tonic|espresso tonic|orange espresso|nevado de cafe)\b/.test(name)) return 'frios';
+  if (/^((?:latte|americano) en las rocas|blueberry latte|pink latte|cold brew|aerocano|expreso tonic|espresso tonic|orange espresso|nevado de cafe)\b/.test(name)) return 'frios';
   if (name === 'cafe filtrado') return 'calientes';
   const key = normalize(item.category);
   return cafeSections.find(section => section.id === key || normalize(section.label) === key)?.id
