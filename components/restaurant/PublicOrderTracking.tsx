@@ -6,6 +6,7 @@ export default function PublicOrderTracking({order,data,onMenu,notifications}:{o
  const progress=restaurantProgress(order),config=data.config,presentation=config.appPresentation??{};
  const color=(v:any,f:string)=>/^#[a-f0-9]{6}$/i.test(v??'')?v:f;
  const vars={'--ink':color(presentation.primaryColor,'#211a14'),'--paper':color(presentation.backgroundColor,'#fbf5eb')} as CSSProperties;
+ const cash=order.paymentMethod==='CASH_ON_DELIVERY';
  const contact=String(config.store.cel1||config.store.cel2||'').replace(/\D/g,'');
  return <section className={styles.page} style={vars}>
   <header className={styles.brand}>{config.store.image?<img src={config.store.image} alt={config.store.name}/>:<strong>{config.store.name}</strong>}</header>
@@ -19,7 +20,8 @@ export default function PublicOrderTracking({order,data,onMenu,notifications}:{o
    {progress.state==='REJECTED'?<div className={styles.rejected}>Tu pedido no fue aceptado. Si realizaste una transferencia, comunícate con el establecimiento para revisar el pago.{contact?<a className={styles.link} href={`tel:${contact}`}>Llamar al establecimiento</a>:null}</div>:<ol className={styles.steps} aria-label="Seguimiento del pedido">{progress.steps.map((step,i)=><li key={step.state} data-done={i<progress.current} aria-current={i===progress.current?'step':undefined}><span aria-hidden="true">{i<progress.current?'✓':i+1}</span>{step.label}</li>)}</ol>}
    {order.fulfillment==='DELIVERY'&&order.deliveryAddress?<p className={styles.hint}>Entrega: {order.deliveryAddress}</p>:null}
    {order.fulfillment==='PICKUP'?<p className={styles.hint}>Recoge en {config.store.address} cuando el pedido esté listo.</p>:null}
-   {progress.terminal&&!order.paymentVerifiedAt&&order.paymentMethod!=='AT_RESTAURANT'&&order.paymentMethod!=='DIRECT_TO_ESTABLISHMENT'?<p className={styles.hint}>La entrega finalizó. La validación del pago no aparece registrada.</p>:null}
+   {cash&&!progress.terminal?<p className={styles.hint}>Pago en efectivo al recibir.</p>:null}
+   {progress.terminal&&!cash&&!order.paymentVerifiedAt&&order.paymentMethod!=='AT_RESTAURANT'&&order.paymentMethod!=='DIRECT_TO_ESTABLISHMENT'?<p className={styles.hint}>La entrega finalizó. La validación del pago no aparece registrada.</p>:null}
   </div>
   {!progress.terminal?<div className={styles.panel}>{notifications}</div>:null}
   <div className={styles.panel}><button className={`${styles.button} ${styles.secondary}`} onClick={onMenu}>Volver a la carta</button></div>

@@ -15,7 +15,11 @@ export function restaurantError(e:any){
 }
 export default function EstablishmentMenu({data,session,onOrdered,installControl}:{data:any;session:any;onOrdered:(id:string)=>Promise<void>;installControl?:import("react").ReactNode}){
  const config=data.config, presentation=config.appPresentation??{}, dine=session.channel==='DINE_IN';
- const transfer=!dine&&presentation.paymentMode!=='DIRECT';
+ const deliveryOnly=session.slug==='3am'&&session.channel==='PUBLIC_LINK';
+ const cashAvailable=deliveryOnly&&data.cashOnDeliveryAvailable===true;
+ const [payCash,setPayCash]=useState(false);
+ const cash=cashAvailable&&payCash;
+ const transfer=!dine&&!cash&&presentation.paymentMode!=='DIRECT';
  const items:any[]=data.menu?.items??[];
  const [cart,setCart]=useState<Record<string,number>>({}),[selections,setSelections]=useState<Record<string,Record<string,string[]>>>({});
  const [receiptId,setReceiptId]=useState(''),[receiptPreview,setReceiptPreview]=useState(''),[paymentKind,setPaymentKind]=useState(checkoutPaymentMethods(config)[0]?.kind??'');
@@ -23,7 +27,7 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
  const methods=checkoutPaymentMethods(config),selectedMethod=methods.find(m=>m.kind===paymentKind)??methods[0];
  const [payment,setPayment]=useState(false);
  const [category,setCategory]=useState(''),[checkout,setCheckout]=useState(false),[name,setName]=useState(''),[phone,setPhone]=useState(''),[address,setAddress]=useState(''),[note,setNote]=useState('');
- const allowed:string[]=presentation.fulfillments??['DELIVERY','PICKUP'];
+ const allowed:string[]=deliveryOnly?['DELIVERY']:presentation.fulfillments??['DELIVERY','PICKUP'];
  const [fulfillment,setFulfillment]=useState(allowed[0]??'PICKUP'),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const requestId=useRef('');
  const [remember,setRemember]=useState(false),[savedRemember,setSavedRemember]=useState(false);
@@ -48,8 +52,8 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
  const offer=bestPromotion(presentation.promotions,foodTotal),total=foodTotal+packaging-offer.discountCOP;
  const key=`restaurant-cart:${session.slug}:${session.channel}:${session.locationLabel??''}`;
  const [restored,setRestored]=useState(false);
- useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'null');if(saved&&Date.now()-saved.at<86400000){setCart(saved.cart??{});setSelections(saved.selections??{});setName(saved.name??'');setPhone(saved.phone??'');setAddress(saved.address??'');setNote(saved.note??'');setReceiptId(saved.receiptId??'');if(methods.some(m=>m.kind===saved.paymentKind))setPaymentKind(saved.paymentKind);if(allowed.includes(saved.fulfillment))setFulfillment(saved.fulfillment);setCheckout(!!saved.checkout);setPayment(!!saved.payment&&(transfer||['CAFE_BOUTIQUE','ICE_CREAM_RETRO'].includes(presentation.style)));if(typeof saved.requestId==='string')requestId.current=saved.requestId;}}catch{}setRestored(true);},[key]);
- useEffect(()=>{if(restored)try{localStorage.setItem(key,JSON.stringify({at:Date.now(),cart,selections,name,phone,address,note,receiptId,paymentKind,fulfillment,checkout,payment,requestId:requestId.current}));}catch{}},[cart,selections,name,phone,address,note,receiptId,paymentKind,fulfillment,checkout,payment,restored,key]);
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'null');if(saved&&Date.now()-saved.at<86400000){setCart(saved.cart??{});setSelections(saved.selections??{});setName(saved.name??'');setPhone(saved.phone??'');setAddress(saved.address??'');setNote(saved.note??'');setReceiptId(saved.receiptId??'');setPayCash(cashAvailable&&saved.payCash===true);if(methods.some(m=>m.kind===saved.paymentKind))setPaymentKind(saved.paymentKind);if(allowed.includes(saved.fulfillment))setFulfillment(saved.fulfillment);setCheckout(!!saved.checkout);setPayment(!!saved.payment&&(transfer||['CAFE_BOUTIQUE','ICE_CREAM_RETRO'].includes(presentation.style)));if(typeof saved.requestId==='string')requestId.current=saved.requestId;}}catch{}setRestored(true);},[key]);
+ useEffect(()=>{if(restored)try{localStorage.setItem(key,JSON.stringify({at:Date.now(),cart,selections,name,phone,address,note,receiptId,paymentKind,payCash,fulfillment,checkout,payment,requestId:requestId.current}));}catch{}},[cart,selections,name,phone,address,note,receiptId,paymentKind,payCash,fulfillment,checkout,payment,restored,key]);
  function saveOptions(itemId:string, choices:Record<string,string[]>){
   setSelections(old=>({...old,[itemId]:choices}));
   setReceiptId('');setReceiptPreview('');requestId.current='';
@@ -60,7 +64,7 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
   if(busy||!count)return;setError('');if(presentation.catalogOnly===true){setError('Este catálogo todavía no recibe pedidos.');return;}
   if(!dine&&(name.trim().length<2||phone.replace(/\D/g,'').length<10)){setError('Escribe tu nombre y un teléfono válido.');return;}
   for(const i of selected)for(const g of i.options??[]){const ids=selectionFor(i)[g.id]??[];if(ids.length<g.min||ids.length>g.max){setError(`Revisa ${g.label} en ${i.name}.`);return;}}
-  if(!dine&&presentation.paymentMode!=='DIRECT'&&!receiptId){setError('Adjunta el comprobante de pago.');return;}
+  if(transfer&&!receiptId){setError('Adjunta el comprobante de pago.');return;}
   if(!dine&&fulfillment==='DELIVERY'&&!address.trim()){setError('Escribe la dirección de entrega.');return;}
   if(!dine&&!confirmed){setConfirmOpen(true);return;}
   setBusy(true);
@@ -69,19 +73,25 @@ export default function EstablishmentMenu({data,session,onOrdered,installControl
     if(!address.trim())throw new Error('Escribe la dirección de entrega.');
    }
    if(!requestId.current)requestId.current=crypto.randomUUID();
-   try{localStorage.setItem(key,JSON.stringify({at:Date.now(),cart,selections,name,phone,address,note,receiptId,paymentKind,fulfillment,checkout,payment,requestId:requestId.current}));}catch{}
-   const result=await apiFetch<any>(`/commerce/public/restaurants/${encodeURIComponent(session.slug)}/orders`,{method:'POST',headers:{'x-commerce-session':session.token},suppressSessionExpiredEvent:true,suppressActivityRefresh:true,json:{requestId:requestId.current,contactName:name.trim(),contactPhone:phone,items:selected.map(i=>({itemId:i.id,qty:cart[i.id],selections:selectionFor(i)})),fulfillment:dine?'DINE_IN':fulfillment,deliveryAddress:!dine&&fulfillment==='DELIVERY'?address.trim():undefined,paymentReceiptId:transfer?receiptId:undefined,paymentMethod:transfer?selectedMethod?.kind:undefined,customerNote:note.trim()}});
+   try{localStorage.setItem(key,JSON.stringify({at:Date.now(),cart,selections,name,phone,address,note,receiptId,paymentKind,payCash,fulfillment,checkout,payment,requestId:requestId.current}));}catch{}
+   const result=await apiFetch<any>(`/commerce/public/restaurants/${encodeURIComponent(session.slug)}/orders`,{method:'POST',headers:{'x-commerce-session':session.token},suppressSessionExpiredEvent:true,suppressActivityRefresh:true,json:{requestId:requestId.current,contactName:name.trim(),contactPhone:phone,items:selected.map(i=>({itemId:i.id,qty:cart[i.id],selections:selectionFor(i)})),fulfillment:dine?'DINE_IN':fulfillment,deliveryAddress:!dine&&fulfillment==='DELIVERY'?address.trim():undefined,paymentReceiptId:transfer?receiptId:undefined,paymentMethod:cash?'CASH_ON_DELIVERY':transfer?selectedMethod?.kind:undefined,customerNote:note.trim()}});
    if(!result?.id)throw new Error('No recibimos la confirmación. Inténtalo nuevamente.');
    if(!dine)saveBuyerContact({name:name.trim(),phone:phone.trim(),address:address.trim(),remember});
    await onOrdered(result.id);setCart({});setSelections({});setCheckout(false);setPayment(false);setReceiptId('');setReceiptPreview('');requestId.current='';localStorage.removeItem(key);
   }catch(e){setError(restaurantError(e));}finally{setBusy(false);setConfirmOpen(false);}
  }
  async function attachReceipt(file:File){if(busy)return;setError('');if(file.size>3*1024*1024){setError('La captura debe pesar máximo 3 MB.');return;}if(!selectedMethod){setError('Selecciona un medio de pago.');return;}setBusy(true);try{const form=new FormData();form.append('proof',file);form.append('method',selectedMethod.kind);const response=await fetch(`${getApiBase()}/commerce/public/restaurants/${encodeURIComponent(session.slug)}/receipts`,{method:'POST',headers:{'x-commerce-session':session.token},body:form});const result=await response.json();if(!response.ok||!result.receiptId)throw new Error(Array.isArray(result.message)?result.message.join('. '):result.message||'No pudimos adjuntar el comprobante.');setReceiptId(result.receiptId);if(receiptPreview.startsWith('blob:'))URL.revokeObjectURL(receiptPreview);setReceiptPreview(URL.createObjectURL(file));}catch(e:any){setError(e.message);}finally{setBusy(false);if(receiptInput.current)receiptInput.current.value='';}}
+ function selectPaymentMode(useCash:boolean){
+  if(busy||useCash===cash)return;
+  setPayCash(useCash);
+  setReceiptId('');setReceiptPreview('');setError('');
+  requestId.current='';
+ }
  function selectPayment(kind:'NEQUI'|'BREB'){if(kind===paymentKind||busy)return;setPaymentKind(kind);setReceiptId('');setReceiptPreview('');}
  const brightness=parseInt(primary.slice(1,3),16)*0.299+parseInt(primary.slice(3,5),16)*0.587+parseInt(primary.slice(5,7),16)*0.114;
  const action={background:primary,color:brightness>160?'#111827':'#fff'};
  const scrollTop=()=>{document.getElementById('buyer-scroll-container')?.scrollTo({top:0});document.querySelector('[data-restaurant-scroll]')?.scrollTo({top:0});};
- if(boutique)return <BoutiqueMenu v={{config,presentation,appearance,items,selected,cart,count,total,foodTotal,packaging,offer,category,categories,categoryLabel,checkout,payment,dine,session,busy,error,methods,selectedMethod,receiptId,receiptPreview,receiptInput,allowed,fulfillment,name,phone,address,note,remember,savedRemember,selections,selectionFor,extra,change,toggle,saveOptions,send,attachReceipt,selectPayment,setCategory,setCheckout,setPayment,setName,setPhone,setAddress,setNote,setRemember,setFulfillment,setError,transfer,isOpen:data.isOpen,copyNotice,setCopyNotice,scrollTop,installControl,confirmation:<ConfirmCustomerDetails boutique open={confirmOpen} busy={busy} name={name.trim()} phone={phone.trim()} address={address.trim()} pickup={fulfillment==='PICKUP'} count={count} total={money(total)} primary={primary} buttonText={String(action.color)} onEdit={()=>{setConfirmOpen(false);setPayment(false);}} onConfirm={()=>void send(true)}/>}}/>;
+ if(boutique)return <BoutiqueMenu v={{config,presentation,appearance,items,selected,cart,count,total,foodTotal,packaging,offer,category,categories,categoryLabel,checkout,payment,dine,session,busy,error,methods,selectedMethod,receiptId,receiptPreview,receiptInput,allowed,fulfillment,name,phone,address,note,remember,savedRemember,selections,selectionFor,extra,change,toggle,saveOptions,send,attachReceipt,selectPayment,setCategory,setCheckout,setPayment,setName,setPhone,setAddress,setNote,setRemember,setFulfillment,setError,transfer,cash,cashAvailable,selectPaymentMode,isOpen:data.isOpen,copyNotice,setCopyNotice,scrollTop,installControl,confirmation:<ConfirmCustomerDetails boutique open={confirmOpen} busy={busy} name={name.trim()} phone={phone.trim()} address={address.trim()} pickup={fulfillment==='PICKUP'} count={count} total={money(total)} primary={primary} buttonText={String(action.color)} onEdit={()=>{setConfirmOpen(false);setPayment(false);}} onConfirm={()=>void send(true)}/>}}/>;
  return <main className="min-h-full p-4 pb-28" style={{background:bg,color:text}}>
   {kronix?<>
    <header className="relative -mx-4 -mt-4 overflow-hidden px-4 pb-3 pt-8" style={{background:`linear-gradient(180deg, ${appearance.secondary} 0%, ${primary} 48%, ${bg} 100%)`}}>
